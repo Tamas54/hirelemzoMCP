@@ -613,14 +613,14 @@ LANDING_HTML = """<!DOCTYPE html>
   <p class="sub">140+ magyar és nemzetközi hírforrás, naponta frissítve.<br>
      Szikrák és heti jelentések írásához — AI asszisztensen keresztül.</p>
   <div class="source-badges">
-    <span>Telex</span>
-    <span>HVG</span>
-    <span>Portfolio</span>
-    <span>Index</span>
     <span>Reuters</span>
     <span>BBC</span>
     <span>Bloomberg</span>
+    <span>Financial Times</span>
     <span>Politico EU</span>
+    <span>The Guardian</span>
+    <span>Al Jazeera</span>
+    <span>Foreign Affairs</span>
     <span>+130 forrás</span>
   </div>
 </div>
@@ -633,13 +633,13 @@ LANDING_HTML = """<!DOCTYPE html>
   </div>
   <div class="cat-tabs" id="cat-tabs">
     <button class="cat-tab active" data-cat="all">Mind</button>
+    <button class="cat-tab" data-cat="világpolitika">Világ</button>
+    <button class="cat-tab" data-cat="gazdaság">Gazdaság</button>
+    <button class="cat-tab" data-cat="EU">EU</button>
+    <button class="cat-tab" data-cat="vélemény">Elemzés</button>
     <button class="cat-tab" data-cat="belföldi">Belföldi</button>
     <button class="cat-tab" data-cat="politika">Politika</button>
-    <button class="cat-tab" data-cat="gazdaság">Gazdaság</button>
-    <button class="cat-tab" data-cat="világpolitika">Világ</button>
-    <button class="cat-tab" data-cat="EU">EU</button>
     <button class="cat-tab" data-cat="tech">Tech</button>
-    <button class="cat-tab" data-cat="tudomány">Tudomány</button>
   </div>
   <div class="news-grid" id="news-grid">
     <div class="news-loading"><span class="spinner"></span> Hírek betöltése...</div>
@@ -780,21 +780,33 @@ async def landing_page(request):
 
 @mcp.custom_route("/api/news", methods=["GET"])
 async def api_news(request):
-    """Simple REST endpoint for the landing page to fetch recent articles."""
+    """REST endpoint for landing page — prioritizes international/economic news."""
     now = datetime.now()
-    # Try today first, fall back to yesterday if today is empty
     since = (now - timedelta(days=2)).replace(hour=0, minute=0, second=0)
 
+    # Featured categories first (külpol/külgazd/EU focus)
+    featured_cats = ('világpolitika', 'gazdaság', 'EU', 'vélemény')
+
     with get_db() as conn:
-        rows = conn.execute("""
+        # International/economy first
+        featured = conn.execute("""
             SELECT title, url, source_name, source_category, published_at
             FROM articles
-            WHERE published_at >= ?
+            WHERE published_at >= ? AND source_category IN (?, ?, ?, ?)
             ORDER BY published_at DESC
-            LIMIT 60
-        """, [since.isoformat()]).fetchall()
+            LIMIT 40
+        """, [since.isoformat(), *featured_cats]).fetchall()
 
-    articles = [dict(r) for r in rows]
+        # Then the rest
+        other = conn.execute("""
+            SELECT title, url, source_name, source_category, published_at
+            FROM articles
+            WHERE published_at >= ? AND source_category NOT IN (?, ?, ?, ?)
+            ORDER BY published_at DESC
+            LIMIT 20
+        """, [since.isoformat(), *featured_cats]).fetchall()
+
+    articles = [dict(r) for r in featured] + [dict(r) for r in other]
     return JSONResponse({"count": len(articles), "articles": articles})
 
 
