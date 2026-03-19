@@ -780,33 +780,30 @@ async def landing_page(request):
 
 @mcp.custom_route("/api/news", methods=["GET"])
 async def api_news(request):
-    """REST endpoint for landing page — prioritizes international/economic news."""
+    """REST endpoint for landing page — international sources first."""
     now = datetime.now()
     since = (now - timedelta(days=2)).replace(hour=0, minute=0, second=0)
 
-    # Featured categories first (külpol/külgazd/EU focus)
-    featured_cats = ('világpolitika', 'gazdaság', 'EU', 'vélemény')
-
     with get_db() as conn:
-        # International/economy first
-        featured = conn.execute("""
+        # International (non-Hungarian) sources first
+        intl = conn.execute("""
             SELECT title, url, source_name, source_category, published_at
             FROM articles
-            WHERE published_at >= ? AND source_category IN (?, ?, ?, ?)
+            WHERE published_at >= ? AND language != 'hu'
             ORDER BY published_at DESC
             LIMIT 40
-        """, [since.isoformat(), *featured_cats]).fetchall()
+        """, [since.isoformat()]).fetchall()
 
-        # Then the rest
-        other = conn.execute("""
+        # Then Hungarian sources
+        hu = conn.execute("""
             SELECT title, url, source_name, source_category, published_at
             FROM articles
-            WHERE published_at >= ? AND source_category NOT IN (?, ?, ?, ?)
+            WHERE published_at >= ? AND language = 'hu'
             ORDER BY published_at DESC
             LIMIT 20
-        """, [since.isoformat(), *featured_cats]).fetchall()
+        """, [since.isoformat()]).fetchall()
 
-    articles = [dict(r) for r in featured] + [dict(r) for r in other]
+    articles = [dict(r) for r in intl] + [dict(r) for r in hu]
     return JSONResponse({"count": len(articles), "articles": articles})
 
 
