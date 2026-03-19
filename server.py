@@ -472,7 +472,7 @@ LANDING_HTML = """<!DOCTYPE html>
   .hero { text-align: center; max-width: 640px; margin-bottom: 2.5rem; }
   .hero h1 {
     font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em;
-    background: linear-gradient(135deg, var(--primary), #ff6b6b, var(--accent-gold));
+    background: linear-gradient(135deg, #c0392b, #e74c3c, #d35400);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 0.6rem;
   }
