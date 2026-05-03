@@ -1,0 +1,398 @@
+# ECHOLOT — extra source pack
+# Fills regional/topical spheres that the original Hirmagnet + Echolot PoC did not cover.
+# Format identical to the unified sources.yaml — build_sources.py merges all three lists.
+
+# ============================================================
+# REGIONAL: V4 / Central Europe (CZ / SK / PL / RO)
+# ============================================================
+- id: extra_dennikn_sk
+  name: Denník N (SK)
+  url: https://dennikn.sk/feed/
+  spheres: [regional_v4]
+  language: sk
+  trust_tier: 2
+  lean: independent
+- id: extra_novinky_cz
+  name: Novinky.cz
+  url: https://www.novinky.cz/rss
+  spheres: [regional_v4]
+  language: cs
+  trust_tier: 3
+  lean: center
+- id: extra_aktualne_cz
+  name: Aktuálně.cz
+  url: https://www.aktualne.cz/rss/
+  spheres: [regional_v4]
+  language: cs
+  trust_tier: 2
+  lean: independent
+- id: extra_wyborcza_pl
+  name: Gazeta Wyborcza
+  url: https://wyborcza.pl/pub/rss/najnowsze_wyborcza.xml
+  spheres: [regional_v4]
+  language: pl
+  trust_tier: 2
+  lean: opposition
+- id: extra_onet_pl
+  name: Onet
+  url: https://wiadomosci.onet.pl/.feed
+  spheres: [regional_v4]
+  language: pl
+  trust_tier: 3
+  lean: center
+- id: extra_hotnews_ro
+  name: Hotnews.ro
+  url: https://www.hotnews.ro/rss
+  spheres: [regional_v4]
+  language: ro
+  trust_tier: 3
+  lean: center
+
+# ============================================================
+# REGIONAL: India
+# ============================================================
+- id: extra_timesofindia
+  name: Times of India
+  url: https://timesofindia.indiatimes.com/rssfeedstopstories.cms
+  spheres: [regional_indian]
+  language: en
+  trust_tier: 3
+  lean: center
+- id: extra_hindustantimes
+  name: Hindustan Times
+  url: https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml
+  spheres: [regional_indian]
+  language: en
+  trust_tier: 3
+  lean: center
+- id: extra_thehindu
+  name: The Hindu
+  url: https://www.thehindu.com/feeder/default.rss
+  spheres: [regional_indian]
+  language: en
+  trust_tier: 2
+  lean: center
+- id: extra_thewire_in
+  name: The Wire (India)
+  url: https://thewire.in/rss
+  spheres: [regional_indian]
+  language: en
+  trust_tier: 3
+  lean: opposition
+
+# ============================================================
+# REGIONAL: Australia / NZ
+# ============================================================
+- id: extra_abc_au
+  name: ABC News Australia
+  url: https://www.abc.net.au/news/feed/45910/rss.xml
+  spheres: [regional_australian]
+  language: en
+  trust_tier: 2
+  lean: center
+- id: extra_smh
+  name: Sydney Morning Herald
+  url: https://www.smh.com.au/rss/feed.xml
+  spheres: [regional_australian]
+  language: en
+  trust_tier: 2
+  lean: center
+- id: extra_nzherald
+  name: NZ Herald
+  url: https://www.nzherald.co.nz/arc/outboundfeeds/rss/
+  spheres: [regional_australian]
+  language: en
+  trust_tier: 3
+  lean: center
+
+# ============================================================
+# REGIONAL: Turkey
+# ============================================================
+- id: extra_hurriyet_en
+  name: Hürriyet Daily News
+  url: https://www.hurriyetdailynews.com/rss
+  spheres: [regional_turkish]
+  language: en
+  trust_tier: 3
+  lean: center
+- id: extra_dailysabah
+  name: Daily Sabah
+  url: https://www.dailysabah.com/rssfeed/142
+  spheres: [regional_turkish]
+  language: en
+  trust_tier: 4
+  lean: gov
+- id: extra_duvar_en
+  name: Duvar English
+  url: https://www.duvarenglish.com/rss
+  spheres: [regional_turkish]
+  language: en
+  trust_tier: 3
+  lean: opposition
+
+# ============================================================
+# REGIONAL: Arab world (English-language editions)
+# ============================================================
+- id: extra_alarabiya_en
+  name: Al Arabiya English
+  url: https://english.alarabiya.net/.mrss/en.xml
+  spheres: [regional_arabic]
+  language: en
+  trust_tier: 3
+  lean: gov
+- id: extra_arab_news
+  name: Arab News
+  url: https://www.arabnews.com/rss.xml
+  spheres: [regional_arabic]
+  language: en
+  trust_tier: 3
+  lean: gov
+- id: extra_middleeasteye
+  name: Middle East Eye
+  url: https://www.middleeasteye.net/rss
+  spheres: [regional_arabic]
+  language: en
+  trust_tier: 3
+  lean: opposition
+- id: extra_thenational
+  name: The National (UAE)
+  url: https://www.thenationalnews.com/arc/outboundfeeds/rss/?outputType=xml
+  spheres: [regional_arabic]
+  language: en
+  trust_tier: 3
+  lean: gov
+
+# ============================================================
+# REGIONAL: Africa
+# ============================================================
+- id: extra_dailymaverick
+  name: Daily Maverick (SA)
+  url: https://www.dailymaverick.co.za/section/south-africa/feed/
+  spheres: [regional_african]
+  language: en
+  trust_tier: 2
+  lean: independent
+- id: extra_news24
+  name: News24 (SA)
+  url: https://feeds.news24.com/articles/news24/TopStories/rss
+  spheres: [regional_african]
+  language: en
+  trust_tier: 3
+  lean: center
+- id: extra_thisdaylive
+  name: This Day Live (Nigeria)
+  url: https://www.thisdaylive.com/index.php/feed/
+  spheres: [regional_african]
+  language: en
+  trust_tier: 3
+  lean: center
+- id: extra_premiumtimes
+  name: Premium Times (Nigeria)
+  url: https://www.premiumtimesng.com/feed
+  spheres: [regional_african]
+  language: en
+  trust_tier: 3
+  lean: independent
+
+# ============================================================
+# REGIONAL: South America
+# ============================================================
+- id: extra_clarin
+  name: Clarín (Argentina)
+  url: https://www.clarin.com/rss/lo-ultimo/
+  spheres: [regional_south_american]
+  language: es
+  trust_tier: 3
+  lean: center
+- id: extra_lanacion_ar
+  name: La Nación (Argentina)
+  url: https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml
+  spheres: [regional_south_american]
+  language: es
+  trust_tier: 2
+  lean: right
+- id: extra_folha_br
+  name: Folha de São Paulo
+  url: https://feeds.folha.uol.com.br/poder/rss091.xml
+  spheres: [regional_south_american]
+  language: pt
+  trust_tier: 2
+  lean: center
+- id: extra_g1_br
+  name: G1 Globo
+  url: https://g1.globo.com/rss/g1/
+  spheres: [regional_south_american]
+  language: pt
+  trust_tier: 2
+  lean: center
+- id: extra_eluniversal_mx
+  name: El Universal (Mexico)
+  url: https://www.eluniversal.com.mx/rss.xml
+  spheres: [regional_south_american]
+  language: es
+  trust_tier: 3
+  lean: center
+- id: extra_eltiempo_co
+  name: El Tiempo (Colombia)
+  url: https://www.eltiempo.com/rss/colombia.xml
+  spheres: [regional_south_american]
+  language: es
+  trust_tier: 3
+  lean: center
+
+# ============================================================
+# TOPICAL: Climate
+# ============================================================
+- id: extra_carbonbrief
+  name: Carbon Brief
+  url: https://www.carbonbrief.org/feed/
+  spheres: [global_climate, global_science]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_insideclimate
+  name: Inside Climate News
+  url: https://insideclimatenews.org/feed/
+  spheres: [global_climate]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_climatehome
+  name: Climate Home News
+  url: https://www.climatechangenews.com/feed/
+  spheres: [global_climate]
+  language: en
+  trust_tier: 3
+  lean: analytical
+
+# ============================================================
+# TOPICAL: AI
+# ============================================================
+- id: extra_anthropic_news
+  name: Anthropic News
+  url: https://www.anthropic.com/news/rss.xml
+  spheres: [global_ai]
+  language: en
+  trust_tier: 3
+  lean: analytical
+- id: extra_openai_blog
+  name: OpenAI Blog
+  url: https://openai.com/blog/rss.xml
+  spheres: [global_ai]
+  language: en
+  trust_tier: 3
+  lean: analytical
+- id: extra_mit_techreview_ai
+  name: MIT Tech Review — AI
+  url: https://www.technologyreview.com/topic/artificial-intelligence/feed
+  spheres: [global_ai, global_tech]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_marktechpost
+  name: MarkTechPost
+  url: https://www.marktechpost.com/feed/
+  spheres: [global_ai]
+  language: en
+  trust_tier: 3
+  lean: analytical
+- id: extra_thegradient
+  name: The Gradient
+  url: https://thegradient.pub/rss/
+  spheres: [global_ai, global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+
+# ============================================================
+# TOPICAL: Health
+# ============================================================
+- id: extra_statnews
+  name: STAT News
+  url: https://www.statnews.com/feed/
+  spheres: [global_health]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_kff_health
+  name: KFF Health News
+  url: https://kffhealthnews.org/topics/feed/
+  spheres: [global_health]
+  language: en
+  trust_tier: 2
+  lean: analytical
+
+# ============================================================
+# TOPICAL: extra OSINT (gap-fill on the existing sphere)
+# ============================================================
+- id: extra_intel_news
+  name: intelNews.org
+  url: https://intelnews.org/feed/
+  spheres: [global_osint]
+  language: en
+  trust_tier: 3
+  lean: analytical
+- id: extra_grey_dynamics
+  name: Grey Dynamics
+  url: https://greydynamics.com/feed/
+  spheres: [global_osint]
+  language: en
+  trust_tier: 3
+  lean: analytical
+
+# ============================================================
+# TOPICAL: extra Conflict / Defense
+# ============================================================
+- id: extra_warontherocks
+  name: War on the Rocks
+  url: https://warontherocks.com/feed/
+  spheres: [global_conflict, global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_defenseone
+  name: Defense One
+  url: https://www.defenseone.com/rss/
+  spheres: [global_conflict]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_breakingdefense
+  name: Breaking Defense
+  url: https://breakingdefense.com/feed/
+  spheres: [global_conflict]
+  language: en
+  trust_tier: 3
+  lean: analytical
+
+# ============================================================
+# TOPICAL: extra Analysis / Think tanks
+# ============================================================
+- id: extra_brookings
+  name: Brookings
+  url: https://www.brookings.edu/feed/
+  spheres: [global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_cfr
+  name: Council on Foreign Relations
+  url: https://www.cfr.org/rss-feeds/all
+  spheres: [global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_atlantic_council
+  name: Atlantic Council
+  url: https://www.atlanticcouncil.org/feed/
+  spheres: [global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+- id: extra_carnegie
+  name: Carnegie Endowment
+  url: https://carnegieendowment.org/rss
+  spheres: [global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical

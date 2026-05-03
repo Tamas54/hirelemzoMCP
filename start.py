@@ -1,65 +1,68 @@
 """
-HírMagnet MCP — Unified launcher.
+ECHOLOT — unified launcher.
 Starts MCP server (streamable-http) + background scraper in one process.
-Perfect for Railway single-service deployment.
+Single Railway service.
 """
 
+import logging
 import os
 import threading
-import logging
 import time
+import traceback
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("hirmagnet")
-
-RETENTION_DAYS = 21  # 3-week rolling window
+log = logging.getLogger("echolot-launcher")
 
 
-def run_scraper_daemon():
-    """Background scraper loop."""
-    time.sleep(5)  # Wait for server to start
-
-    from scraper import run_scrape, cleanup_old
-    interval = int(os.environ.get("SCRAPE_INTERVAL_MINUTES", 30))
-
-    logger.info("Running initial scrape...")
-    try:
-        run_scrape()
-    except Exception as e:
-        logger.error(f"Initial scrape error: {e}")
+def scraper_thread():
+    """Background scrape loop. Survives any per-cycle crash."""
+    time.sleep(5)  # let MCP server bind first
 
     try:
-        cleanup_old(RETENTION_DAYS)
+        from scraper import init_db
+        init_db()
     except Exception as e:
-        logger.error(f"Cleanup error: {e}")
+        log.error("scraper init_db failed: %s", e, exc_info=True)
+
+    interval_min = int(os.environ.get("SCRAPE_INTERVAL_MINUTES", "30"))
+    retention_days = int(os.environ.get("RETENTION_DAYS", "21"))
+
+    log.info("scraper daemon: interval=%dmin, retention=%dd",
+             interval_min, retention_days)
 
     cycle = 0
     while True:
-        time.sleep(interval * 60)
-        cycle += 1
         try:
-            run_scrape()
+            from scraper import run_scrape
+            stats = run_scrape()
+            log.info("cycle %d done: new=%d found=%d ok=%d failed=%d",
+                     cycle, stats.get("new_articles", 0), stats.get("found", 0),
+                     stats.get("fetched", 0), stats.get("failed", 0))
         except Exception as e:
-            logger.error(f"Scrape cycle error: {e}")
+            log.error("scrape cycle %d crashed: %s\n%s", cycle, e, traceback.format_exc())
 
-        # Periodic cleanup every 24 cycles (~12h at 30min interval)
+        cycle += 1
         if cycle % 24 == 0:
             try:
-                cleanup_old(RETENTION_DAYS)
+                from scraper import cleanup_old
+                cleanup_old(retention_days)
             except Exception as e:
-                logger.error(f"Cleanup error: {e}")
+                log.error("cleanup failed: %s", e)
+
+        log.info("sleeping %d min before next cycle", interval_min)
+        time.sleep(interval_min * 60)
 
 
 def main():
-    scraper_thread = threading.Thread(target=run_scraper_daemon, daemon=True)
-    scraper_thread.start()
-    logger.info("Scraper daemon started in background thread")
+    t = threading.Thread(target=scraper_thread, daemon=True, name="scraper")
+    t.start()
+    log.info("scraper thread launched")
 
-    logger.info("Starting HírMagnet MCP server")
+    log.info("starting Echolot MCP server")
     from server import mcp
     mcp.run(transport="streamable-http")
 

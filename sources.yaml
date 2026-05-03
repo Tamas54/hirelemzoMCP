@@ -1,0 +1,3953 @@
+- id: american_conservative
+  name: The American Conservative
+  url: https://www.theamericanconservative.com/feed/
+  spheres:
+  - us_maga_blog
+  - regional_us
+  language: en
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+  notes: Paleocon/realist foreign policy strain
+- id: ap_top
+  name: AP Top News
+  url: https://feeds.apnews.com/rss/apf-topnews
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: applebaum_atlantic
+  name: Anne Applebaum (via Atlantic)
+  url: https://www.theatlantic.com/feed/author/anne-applebaum/
+  spheres:
+  - us_liberal_substack
+  - regional_us
+  language: en
+  trust_tier: 1
+  lean: left
+  category: global
+  source_type: rss
+- id: asahi_en
+  name: Asahi (English)
+  url: https://www.asahi.com/ajw/rss/feed.rdf
+  spheres:
+  - jp_press_english
+  - regional_japanese
+  language: en
+  trust_tier: 2
+  lean: left
+  category: global
+  source_type: rss
+- id: atlantic
+  name: The Atlantic
+  url: https://www.theatlantic.com/feed/all/
+  spheres:
+  - us_liberal_press
+  - regional_us
+  language: en
+  trust_tier: 1
+  lean: left
+  category: global
+  source_type: rss
+- id: breitbart
+  name: Breitbart
+  url: https://feeds.feedburner.com/breitbart
+  spheres:
+  - us_maga_blog
+  - regional_us
+  language: en
+  trust_tier: 4
+  lean: right
+  category: global
+  source_type: rss
+- id: caixin_cn
+  name: Caixin (财新, native CN)
+  url: https://www.caixin.com/rss/news.xml
+  spheres:
+  - cn_state_aligned
+  - regional_chinese
+  language: zh
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+  notes: Most independent mainland financial press, Kimi translates this beautifully
+- id: cgtn
+  name: CGTN
+  url: https://www.cgtn.com/subscribe/rss/section/world.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: china_daily_world
+  name: China Daily (World)
+  url: https://www.chinadaily.com.cn/rss/world_rss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: china_digital_times
+  name: China Digital Times
+  url: https://chinadigitaltimes.net/feed/
+  spheres:
+  - cn_diaspora_analysis
+  - cn_weibo_pulse
+  - regional_chinese
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: Documents Weibo censorship — proxy for the public pulse
+- id: chinatalk
+  name: ChinaTalk (Jordan Schneider)
+  url: https://www.chinatalk.media/feed
+  spheres:
+  - cn_diaspora_analysis
+  - regional_chinese
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+- id: chosun_en
+  name: Chosun Ilbo (English)
+  url: https://english.chosun.com/rss/news.xml
+  spheres:
+  - kr_press_english
+  - regional_korean
+  language: en
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+- id: daily_wire
+  name: Daily Wire
+  url: https://www.dailywire.com/feeds/rss.xml
+  spheres:
+  - us_maga_blog
+  - regional_us
+  language: en
+  trust_tier: 3
+  lean: right
+  category: global
+  source_type: rss
+- id: economist_intl
+  name: The Economist (International)
+  url: https://www.economist.com/international/rss.xml
+  spheres:
+  - global_anchor
+  - global_economy
+  - regional_uk
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: euromaidan_press
+  name: Euromaidan Press
+  url: https://euromaidanpress.com/feed/
+  spheres:
+  - ua_front_osint
+  - global_conflict
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+- id: extra_abc_au
+  name: ABC News Australia
+  url: https://www.abc.net.au/news/feed/45910/rss.xml
+  spheres:
+  - regional_australian
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_aktualne_cz
+  name: Aktuálně.cz
+  url: https://www.aktualne.cz/rss/
+  spheres:
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: independent
+  category: global
+  source_type: rss
+- id: extra_alarabiya_en
+  name: Al Arabiya English
+  url: https://english.alarabiya.net/.mrss/en.xml
+  spheres:
+  - regional_arabic
+  language: en
+  trust_tier: 3
+  lean: gov
+  category: global
+  source_type: rss
+- id: extra_anthropic_news
+  name: Anthropic News
+  url: https://www.anthropic.com/news/rss.xml
+  spheres:
+  - global_ai
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_arab_news
+  name: Arab News
+  url: https://www.arabnews.com/rss.xml
+  spheres:
+  - regional_arabic
+  language: en
+  trust_tier: 3
+  lean: gov
+  category: global
+  source_type: rss
+- id: extra_atlantic_council
+  name: Atlantic Council
+  url: https://www.atlanticcouncil.org/feed/
+  spheres:
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_breakingdefense
+  name: Breaking Defense
+  url: https://breakingdefense.com/feed/
+  spheres:
+  - global_conflict
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_brookings
+  name: Brookings
+  url: https://www.brookings.edu/feed/
+  spheres:
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_carbonbrief
+  name: Carbon Brief
+  url: https://www.carbonbrief.org/feed/
+  spheres:
+  - global_climate
+  - global_science
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_carnegie
+  name: Carnegie Endowment
+  url: https://carnegieendowment.org/rss
+  spheres:
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_cfr
+  name: Council on Foreign Relations
+  url: https://www.cfr.org/rss-feeds/all
+  spheres:
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_clarin
+  name: Clarín (Argentina)
+  url: https://www.clarin.com/rss/lo-ultimo/
+  spheres:
+  - regional_south_american
+  language: es
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_climatehome
+  name: Climate Home News
+  url: https://www.climatechangenews.com/feed/
+  spheres:
+  - global_climate
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_dailymaverick
+  name: Daily Maverick (SA)
+  url: https://www.dailymaverick.co.za/section/south-africa/feed/
+  spheres:
+  - regional_african
+  language: en
+  trust_tier: 2
+  lean: independent
+  category: global
+  source_type: rss
+- id: extra_dailysabah
+  name: Daily Sabah
+  url: https://www.dailysabah.com/rssfeed/142
+  spheres:
+  - regional_turkish
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: extra_defenseone
+  name: Defense One
+  url: https://www.defenseone.com/rss/
+  spheres:
+  - global_conflict
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_dennikn_sk
+  name: Denník N (SK)
+  url: https://dennikn.sk/feed/
+  spheres:
+  - regional_v4
+  language: sk
+  trust_tier: 2
+  lean: independent
+  category: global
+  source_type: rss
+- id: extra_duvar_en
+  name: Duvar English
+  url: https://www.duvarenglish.com/rss
+  spheres:
+  - regional_turkish
+  language: en
+  trust_tier: 3
+  lean: opposition
+  category: global
+  source_type: rss
+- id: extra_eltiempo_co
+  name: El Tiempo (Colombia)
+  url: https://www.eltiempo.com/rss/colombia.xml
+  spheres:
+  - regional_south_american
+  language: es
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_eluniversal_mx
+  name: El Universal (Mexico)
+  url: https://www.eluniversal.com.mx/rss.xml
+  spheres:
+  - regional_south_american
+  language: es
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_folha_br
+  name: Folha de São Paulo
+  url: https://feeds.folha.uol.com.br/poder/rss091.xml
+  spheres:
+  - regional_south_american
+  language: pt
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_g1_br
+  name: G1 Globo
+  url: https://g1.globo.com/rss/g1/
+  spheres:
+  - regional_south_american
+  language: pt
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_grey_dynamics
+  name: Grey Dynamics
+  url: https://greydynamics.com/feed/
+  spheres:
+  - global_osint
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_hindustantimes
+  name: Hindustan Times
+  url: https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml
+  spheres:
+  - regional_indian
+  language: en
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_hotnews_ro
+  name: Hotnews.ro
+  url: https://www.hotnews.ro/rss
+  spheres:
+  - regional_v4
+  language: ro
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_hurriyet_en
+  name: Hürriyet Daily News
+  url: https://www.hurriyetdailynews.com/rss
+  spheres:
+  - regional_turkish
+  language: en
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_insideclimate
+  name: Inside Climate News
+  url: https://insideclimatenews.org/feed/
+  spheres:
+  - global_climate
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_intel_news
+  name: intelNews.org
+  url: https://intelnews.org/feed/
+  spheres:
+  - global_osint
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_kff_health
+  name: KFF Health News
+  url: https://kffhealthnews.org/topics/feed/
+  spheres:
+  - global_health
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_lanacion_ar
+  name: La Nación (Argentina)
+  url: https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml
+  spheres:
+  - regional_south_american
+  language: es
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+- id: extra_marktechpost
+  name: MarkTechPost
+  url: https://www.marktechpost.com/feed/
+  spheres:
+  - global_ai
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_middleeasteye
+  name: Middle East Eye
+  url: https://www.middleeasteye.net/rss
+  spheres:
+  - regional_arabic
+  language: en
+  trust_tier: 3
+  lean: opposition
+  category: global
+  source_type: rss
+- id: extra_mit_techreview_ai
+  name: MIT Tech Review — AI
+  url: https://www.technologyreview.com/topic/artificial-intelligence/feed
+  spheres:
+  - global_ai
+  - global_tech
+  - global_entertainment
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_news24
+  name: News24 (SA)
+  url: https://feeds.news24.com/articles/news24/TopStories/rss
+  spheres:
+  - regional_african
+  language: en
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_novinky_cz
+  name: Novinky.cz
+  url: https://www.novinky.cz/rss
+  spheres:
+  - regional_v4
+  language: cs
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_nzherald
+  name: NZ Herald
+  url: https://www.nzherald.co.nz/arc/outboundfeeds/rss/
+  spheres:
+  - regional_australian
+  language: en
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_onet_pl
+  name: Onet
+  url: https://wiadomosci.onet.pl/.feed
+  spheres:
+  - regional_v4
+  language: pl
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_openai_blog
+  name: OpenAI Blog
+  url: https://openai.com/blog/rss.xml
+  spheres:
+  - global_ai
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_premiumtimes
+  name: Premium Times (Nigeria)
+  url: https://www.premiumtimesng.com/feed
+  spheres:
+  - regional_african
+  language: en
+  trust_tier: 3
+  lean: independent
+  category: global
+  source_type: rss
+- id: extra_smh
+  name: Sydney Morning Herald
+  url: https://www.smh.com.au/rss/feed.xml
+  spheres:
+  - regional_australian
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_statnews
+  name: STAT News
+  url: https://www.statnews.com/feed/
+  spheres:
+  - global_health
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_thegradient
+  name: The Gradient
+  url: https://thegradient.pub/rss/
+  spheres:
+  - global_ai
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_thehindu
+  name: The Hindu
+  url: https://www.thehindu.com/feeder/default.rss
+  spheres:
+  - regional_indian
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_thenational
+  name: The National (UAE)
+  url: https://www.thenationalnews.com/arc/outboundfeeds/rss/?outputType=xml
+  spheres:
+  - regional_arabic
+  language: en
+  trust_tier: 3
+  lean: gov
+  category: global
+  source_type: rss
+- id: extra_thewire_in
+  name: The Wire (India)
+  url: https://thewire.in/rss
+  spheres:
+  - regional_indian
+  language: en
+  trust_tier: 3
+  lean: opposition
+  category: global
+  source_type: rss
+- id: extra_thisdaylive
+  name: This Day Live (Nigeria)
+  url: https://www.thisdaylive.com/index.php/feed/
+  spheres:
+  - regional_african
+  language: en
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_timesofindia
+  name: Times of India
+  url: https://timesofindia.indiatimes.com/rssfeedstopstories.cms
+  spheres:
+  - regional_indian
+  language: en
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_warontherocks
+  name: War on the Rocks
+  url: https://warontherocks.com/feed/
+  spheres:
+  - global_conflict
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+- id: extra_wyborcza_pl
+  name: Gazeta Wyborcza
+  url: https://wyborcza.pl/pub/rss/najnowsze_wyborcza.xml
+  spheres:
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+- id: federalist
+  name: The Federalist
+  url: https://thefederalist.com/feed/
+  spheres:
+  - us_maga_blog
+  - regional_us
+  language: en
+  trust_tier: 3
+  lean: right
+  category: global
+  source_type: rss
+- id: focus_taiwan
+  name: Focus Taiwan (CNA)
+  url: https://focustaiwan.tw/rss/aALL
+  spheres:
+  - cn_tw
+  - regional_chinese
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: foreign_affairs
+  name: Foreign Affairs
+  url: https://www.foreignaffairs.com/rss.xml
+  spheres:
+  - global_analysis
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+- id: foreign_policy
+  name: Foreign Policy
+  url: https://foreignpolicy.com/feed/
+  spheres:
+  - global_anchor
+  - global_analysis
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+- id: free_press
+  name: The Free Press (Bari Weiss)
+  url: https://www.thefp.com/feed
+  spheres:
+  - us_maga_substack
+  language: en
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+  notes: Center-right of the Substack new media
+- id: ft_world
+  name: Financial Times (World)
+  url: https://www.ft.com/world?format=rss
+  spheres:
+  - global_anchor
+  - global_economy
+  - regional_uk
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: global_times
+  name: Global Times
+  url: https://www.globaltimes.cn/rss/outbrain.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+  notes: Hu Xijin's old shop, populist-nationalist edge
+- id: greenwald
+  name: Glenn Greenwald
+  url: https://greenwald.substack.com/feed
+  spheres:
+  - us_maga_substack
+  language: en
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+  notes: Heterodox; aligned with anti-establishment right
+- id: guancha_cn
+  name: Guancha (观察者网, native CN)
+  url: https://www.guancha.cn/rss
+  spheres:
+  - cn_state_aligned
+  - regional_chinese
+  language: zh
+  trust_tier: 3
+  lean: gov
+  category: global
+  source_type: rss
+  notes: Influential nationalist commentariat platform
+- id: haaretz_en
+  name: Haaretz (English)
+  url: https://www.haaretz.com/cmlink/1.628752
+  spheres:
+  - israel_press_left
+  - regional_israeli
+  language: en
+  trust_tier: 1
+  lean: left
+  category: global
+  source_type: rss
+- id: hankyoreh_en
+  name: Hankyoreh (English)
+  url: https://english.hani.co.kr/rss/
+  spheres:
+  - kr_press_english
+  - regional_korean
+  language: en
+  trust_tier: 2
+  lean: left
+  category: global
+  source_type: rss
+- id: hcr
+  name: Heather Cox Richardson (Letters from an American)
+  url: https://heathercoxrichardson.substack.com/feed
+  spheres:
+  - us_liberal_substack
+  language: en
+  trust_tier: 2
+  lean: left
+  category: global
+  source_type: rss
+- id: hu_168_ora_2
+  name: 168 Óra
+  url: https://168.hu/rss
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 3
+  lean: opposition
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_24_hu
+  name: 24.hu
+  url: https://24.hu/feed/
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_444_hu
+  name: 444.hu
+  url: https://444.hu/feed
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_abc_news_australia
+  name: ABC News Australia
+  url: https://www.abc.net.au/news/feed/10719986/rss.xml
+  spheres:
+  - regional_australian
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_agrarszektor
+  name: AgrárSzektor
+  url: https://www.agrarszektor.hu/rss
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_al_jazeera_english
+  name: Al Jazeera English
+  url: https://www.aljazeera.com/xml/rss/all.xml
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_ap_news_top_stories
+  name: AP News Top Stories
+  url: https://feeds.apnews.com/apnews/topnews
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_ap_news_world
+  name: AP News World
+  url: https://feeds.apnews.com/apnews/worldnews
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_ars_technica
+  name: Ars Technica
+  url: http://feeds.arstechnica.com/arstechnica/index/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_auto_motor
+  name: Autó-Motor
+  url: https://automotor.hu/feed/
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_autonavigator
+  name: Autónavigátor
+  url: https://www.autonavigator.hu/feed/
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_az_auto
+  name: Az Autó
+  url: https://www.azauto.hu/feed/
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bb1
+  name: BB1
+  url: https://bball1.hu/feed/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_bbc_business
+  name: BBC Business
+  url: http://feeds.bbci.co.uk/news/business/rss.xml
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bbc_news_uk
+  name: BBC News UK
+  url: http://feeds.bbci.co.uk/news/rss.xml?edition=uk
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_bbc_news_us
+  name: BBC News US
+  url: http://feeds.bbci.co.uk/news/rss.xml?edition=us
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bbc_news_world
+  name: BBC News World
+  url: http://feeds.bbci.co.uk/news/world/rss.xml
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_bbc_technology
+  name: BBC Technology
+  url: http://feeds.bbci.co.uk/news/technology/rss.xml
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bellingcat
+  name: Bellingcat
+  url: https://www.bellingcat.com/feed/
+  spheres:
+  - global_osint
+  - global_investigative
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: investigative_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_bitport
+  name: Bitport
+  url: https://bitport.hu/rss
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_blikk
+  name: Blikk
+  url: https://www.blikk.hu/rss
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_blikk_ruzs
+  name: Blikk Rúzs
+  url: https://blikkruzs.blikk.hu/rss
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bloomberg_markets
+  name: Bloomberg Markets
+  url: https://feeds.bloomberg.com/markets/news.rss
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  - regional_us
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_bloomberg_politics
+  name: Bloomberg Politics
+  url: https://feeds.bloomberg.com/politics/news.rss
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  - regional_us
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bloomberg_technology
+  name: Bloomberg Technology
+  url: https://feeds.bloomberg.com/technology/news.rss
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_economy
+  - regional_us
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_bors
+  name: Bors
+  url: https://www.borsonline.hu/publicapi/hu/rss/bors/articles
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 3
+  lean: gov
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_business_insider
+  name: Business Insider
+  url: https://markets.businessinsider.com/rss/news
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_calculated_risk
+  name: Calculated Risk
+  url: http://feeds.feedburner.com/calculatedrisk
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_cbc_news
+  name: CBC News
+  url: https://www.cbc.ca/webfeed/rss/rss-topstories
+  spheres:
+  - global_press
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_cnet_news
+  name: CNET News
+  url: https://www.cnet.com/rss/news/
+  spheres:
+  - global_press
+  language: zh
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_cnn_latest
+  name: CNN Latest
+  url: http://rss.cnn.com/rss/edition.rss
+  spheres:
+  - regional_us
+  - global_anchor
+  language: zh
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_cnn_technology
+  name: CNN Technology
+  url: http://rss.cnn.com/rss/edition_technology.rss
+  spheres:
+  - regional_us
+  - global_anchor
+  language: zh
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_cnn_us
+  name: CNN US
+  url: http://rss.cnn.com/rss/edition_us.rss
+  spheres:
+  - regional_us
+  - global_anchor
+  language: zh
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_cnn_world
+  name: CNN World
+  url: http://rss.cnn.com/rss/edition_world.rss
+  spheres:
+  - regional_us
+  - global_anchor
+  language: zh
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_computerworld
+  name: Computerworld
+  url: https://computerworld.hu/rss/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_congressional_budget_office
+  name: Congressional Budget Office
+  url: https://www.cbo.gov/publications/all/rss.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_del_hir
+  name: Dél-Hír
+  url: https://delhir.info/rss
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_demokrata_2
+  name: Demokrata
+  url: https://demokrata.hu/feed
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 3
+  lean: gov
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_e_cars
+  name: e-cars
+  url: https://e-cars.hu/feed
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_economic_policy_institute
+  name: Economic Policy Institute
+  url: http://feeds.feedburner.com/epi
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_economix
+  name: Economix
+  url: https://www.economx.hu/feed/mindencikk.xml
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_egeszsegkalauz
+  name: EgészségKalauz
+  url: https://www.egeszsegkalauz.hu/rss
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_el_mundo
+  name: El Mundo
+  url: https://www.elmundo.es/rss/portada.xml
+  spheres:
+  - regional_spanish
+  language: en
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_el_pais
+  name: El País
+  url: https://elpais.com/rss/elpais/portada.xml
+  spheres:
+  - regional_spanish
+  language: en
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_engladget
+  name: Engladget
+  url: https://www.engadget.com/rss.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_ensz_hirek
+  name: ENSZ - Hírek
+  url: https://news.un.org/feed/subscribe/en
+  spheres:
+  - global_press
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_erdely_ma
+  name: Erdély.ma
+  url: https://erdely.ma/feed
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_erdelyi_naplo
+  name: Erdélyi Napló
+  url: https://erdelyinaplo.ro/rss/szekelyhon_hirek.xml
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: ro
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_f1vilag
+  name: F1Világ
+  url: https://f1vilag.hu/feed/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_faz
+  name: FAZ
+  url: https://www.faz.net/rss/aktuell/
+  spheres:
+  - regional_german
+  language: en
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_federal_reserve_fred_blog
+  name: Federal Reserve FRED Blog
+  url: https://fredblog.stlouisfed.org/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_femina
+  name: Femina
+  url: https://femina.hu/24ora/rss/
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_femina_kapcsolat
+  name: Femina Kapcsolat
+  url: http://femina.hu/kapcsolat/rss
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_femina_recept
+  name: Femina Recept
+  url: http://femina.hu/recept/rss
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_femina_teljes
+  name: Femina Teljes
+  url: http://femina.hu/24ora/rss
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_financial_samurai
+  name: Financial Samurai
+  url: https://financialsamurai.com/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_forbes_hungary
+  name: Forbes Hungary
+  url: https://forbes.hu/feed/
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_formula_hu
+  name: Formula.hu
+  url: https://formula.hu/rss
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_fox_news
+  name: Fox News
+  url: https://feeds.foxnews.com/foxnews/latest
+  spheres:
+  - regional_us
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_g7
+  name: G7
+  url: https://g7.hu/feed
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: hu
+  trust_tier: 2
+  lean: analytical
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_gamekapocs
+  name: Gamekapocs
+  url: https://www.gamekapocs.hu/rss
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_gamer
+  name: Gamer
+  url: https://gamer.hu/feed/
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_gamer365
+  name: Gamer365
+  url: https://www.gamer365.hu/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_gamestar
+  name: GameStar
+  url: https://www.gamestar.hu/site/rss/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_glamour
+  name: Glamour
+  url: https://www.glamour.hu/rss
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_hir_tv_2
+  name: Hír TV
+  url: https://hirtv.hu/rss
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: gov
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_hirek_sk
+  name: Hírek.sk
+  url: https://www.hirek.sk/rss/hirek_hirek.xml
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: sk
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_hup
+  name: HUP
+  url: https://hup.hu/node/feed
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_hvg
+  name: HVG
+  url: https://hvg.hu/rss
+  spheres:
+  - hu_press
+  - hu_premium
+  language: hu
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_hvg_itthon
+  name: HVG Itthon
+  url: https://hvg.hu/rss/itthon
+  spheres:
+  - hu_press
+  - hu_premium
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_hvg_sport
+  name: HVG Sport
+  url: https://hvg.hu/rss/sport
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_hvg_tech
+  name: HVG Tech
+  url: https://hvg.hu/rss/tudomany
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_hwsw
+  name: HWSW
+  url: http://hwsw.hu/xml/latest_news_rss.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  language: hu
+  trust_tier: 2
+  lean: analytical
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_ign_hungary
+  name: IGN Hungary
+  url: http://hu.ign.com/feed.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_index
+  name: Index
+  url: https://index.hu/24ora/rss/
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: gov
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_index_belfold
+  name: Index Belföld
+  url: https://index.hu/belfold/rss/
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_index_sport
+  name: Index Sport
+  url: http://24ora.index.hu/?rss&&rovatkeres=sport
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_infostart_2
+  name: Infostart
+  url: https://infostart.hu/24ora/rss/
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_infostart_sport
+  name: Infostart Sport
+  url: https://infostart.hu/sport/rss/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_investopedia_piaci_hirek
+  name: Investopedia - Piaci hírek
+  url: https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline&categoryName=markets-news
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_investopedia_vallalati_hirek
+  name: Investopedia - Vállalati hírek
+  url: https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline&categoryName=company-news
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_kezdo5
+  name: Kezdő5
+  url: https://kezdo5.hu/rss
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_kiberblog
+  name: KiberBlog
+  url: https://kiber.blog.hu/rss
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_kiskegyed
+  name: Kiskegyed
+  url: https://www.kiskegyed.hu/rss
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_korkep
+  name: Korkép
+  url: https://www.korkep.sk/rss
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: sk
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_kronika_online
+  name: Krónika Online
+  url: https://kronikaonline.ro/rss/kronika_hirek.xml
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: ro
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_kultura_hu
+  name: Kultúra.hu
+  url: https://kultura.hu/feed/
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_le_figaro
+  name: Le Figaro
+  url: https://www.lefigaro.fr/rss/figaro_actualites.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_le_monde
+  name: Le Monde
+  url: https://www.lemonde.fr/rss/une.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_loero
+  name: Lóerő
+  url: https://loero.hu/feed/
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_magyar_hang_2
+  name: Magyar Hang
+  url: https://hang.hu/rss/
+  spheres:
+  - hu_press
+  - global_science
+  language: hu
+  trust_tier: 2
+  lean: opposition
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_magyar_narancs_2
+  name: Magyar Narancs
+  url: https://magyarnarancs.hu/rss
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 3
+  lean: opposition
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_magyar_nemzet
+  name: Magyar Nemzet
+  url: https://magyarnemzet.hu/feed/
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 3
+  lean: gov
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_mandiner_2
+  name: Mandiner
+  url: https://mandiner.hu/rss
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 3
+  lean: gov
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_marginal_revolution
+  name: Marginal Revolution
+  url: http://feeds.feedburner.com/marginalrevolution
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_marginal_revolution_podcast
+  name: Marginal Revolution Podcast
+  url: https://feeds.libsyn.com/548312/rss
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_marketwatch
+  name: MarketWatch
+  url: https://feeds.content.dowjones.io/public/rss/mw_topstories
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_mashable
+  name: Mashable
+  url: http://feeds.mashable.com/Mashable
+  spheres:
+  - global_press
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_maszol
+  name: Maszol
+  url: https://maszol.ro/rss
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: ro
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_media1
+  name: Media1
+  url: https://media1.hu/feed/
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_mfor
+  name: Mfor
+  url: https://mfor.hu/rss
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_middle_east_eye
+  name: Middle East Eye
+  url: https://middleeasteye.net/rss
+  spheres:
+  - regional_arabic
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_monokli
+  name: Monokli
+  url: https://monokli.com/rss
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_motorsport_com_magyar
+  name: Motorsport.com Magyar
+  url: https://hu.motorsport.com/rss/all/news/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_motorsport_motogp
+  name: Motorsport MotoGP
+  url: https://hu.motorsport.com/rss/motogp/news/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_national_geographic_hu
+  name: National Geographic HU
+  url: https://ng.hu/rss/
+  spheres:
+  - hu_press
+  - global_science
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_nature_current_issue
+  name: Nature Current Issue
+  url: http://www.nature.com/nature/current_issue/rss
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_science
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_nb1
+  name: NB1
+  url: https://nb1.hu/rss
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_nepszava_2
+  name: Népszava
+  url: https://nepszava.hu/rss
+  spheres:
+  - hu_press
+  language: hu
+  trust_tier: 2
+  lean: opposition
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_new_scientist
+  name: New Scientist
+  url: https://www.newscientist.com/feed/home/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_science
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_nlc
+  name: NLC
+  url: https://nlc.hu/rss
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_novekedes
+  name: Növekedés
+  url: https://novekedes.hu/feed
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_npr_news
+  name: NPR News
+  url: https://feeds.npr.org/1001/rss.xml
+  spheres:
+  - regional_us
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_nzz
+  name: NZZ
+  url: https://www.nzz.ch/recent.rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_occrp
+  name: OCCRP
+  url: https://www.occrp.org/en/feed/
+  spheres:
+  - global_osint
+  - global_investigative
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: investigative_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_pcw_plus
+  name: PCW Plus
+  url: https://www.pcwplus.hu/site/rss/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_penzcentrum
+  name: Pénzcentrum
+  url: https://www.penzcentrum.hu/rss/all.xml
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 3
+  lean: analytical
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_phys_org
+  name: Phys.org
+  url: https://phys.org/rss-feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_science
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_piacesprofit
+  name: PiacÉsProfit
+  url: https://piacesprofit.hu/rss/rss.xml
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_playdome
+  name: PlayDome
+  url: http://www.pcdome.hu/rss.html
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_politico_eu
+  name: Politico EU
+  url: https://www.politico.eu/rss
+  spheres:
+  - global_press
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_portfolio
+  name: Portfolio
+  url: https://www.portfolio.hu/rss/all.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  language: hu
+  trust_tier: 2
+  lean: analytical
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_privatbankar
+  name: PrivatBankár
+  url: https://privatbankar.hu/rss
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_profitline
+  name: Profitline
+  url: https://profitline.hu/rss
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_prohardver_ai
+  name: Prohardver AI
+  url: https://prohardver.hu/hirfolyam/anyagok/kategoria/total_ai/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_prohardver_gaming
+  name: Prohardver Gaming
+  url: https://prohardver.hu/hirfolyam/anyagok/kategoria/gamepod/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_prohardver_hirek
+  name: Prohardver Hírek
+  url: https://prohardver.hu/hirfolyam/hirek/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_prohardver_it_cafe
+  name: Prohardver IT Café
+  url: https://prohardver.hu/hirfolyam/anyagok/kategoria/it_cafe/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_prohardver_tesztek
+  name: Prohardver Tesztek
+  url: https://prohardver.hu/hirfolyam/tesztek/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_propublica
+  name: ProPublica
+  url: https://www.propublica.org/feeds/propublica/main
+  spheres:
+  - global_investigative
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: investigative_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_qubit
+  name: Qubit
+  url: https://qubit.hu/feed
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_science
+  language: hu
+  trust_tier: 2
+  lean: analytical
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_racingline
+  name: Racingline
+  url: https://racingline.hu/feed/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_rajtvonal_magazin
+  name: Rajtvonal Magazin
+  url: https://rajtvonalmagazin.hu/feed/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_raketa
+  name: Rakéta
+  url: https://raketa.hu/feed
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: analytical
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_rallycafe
+  name: RallyCafe
+  url: https://rallycafe.hu/feed/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_rangado
+  name: Rangadó
+  url: https://rangado.24.hu/feed/
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_ripost
+  name: Ripost
+  url: https://ripost.hu/feed
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 4
+  lean: gov
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_roadster
+  name: Roadster
+  url: https://roadster.hu/feed/
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_science_current_issue
+  name: Science Current Issue
+  url: http://www.sciencemag.org/rss/current.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_science_news
+  name: Science News
+  url: https://www.sciencenews.org/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_sg_hu
+  name: SG.hu
+  url: https://media.sg.hu/rss/rss.xml
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_sky_news_home
+  name: Sky News Home
+  url: http://feeds.skynews.com/feeds/rss/home.xml
+  spheres:
+  - regional_uk
+  - global_anchor
+  language: sk
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_sky_news_uk
+  name: Sky News UK
+  url: http://feeds.skynews.com/feeds/rss/uk.xml
+  spheres:
+  - regional_uk
+  - global_anchor
+  language: sk
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_sky_news_world
+  name: Sky News World
+  url: http://feeds.skynews.com/feeds/rss/world.xml
+  spheres:
+  - regional_uk
+  - global_anchor
+  language: sk
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_south_china_morning_post
+  name: South China Morning Post
+  url: https://www.scmp.com/rss/5/feed
+  spheres:
+  - regional_chinese
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_sport365
+  name: Sport365
+  url: https://sport365.hu/rss
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_story
+  name: Story
+  url: https://story.hu/feed/
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_szekelyhon
+  name: Székelyhon
+  url: https://szekelyhon.ro/rss/szekelyhon_hirek.xml
+  spheres:
+  - hu_press
+  - hu_foreign_commentary
+  language: ro
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_tagesspiegel
+  name: Tagesspiegel
+  url: https://www.tagesspiegel.de/contentexport/feed/home
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 4
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_techcrunch
+  name: TechCrunch
+  url: https://techcrunch.com/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_techcrunch_startups
+  name: TechCrunch Startups
+  url: https://techcrunch.com/category/startups/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_techmonitor
+  name: TechMonitor
+  url: https://www.techmonitor.hu/rss
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_telex
+  name: Telex
+  url: https://telex.hu/rss
+  spheres:
+  - hu_press
+  - hu_premium
+  language: hu
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_telex_belfold
+  name: Telex Belföld
+  url: https://telex.hu/rss/belfold
+  spheres:
+  - hu_press
+  - hu_premium
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_the_economist_business
+  name: The Economist - Business
+  url: https://www.economist.com/business/rss.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_the_economist_finance
+  name: The Economist - Finance
+  url: https://www.economist.com/finance-and-economics/rss.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_economy
+  - global_economy
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: economy_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_the_guardian_technology
+  name: The Guardian Technology
+  url: https://www.theguardian.com/technology/rss
+  spheres:
+  - global_anchor
+  - regional_uk
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_the_guardian_uk
+  name: The Guardian UK
+  url: https://www.theguardian.com/uk-news/rss
+  spheres:
+  - global_anchor
+  - regional_uk
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_the_guardian_world
+  name: The Guardian World
+  url: https://www.theguardian.com/world/rss
+  spheres:
+  - global_anchor
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_the_intercept
+  name: The Intercept
+  url: https://theintercept.com/feed/
+  spheres:
+  - global_osint
+  - global_investigative
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: investigative_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_the_verge
+  name: The Verge
+  url: https://www.theverge.com/rss/index.xml
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_thegeek
+  name: TheGeek
+  url: https://thegeek.hu/feed/
+  spheres:
+  - hu_press
+  - hu_tech
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_times_of_india
+  name: Times of India
+  url: http://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms
+  spheres:
+  - regional_indian
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 2
+- id: hu_totalcar
+  name: Totalcar
+  url: https://totalcar.hu/24ora/rss
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_tozsdeforum
+  name: TőzsdeFórum
+  url: https://tozsdeforum.hu/feed/
+  spheres:
+  - hu_press
+  - hu_economy
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_travelo
+  name: Travelo
+  url: https://www.travelo.hu/rss
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_tudas_hu
+  name: Tudás.hu
+  url: https://tudas.hu/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_tudomanyplaza
+  name: TudományPláza
+  url: https://tudomanyplaza.hu/feed/
+  spheres:
+  - hu_press
+  - global_science
+  language: hu
+  trust_tier: 3
+  lean: unknown
+  category: general
+  source_type: rss
+  hirmagnet_source_type: domestic_standard
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 2
+- id: hu_valasz_online_2
+  name: Válasz Online
+  url: https://www.valaszonline.hu/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  language: hu
+  trust_tier: 2
+  lean: right_independent
+  category: politics
+  source_type: rss
+  hirmagnet_source_type: domestic_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_velvet
+  name: Velvet
+  url: https://velvet.hu/24ora/rss/
+  spheres:
+  - hu_entertainment
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: entertainment
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_vezess
+  name: Vezess
+  url: https://www.vezess.hu/feed/
+  spheres:
+  - hu_lifestyle
+  - hu_cars
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: cars
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_wbasket
+  name: WBasket
+  url: http://wbasket.hu/rss
+  spheres:
+  - hu_sport
+  language: hu
+  trust_tier: 4
+  lean: unknown
+  category: sport
+  source_type: rss
+  hirmagnet_source_type: sport_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: hu_webbeteg
+  name: WEBBeteg
+  url: https://www.webbeteg.hu/xml/rss.php
+  spheres:
+  - hu_lifestyle
+  language: hu
+  trust_tier: 2
+  lean: unknown
+  category: lifestyle
+  source_type: rss
+  hirmagnet_source_type: lifestyle_specialized
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 1
+- id: hu_wired_business
+  name: WIRED Business
+  url: https://www.wired.com/category/business/feed/
+  spheres:
+  - hu_press
+  - hu_premium
+  - hu_tech
+  - global_tech
+  language: en
+  trust_tier: 2
+  lean: unknown
+  category: tech
+  source_type: rss
+  hirmagnet_source_type: tech_premium
+  hirmagnet_content_profile: timeless_analysis
+  hirmagnet_priority: 1
+- id: hu_zero_hedge
+  name: Zero Hedge
+  url: http://feeds.feedburner.com/zerohedge/feed
+  spheres:
+  - global_press
+  language: en
+  trust_tier: 4
+  lean: unknown
+  category: economy
+  source_type: rss
+  hirmagnet_source_type: international_standard
+  hirmagnet_content_profile: standard_news
+  hirmagnet_priority: 3
+- id: i24news
+  name: i24NEWS
+  url: https://www.i24news.tv/en/feed
+  spheres:
+  - israel_press_center
+  - regional_israeli
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: iran_intl
+  name: Iran International (English)
+  url: https://www.iranintl.com/en/rss.xml
+  spheres:
+  - iran_opposition
+  - regional_iranian
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: London-based diaspora opposition outlet
+- id: iranwire
+  name: IranWire
+  url: https://iranwire.com/en/rss
+  spheres:
+  - iran_opposition
+  - regional_iranian
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+- id: isw_assessments
+  name: ISW Russia Assessments
+  url: https://www.understandingwar.org/backgrounder/russian-offensive-campaign-assessment/feed
+  spheres:
+  - ua_front_osint
+  - global_osint
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+  notes: Daily authoritative front-line assessment
+- id: japan_times
+  name: Japan Times
+  url: https://www.japantimes.co.jp/feed/
+  spheres:
+  - jp_press_english
+  - regional_japanese
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: jpost
+  name: Jerusalem Post
+  url: https://www.jpost.com/rss/rssfeedsheadlines.aspx
+  spheres:
+  - israel_press_right
+  - regional_israeli
+  language: en
+  trust_tier: 1
+  lean: right
+  category: global
+  source_type: rss
+- id: kbs_world
+  name: KBS World
+  url: http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=Po
+  spheres:
+  - kr_press_english
+  - regional_korean
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: korea_herald
+  name: Korea Herald
+  url: http://www.koreaherald.com/common/rss_xml.php?ct=102
+  spheres:
+  - kr_press_english
+  - regional_korean
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: korea_times
+  name: Korea Times
+  url: https://www.koreatimes.co.kr/www/rss/world.xml
+  spheres:
+  - kr_press_english
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: krugman
+  name: Paul Krugman
+  url: https://paulkrugman.substack.com/feed
+  spheres:
+  - us_liberal_substack
+  language: en
+  trust_tier: 1
+  lean: left
+  category: global
+  source_type: rss
+- id: kyiv_independent
+  name: Kyiv Independent
+  url: https://kyivindependent.com/rss/
+  spheres:
+  - ua_front_osint
+  - global_conflict
+  - regional_ukrainian
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+- id: mainichi_en
+  name: Mainichi (English)
+  url: https://mainichi.jp/rss/etc/mainichi-e_flash.rss
+  spheres:
+  - jp_press_english
+  - regional_japanese
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: meduza_en
+  name: Meduza (English)
+  url: https://meduza.io/rss/en/all
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: Riga-based, gold-standard Russian opposition press
+- id: meduza_ru
+  name: Meduza (Russian, native)
+  url: https://meduza.io/rss/all
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: More content than English; Kimi/DeepSeek translates
+- id: mehr_en
+  name: Mehr News (English)
+  url: https://en.mehrnews.com/rss
+  spheres:
+  - iran_regime
+  - regional_iranian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: moscow_times
+  name: The Moscow Times
+  url: https://www.themoscowtimes.com/rss/news
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+- id: new_yorker
+  name: The New Yorker
+  url: https://www.newyorker.com/feed/everything
+  spheres:
+  - us_liberal_press
+  - regional_us
+  language: en
+  trust_tier: 1
+  lean: left
+  category: global
+  source_type: rss
+- id: nhk_world
+  name: NHK World
+  url: https://www3.nhk.or.jp/nhkworld/en/news/feeds/
+  spheres:
+  - jp_press_english
+  - regional_japanese
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: nikkei_asia
+  name: Nikkei Asia
+  url: https://asia.nikkei.com/rss/feed/nar
+  spheres:
+  - jp_press_english
+  - regional_japanese
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: novaya_gazeta_eu
+  name: Novaya Gazeta Europe
+  url: https://novayagazeta.eu/rss
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+- id: pekingnology
+  name: Pekingnology
+  url: https://www.pekingnology.com/feed
+  spheres:
+  - cn_diaspora_analysis
+  - regional_chinese
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+  notes: Translates Chinese official speeches and policy docs
+- id: peoples_daily_en
+  name: People's Daily (English)
+  url: http://en.people.cn/rss/90883.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: press_tv
+  name: Press TV
+  url: https://www.presstv.ir/rss.xml
+  spheres:
+  - iran_regime
+  - regional_iranian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: radio_farda
+  name: Radio Farda (English)
+  url: https://en.radiofarda.com/api/zr-quppieuyq
+  spheres:
+  - iran_opposition
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: RFE/RL Persian service
+- id: reuters_world
+  name: Reuters (World)
+  url: https://www.reutersagency.com/feed/?best-topics=world&post_type=best
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: revolver
+  name: Revolver News
+  url: https://www.revolver.news/feed/
+  spheres:
+  - us_maga_blog
+  language: en
+  trust_tier: 4
+  lean: right
+  category: global
+  source_type: rss
+- id: ria_en
+  name: RIA Novosti (English)
+  url: https://en.ria.ru/export/rss2/index.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: sankei_jp
+  name: Sankei Shimbun (native JP)
+  url: https://www.sankei.com/arc/outboundfeeds/rss/category/world/
+  spheres:
+  - jp_press_native
+  - regional_japanese
+  language: ja
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+  notes: Closest to government defence narrative; needs translation
+- id: scmp
+  name: South China Morning Post
+  url: https://www.scmp.com/rss/91/feed
+  spheres:
+  - cn_hk
+  - regional_chinese
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+  notes: Owned by Alibaba but still relatively independent on China coverage
+- id: scmp_china
+  name: SCMP — China
+  url: https://www.scmp.com/rss/4/feed
+  spheres:
+  - cn_hk
+  - regional_chinese
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: sinification
+  name: Sinification
+  url: https://sinification.substack.com/feed
+  spheres:
+  - cn_diaspora_analysis
+  - regional_chinese
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+  notes: Translates Chinese academic/think-tank writing into English — KEY
+- id: sinocism
+  name: Sinocism (Bill Bishop)
+  url: https://sinocism.com/feed
+  spheres:
+  - cn_diaspora_analysis
+  - regional_chinese
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: rss
+  notes: Daily synthesis, partial paywall but headlines+lead always free
+- id: taibbi
+  name: Matt Taibbi (Racket News)
+  url: https://www.racket.news/feed
+  spheres:
+  - us_maga_substack
+  language: en
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+- id: taipei_times
+  name: Taipei Times
+  url: https://www.taipeitimes.com/xml/index.rss
+  spheres:
+  - cn_tw
+  - regional_chinese
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: DPP-aligned
+- id: tasnim_en
+  name: Tasnim News (English)
+  url: https://www.tasnimnews.com/en/rss/feed/0/8/0/all-news
+  spheres:
+  - iran_regime
+  - regional_iranian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+  notes: IRGC-affiliated
+- id: tass_en
+  name: TASS (English)
+  url: https://tass.com/rss/v2.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: tehran_times
+  name: Tehran Times
+  url: https://www.tehrantimes.com/rss
+  spheres:
+  - iran_regime
+  - regional_iranian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: the_insider_en
+  name: The Insider (English)
+  url: https://theins.ru/en/feed
+  spheres:
+  - ru_opposition
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+- id: thepaper_cn
+  name: The Paper (澎湃, native CN)
+  url: https://feedx.net/rss/thepaper.xml
+  spheres:
+  - cn_state_aligned
+  language: zh
+  trust_tier: 2
+  lean: gov
+  category: global
+  source_type: rss
+  notes: Shanghai-based, state-owned but quality reporting
+- id: times_of_israel
+  name: Times of Israel
+  url: https://www.timesofisrael.com/feed/
+  spheres:
+  - israel_press_center
+  - regional_israeli
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: tpm
+  name: Talking Points Memo
+  url: https://talkingpointsmemo.com/feed/all
+  spheres:
+  - us_liberal_press
+  - regional_us
+  language: en
+  trust_tier: 2
+  lean: left
+  category: global
+  source_type: rss
+- id: tucker_carlson_network
+  name: Tucker Carlson Network
+  url: https://tucker.com/rss
+  spheres:
+  - us_maga_substack
+  language: en
+  trust_tier: 3
+  lean: right
+  category: global
+  source_type: rss
+- id: ukrainska_pravda_en
+  name: Ukrainska Pravda (English)
+  url: https://www.pravda.com.ua/eng/rss/view_news/
+  spheres:
+  - ua_front_osint
+  - regional_ukrainian
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: rss
+- id: vox
+  name: Vox
+  url: https://www.vox.com/rss/index.xml
+  spheres:
+  - us_liberal_press
+  - regional_us
+  language: en
+  trust_tier: 2
+  lean: left
+  category: global
+  source_type: rss
+- id: walter_kirn
+  name: Walter Kirn (Unbound)
+  url: https://walterkirn.substack.com/feed
+  spheres:
+  - us_maga_substack
+  language: en
+  trust_tier: 3
+  lean: right
+  category: global
+  source_type: rss
+- id: whats_on_weibo
+  name: What's on Weibo
+  url: https://www.whatsonweibo.com/feed/
+  spheres:
+  - cn_weibo_pulse
+  - regional_chinese
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: rss
+  notes: Manya Koetse — Weibo trend ethnography
+- id: xinhua_world
+  name: Xinhua (English, World)
+  url: http://www.xinhuanet.com/english/rss/worldrss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+- id: ynet_en
+  name: Ynet News
+  url: https://www.ynetnews.com/Integration/StoryRss3082.xml
+  spheres:
+  - israel_press_center
+  - regional_israeli
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: yonhap_en
+  name: Yonhap News (English)
+  url: https://en.yna.co.kr/RSS/news.xml
+  spheres:
+  - kr_press_english
+  - regional_korean
+  language: en
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+- id: tg_abu_ali
+  name: Abu Ali Express (TG, EN)
+  url: https://t.me/s/abualiexpress
+  spheres:
+  - israel_press_center
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: telegram
+  notes: Israeli journalist covering Arab-language sources
+  telegram_channel: abualiexpress
+- id: tg_aj_breaking
+  name: Al Jazeera English (TG)
+  url: https://t.me/s/AJEnglish
+  spheres:
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: global
+  source_type: telegram
+  telegram_channel: AJEnglish
+- id: tg_conflict_intel
+  name: Conflict Intelligence Team (TG)
+  url: https://t.me/s/CITeam_en
+  spheres:
+  - ua_front_osint
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: telegram
+  telegram_channel: CITeam_en
+- id: tg_deepstate
+  name: DeepState UA (TG)
+  url: https://t.me/s/DeepStateUA
+  spheres:
+  - ua_front_osint
+  language: uk
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: telegram
+  notes: Daily front-line maps with unit movements — cornerstone OSINT
+  telegram_channel: DeepStateUA
+- id: tg_iran_intl_en
+  name: Iran International English (TG)
+  url: https://t.me/s/IranIntl_En
+  spheres:
+  - iran_opposition
+  - regional_iranian
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: telegram
+  telegram_channel: IranIntl_En
+- id: tg_kyiv_independent
+  name: Kyiv Independent (TG)
+  url: https://t.me/s/KyivIndependent_official
+  spheres:
+  - ua_front_osint
+  - global_conflict
+  - regional_ukrainian
+  language: en
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: telegram
+  telegram_channel: KyivIndependent_official
+- id: tg_meduza
+  name: Meduza (TG)
+  url: https://t.me/s/meduzalive
+  spheres:
+  - ru_opposition
+  language: ru
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: telegram
+  telegram_channel: meduzalive
+- id: tg_novaya_eu
+  name: Novaya Gazeta Europe (TG)
+  url: https://t.me/s/novgaz_europe
+  spheres:
+  - ru_opposition
+  language: ru
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: telegram
+  telegram_channel: novgaz_europe
+- id: tg_readovka
+  name: Readovka (TG)
+  url: https://t.me/s/readovkanews
+  spheres:
+  - ru_milblog_pro
+  - ru_state_media
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: telegram
+  telegram_channel: readovkanews
+- id: tg_rybar
+  name: Rybar (TG)
+  url: https://t.me/s/rybar
+  spheres:
+  - ru_milblog_pro
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: telegram
+  notes: Largest pro-RU milblog (~850k subs). Ex-MoD officer Mikhail Zvinchuk.
+  telegram_channel: rybar
+- id: tg_sino_market
+  name: Sinocism (TG, mirror)
+  url: https://t.me/s/sinocism
+  spheres:
+  - cn_diaspora_analysis
+  - regional_chinese
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: global
+  source_type: telegram
+  notes: If empty, the maintainer doesn't mirror to TG — drop from yaml.
+  telegram_channel: sinocism
+- id: tg_thebell
+  name: The Bell (TG)
+  url: https://t.me/s/thebell_io
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 1
+  lean: opposition
+  category: global
+  source_type: telegram
+  notes: Russian opposition financial/political analysis
+  telegram_channel: thebell_io
+- id: tg_two_majors
+  name: Two Majors (TG)
+  url: https://t.me/s/dva_majors
+  spheres:
+  - ru_milblog_pro
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: telegram
+  telegram_channel: dva_majors
+- id: tg_visegrad24
+  name: Visegrád 24 (TG)
+  url: https://t.me/s/visegrad24
+  spheres:
+  - ua_front_osint
+  language: en
+  trust_tier: 3
+  lean: opposition
+  category: global
+  source_type: telegram
+  notes: Aggregator-style; high volume, mixed quality but useful for breaking signals
+  telegram_channel: visegrad24
+- id: tg_wargonzo
+  name: WarGonzo (TG)
+  url: https://t.me/s/wargonzo
+  spheres:
+  - ru_milblog_pro
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: telegram
+  notes: Semyon Pegov — frontline embed correspondent
+  telegram_channel: wargonzo
