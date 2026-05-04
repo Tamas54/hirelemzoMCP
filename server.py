@@ -598,6 +598,127 @@ async def api_spheres(request):
     return JSONResponse({"spheres": counter.most_common()})
 
 
+@mcp.custom_route("/api/search", methods=["GET"])
+async def api_search(request):
+    """FTS5 keyword search.
+
+    Query params:
+        query     required — search keywords (3+ char terms)
+        days      lookback 1..21 (default 3)
+        sphere    optional sphere filter
+        category  optional category filter
+        language  optional ISO code
+        limit     1..50 (default 20)
+    """
+    query = request.query_params.get("query", "").strip()
+    if not query:
+        return JSONResponse({"error": "Empty query"}, status_code=400)
+    terms = [t for t in query.split() if len(t) > 2]
+    if not terms:
+        return JSONResponse({"error": "Query too short — use 3+ char terms"}, status_code=400)
+    fts_query = " OR ".join(f'"{t}"' for t in terms)
+
+    days = max(1, min(21, int(request.query_params.get("days", "3"))))
+    limit = max(1, min(50, int(request.query_params.get("limit", "20"))))
+    sphere = request.query_params.get("sphere", "")
+    category = request.query_params.get("category", "")
+    language = request.query_params.get("language", "")
+    since = (datetime.now() - timedelta(days=days)).isoformat()
+
+    sql = """SELECT a.title, a.lead, a.url, a.source_name,
+                    a.category, a.language, a.published_at, a.spheres_json,
+                    s.lean, s.trust_tier
+             FROM articles a
+             JOIN articles_fts fts ON fts.article_id = a.article_id
+             JOIN sources s ON s.id = a.source_id
+             WHERE articles_fts MATCH ?
+               AND a.published_at >= ?"""
+    params: list = [fts_query, since]
+    if category:
+        sql += " AND LOWER(a.category) = LOWER(?)"
+        params.append(category)
+    if sphere:
+        sql += " AND a.spheres_json LIKE ?"
+        params.append(f'%"{sphere}"%')
+    if language:
+        sql += " AND a.language = ?"
+        params.append(language)
+    sql += " ORDER BY a.published_at DESC LIMIT ?"
+    params.append(limit)
+
+    with get_db() as conn:
+        try:
+            rows = [_row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
+        except sqlite3.OperationalError as e:
+            return JSONResponse({"error": f"FTS query error: {e}"}, status_code=400)
+
+    return JSONResponse({
+        "query": query, "fts_query": fts_query, "days": days,
+        "count": len(rows), "articles": rows,
+    })
+
+
+@mcp.custom_route("/api/narrative_divergence", methods=["GET"])
+async def api_narrative_divergence(request):
+    """Across-sphere narrative comparison: "what does each sphere say about X?"
+
+    Query params:
+        query              required
+        days               lookback 1..21 (default 3)
+        per_sphere_limit   max items per sphere 1..20 (default 5)
+    """
+    query = request.query_params.get("query", "").strip()
+    if not query:
+        return JSONResponse({"error": "Empty query"}, status_code=400)
+    terms = [t for t in query.split() if len(t) > 2]
+    if not terms:
+        return JSONResponse({"error": "Query too short"}, status_code=400)
+    fts_query = " OR ".join(f'"{t}"' for t in terms)
+
+    days = max(1, min(21, int(request.query_params.get("days", "3"))))
+    per_sphere_limit = max(1, min(20, int(request.query_params.get("per_sphere_limit", "5"))))
+    since = (datetime.now() - timedelta(days=days)).isoformat()
+
+    sql = """
+        SELECT a.title, a.lead, a.url, a.source_name,
+               a.published_at, a.language, a.spheres_json,
+               s.lean, s.trust_tier
+        FROM articles a
+        JOIN articles_fts fts ON fts.article_id = a.article_id
+        JOIN sources s ON s.id = a.source_id
+        WHERE articles_fts MATCH ?
+          AND a.published_at >= ?
+        ORDER BY a.published_at DESC
+        LIMIT 1000
+    """
+    with get_db() as conn:
+        try:
+            rows = conn.execute(sql, (fts_query, since)).fetchall()
+        except sqlite3.OperationalError as e:
+            return JSONResponse({"error": f"FTS error: {e}"}, status_code=400)
+
+    by_sphere: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        spheres = json.loads(r["spheres_json"])
+        entry = {
+            "title": r["title"],
+            "lead": (r["lead"] or "")[:400],
+            "source": r["source_name"], "lean": r["lean"], "trust_tier": r["trust_tier"],
+            "language": r["language"], "url": r["url"], "published_at": r["published_at"],
+        }
+        for sph in spheres:
+            by_sphere[sph].append(entry)
+
+    out = {sph: items[:per_sphere_limit]
+           for sph, items in sorted(by_sphere.items(), key=lambda kv: -len(kv[1]))}
+
+    return JSONResponse({
+        "query": query, "fts_query": fts_query, "days": days,
+        "spheres_found": len(out),
+        "by_sphere": out,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Landing page
 # ---------------------------------------------------------------------------
