@@ -433,9 +433,19 @@ async def fetch_rss(session: aiohttp.ClientSession, src: Source) -> tuple[Source
     for entry in feed.entries[:MAX_ENTRIES_PER_FEED]:
         url = (entry.get("link") or "").strip()
         title = (entry.get("title") or "").strip()
-        if not url or not title:
-            continue
         lead = _strip_html(entry.get("summary") or entry.get("description") or "")[:1500]
+        if not url:
+            continue
+        if not title:
+            # Mastodon / Bluesky / similar microblog RSS feeds have no <title> —
+            # the post body lives in <description> only. Synthesize a short
+            # title from the description so the row passes downstream checks.
+            if lead:
+                title = lead[:140].rstrip()
+                if len(lead) > 140:
+                    title = title.rstrip() + "…"
+            else:
+                continue
         articles.append(Article(
             article_id=_hash_id(src.id, url),
             source_id=src.id,
