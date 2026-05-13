@@ -33,6 +33,8 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import HTMLResponse, JSONResponse
 
+from echolot_health import compute_health
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("echolot-mcp")
@@ -490,6 +492,36 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5) -
         "spheres_found": len(out),
         "by_sphere": out,
     }, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def echolot_health(
+    green_max_minutes: int = 120,
+    yellow_max_minutes: int = 1440,
+    top_n: int = 10,
+) -> str:
+    """Sphere-by-sphere health check — which spheres are alive, slowing, or dead.
+
+    Use this to spot dead RSS feeds, dying sources, or broken sphere coverage.
+
+    Args:
+        green_max_minutes: latest article newer than this -> green (default 120 = 2h)
+        yellow_max_minutes: latest article newer than this -> yellow (default 1440 = 24h)
+        top_n: how many top-active and slowest sources to list (default 10)
+
+    Returns JSON with:
+        summary: {green, yellow, red, total}
+        spheres: per-sphere status, article counts (24h, 7d), latest article age
+        top_active_sources_24h: most prolific sources in the last 24h
+        slowest_sources: sources with oldest/no recent articles (candidates for fixing)
+    """
+    report = compute_health(
+        DB_PATH,
+        green_max_minutes=green_max_minutes,
+        yellow_max_minutes=yellow_max_minutes,
+        top_n=top_n,
+    )
+    return json.dumps(report, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
