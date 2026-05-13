@@ -34,23 +34,31 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
-def _parse_iso(s: str | None) -> datetime | None:
+def _parse_iso_utc(s: str | None) -> datetime | None:
+    """Parse any ISO-8601 timestamp into naive UTC datetime.
+
+    Timestamps from RSS feeds carry mixed offsets (+02:00, +10:00, Z). We
+    convert everything to UTC so age computation matches reality. A naive
+    timestamp (no offset) is assumed to already be UTC.
+    """
     if not s:
         return None
     try:
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         dt = datetime.fromisoformat(s)
-        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
     except Exception:
         return None
 
 
-def _age_minutes(latest: str | None, now: datetime) -> int | None:
-    dt = _parse_iso(latest)
+def _age_minutes(latest: str | None, now_utc: datetime) -> int | None:
+    dt = _parse_iso_utc(latest)
     if dt is None:
         return None
-    delta = now - dt
+    delta = now_utc - dt
     return max(0, int(delta.total_seconds() // 60))
 
 
@@ -87,7 +95,7 @@ def compute_health(db_path: str | Path,
     Returns a dict ready to JSON-serialize. Designed to be readable for any
     LLM agent: flat fields, plain strings, no nested magic.
     """
-    now = datetime.now()
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     conn = _connect(db_path)
     try:
         sphere_sources = conn.execute("""
@@ -96,13 +104,15 @@ def compute_health(db_path: str | Path,
             GROUP BY je.value
         """).fetchall()
 
+        # datetime(a.published_at) normalizes mixed-tz ISO strings to UTC so
+        # MAX/comparisons are correct regardless of feed origin timezone.
         sphere_articles = conn.execute("""
             SELECT je.value AS sphere,
-                   SUM(CASE WHEN a.published_at >= datetime('now', '-7 days')
+                   SUM(CASE WHEN datetime(a.published_at) >= datetime('now', '-7 days')
                             THEN 1 ELSE 0 END) AS article_count_7d,
-                   SUM(CASE WHEN a.published_at >= datetime('now', '-24 hours')
+                   SUM(CASE WHEN datetime(a.published_at) >= datetime('now', '-24 hours')
                             THEN 1 ELSE 0 END) AS article_count_24h,
-                   MAX(a.published_at) AS latest_at
+                   MAX(datetime(a.published_at)) AS latest_at
             FROM articles a, json_each(a.spheres_json) je
             GROUP BY je.value
         """).fetchall()
@@ -110,7 +120,7 @@ def compute_health(db_path: str | Path,
         top_active = conn.execute("""
             SELECT source_id, source_name, COUNT(*) AS articles_24h
             FROM articles
-            WHERE published_at >= datetime('now', '-24 hours')
+            WHERE datetime(published_at) >= datetime('now', '-24 hours')
             GROUP BY source_id, source_name
             ORDER BY articles_24h DESC
             LIMIT ?
@@ -118,7 +128,7 @@ def compute_health(db_path: str | Path,
 
         slowest = conn.execute("""
             SELECT s.id AS source_id, s.name AS source_name,
-                   MAX(a.published_at) AS latest_at,
+                   MAX(datetime(a.published_at)) AS latest_at,
                    COUNT(a.article_id) AS lifetime_count
             FROM sources s
             LEFT JOIN articles a ON a.source_id = s.id
@@ -142,7 +152,7 @@ def compute_health(db_path: str | Path,
     summary = {"green": 0, "yellow": 0, "red": 0}
     for sphere, m in sorted(sphere_meta.items()):
         latest_at = m.get("latest_at")
-        age = _age_minutes(latest_at, now)
+        age = _age_minutes(latest_at, now_utc)
         status = _status(age, green_max_minutes, yellow_max_minutes)
         summary[status] += 1
         spheres_out.append({
@@ -170,7 +180,7 @@ def compute_health(db_path: str | Path,
 
     slowest_out = []
     for r in slowest:
-        age = _age_minutes(r["latest_at"], now)
+        age = _age_minutes(r["latest_at"], now_utc)
         slowest_out.append({
             "source_id": r["source_id"],
             "source_name": r["source_name"],
@@ -180,7 +190,7 @@ def compute_health(db_path: str | Path,
         })
 
     return {
-        "checked_at": now.isoformat(timespec="seconds"),
+        "checked_at": now_utc.isoformat(timespec="seconds") + "Z",
         "thresholds_minutes": {
             "green_below": green_max_minutes,
             "yellow_below": yellow_max_minutes,
