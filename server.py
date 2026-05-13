@@ -36,6 +36,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 from echolot_health import compute_health
 from echolot_diversity import diversify
 from echolot_velocity import compute_sphere_velocity
+from echolot_entities import resolve as resolve_entity
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
@@ -642,6 +643,109 @@ def echolot_velocity(
         limit=limit,
     )
     return json.dumps(report, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def entity_search(
+    name_or_qid: str,
+    days: int = 7,
+    limit: int = 20,
+    sphere: str = "",
+    diversify_results: bool = True,
+    max_per_source: int = 3,
+    max_per_sphere: int = 5,
+) -> str:
+    """Find articles about an entity across languages — Wikidata-backed.
+
+    Resolves a name ("Trump", "Orbán Viktor") or Wikidata QID ("Q22686")
+    to ALL multilingual aliases (HU, EN, DE, RU, ZH, JA, FR, UK), then
+    full-text searches the corpus for any of them. So a search for "Trump"
+    finds Чешские / Trump / Donald Trump / 唐纳德·特朗普 / ドナルド・トランプ
+    articles together, regardless of language.
+
+    Tip: pass a QID for precision — name lookup picks the top Wikidata hit
+    which is occasionally a different entity (e.g. "Trump" -> the surname
+    entity, not the politician). The entity's resolved primary_label and
+    matched_aliases are returned in the response so callers can verify.
+
+    Args:
+        name_or_qid: free-form name or Wikidata QID (e.g. "Q22686")
+        days: look back N days, 1-21 (default 7)
+        limit: max articles, 1-50 (default 20)
+        sphere: optional sphere filter
+        diversify_results: round-robin across source/sphere (default True)
+        max_per_source: cap when diversifying (default 3)
+        max_per_sphere: cap when diversifying (default 5)
+    """
+    name_or_qid = (name_or_qid or "").strip()
+    if not name_or_qid:
+        return json.dumps({"error": "Empty name_or_qid"})
+    days = max(1, min(21, days))
+    limit = max(1, min(50, limit))
+
+    entity = resolve_entity(name_or_qid)
+    if entity is None:
+        return json.dumps({
+            "error": "Entity not found on Wikidata",
+            "input": name_or_qid,
+        }, ensure_ascii=False)
+
+    aliases = entity["filtered_aliases"]
+    if not aliases:
+        return json.dumps({
+            "error": "Entity resolved but no usable aliases (all too short / filtered)",
+            "qid": entity["qid"],
+            "primary_label": entity["primary_label"],
+        }, ensure_ascii=False)
+
+    # Build FTS5 OR-query from quoted aliases.
+    quoted = [f'"{a["label"]}"' for a in aliases]
+    fts_query = " OR ".join(quoted)
+    since = (datetime.now() - timedelta(days=days)).isoformat()
+
+    sql = """SELECT a.title, a.lead, a.url, a.source_name,
+                    a.category, a.language, a.published_at, a.spheres_json,
+                    s.lean, s.trust_tier
+             FROM articles a
+             JOIN articles_fts fts ON fts.article_id = a.article_id
+             JOIN sources s ON s.id = a.source_id
+             WHERE articles_fts MATCH ?
+               AND a.published_at >= ?"""
+    params: list = [fts_query, since]
+    if sphere:
+        sql += " AND a.spheres_json LIKE ?"
+        params.append(f'%"{sphere}"%')
+    fetch_limit = limit * 5 if diversify_results else limit
+    fetch_limit = min(fetch_limit, 300)
+    sql += " ORDER BY a.published_at DESC LIMIT ?"
+    params.append(fetch_limit)
+
+    with get_db() as conn:
+        try:
+            rows = [_row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
+        except sqlite3.OperationalError as exc:
+            return json.dumps({"error": f"FTS error: {exc}",
+                               "qid": entity["qid"],
+                               "alias_count": len(aliases)})
+
+    selected, diversity_stats = diversify(
+        rows, limit=limit,
+        max_per_source=max_per_source,
+        max_per_sphere=max_per_sphere,
+        enabled=diversify_results,
+    )
+
+    return json.dumps({
+        "input": name_or_qid,
+        "qid": entity["qid"],
+        "primary_label": entity["primary_label"],
+        "alias_count": len(aliases),
+        "matched_aliases": [a["label"] for a in aliases],
+        "days": days,
+        "count": len(selected),
+        "diversity": diversity_stats,
+        "articles": selected,
+    }, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
