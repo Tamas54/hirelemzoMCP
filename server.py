@@ -34,6 +34,7 @@ from mcp.server.fastmcp import FastMCP
 from starlette.responses import HTMLResponse, JSONResponse
 
 from echolot_health import compute_health
+from echolot_diversity import diversify
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -105,6 +106,9 @@ def get_news(
     sphere: str = "",
     lean: str = "",
     limit: int = 30,
+    diversify_results: bool = True,
+    max_per_source: int = 3,
+    max_per_sphere: int = 5,
 ) -> str:
     """Get news articles by date and various filters.
 
@@ -118,9 +122,15 @@ def get_news(
                 ru_milblog_pro, ua_front_osint, etc. See get_spheres for the full list.
         lean: gov | opposition | left | right | center | analytical | unknown.
         limit: 1–100 (default: 30)
+        diversify_results: round-robin across sources/spheres so one prolific
+                feed (e.g. Sydney Morning Herald) cannot dominate the result.
+                Default: True. Set False for raw recency.
+        max_per_source: when diversify_results=True, max articles from one source (default 3).
+        max_per_sphere: when diversify_results=True, max articles from one primary sphere (default 5).
 
     Returns:
-        JSON with matching articles (title, lead, source, sphere, lean, language, url, published_at).
+        JSON with matching articles + a `diversity` block showing what the
+        balancing did (pool size, distinct sources/spheres, etc.).
     """
     limit = max(1, min(100, limit))
     parsed = _parse_date_arg(date)
@@ -151,19 +161,31 @@ def get_news(
         sql += " AND s.lean = ?"
         params.append(lean)
 
+    # Fetch a larger pool when diversifying so round-robin has something to pick from.
+    fetch_limit = limit * 5 if diversify_results else limit
+    fetch_limit = min(fetch_limit, 500)
+
     sql += " ORDER BY a.published_at DESC LIMIT ?"
-    params.append(limit)
+    params.append(fetch_limit)
 
     with get_db() as conn:
         rows = [_row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
+
+    selected, diversity_stats = diversify(
+        rows, limit=limit,
+        max_per_source=max_per_source,
+        max_per_sphere=max_per_sphere,
+        enabled=diversify_results,
+    )
 
     return json.dumps({
         "date": date,
         "filters": {"category": category or "all", "source": source or "all",
                     "language": language or "all", "sphere": sphere or "all",
                     "lean": lean or "all"},
-        "count": len(rows),
-        "articles": rows,
+        "count": len(selected),
+        "diversity": diversity_stats,
+        "articles": selected,
     }, ensure_ascii=False, default=str)
 
 
@@ -175,6 +197,9 @@ def search_news(
     sphere: str = "",
     language: str = "",
     limit: int = 20,
+    diversify_results: bool = True,
+    max_per_source: int = 3,
+    max_per_sphere: int = 5,
 ) -> str:
     """Full-text search news (FTS5 across title/lead, English + original).
 
@@ -185,6 +210,10 @@ def search_news(
         sphere: Optional sphere filter
         language: Optional language filter
         limit: 1–50 (default: 20)
+        diversify_results: round-robin across sources/spheres so one prolific
+                feed cannot dominate the result. Default: True.
+        max_per_source: when diversify_results=True, max articles from one source (default 3).
+        max_per_sphere: when diversify_results=True, max articles from one primary sphere (default 5).
     """
     days = max(1, min(21, days))
     limit = max(1, min(50, limit))
@@ -217,8 +246,12 @@ def search_news(
     if language:
         sql += " AND a.language = ?"
         params.append(language)
+
+    fetch_limit = limit * 5 if diversify_results else limit
+    fetch_limit = min(fetch_limit, 300)
+
     sql += " ORDER BY a.published_at DESC LIMIT ?"
-    params.append(limit)
+    params.append(fetch_limit)
 
     with get_db() as conn:
         try:
@@ -226,9 +259,18 @@ def search_news(
         except sqlite3.OperationalError as e:
             return json.dumps({"error": f"FTS query error: {e}"})
 
+    selected, diversity_stats = diversify(
+        rows, limit=limit,
+        max_per_source=max_per_source,
+        max_per_sphere=max_per_sphere,
+        enabled=diversify_results,
+    )
+
     return json.dumps({
         "query": query, "fts_query": fts_query, "days": days,
-        "count": len(rows), "articles": rows,
+        "count": len(selected),
+        "diversity": diversity_stats,
+        "articles": selected,
     }, ensure_ascii=False, default=str)
 
 
