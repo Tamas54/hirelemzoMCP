@@ -37,7 +37,7 @@ from echolot_health import compute_health
 from echolot_diversity import diversify
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
-from echolot_twitter import is_twitter_status_url, fetch_tweet_og
+from echolot_og_fastpath import match_platform, fetch_og
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -655,11 +655,14 @@ def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
     if not url.strip():
         return json.dumps({"error": "Empty url"})
 
-    # X / Twitter fast-path: the JS stub embeds the full tweet text in
-    # og:description, so a 300ms HTTP GET beats the 30-180s Brave render path.
-    if is_twitter_status_url(url):
-        og = fetch_tweet_og(url)
-        if og is not None:
+    # Social-media / short-post fast-path: many platforms (Twitter/X, Reddit,
+    # LinkedIn, Threads, Instagram, Mastodon, Bluesky, HN, …) embed the full
+    # post text in og:description for link-preview cards. A 300ms HTTP GET
+    # extracts it — beats the 30-180s Brave-chain render path.
+    platform = match_platform(url)
+    if platform:
+        og = fetch_og(url)
+        if og is not None and og["content_usable"]:
             text = og["text"]
             total = len(text)
             if max_chars and total > max_chars:
@@ -667,15 +670,15 @@ def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
             return json.dumps({
                 "url": url,
                 "robust": False,
-                "fast_path": "twitter_og",
-                "content_usable": og["content_usable"],
-                "block_reason": og["block_reason"],
+                "fast_path": f"og:{platform}",
+                "content_usable": True,
+                "block_reason": None,
                 "title": og["title"],
                 "text": text,
                 "text_len_total": total,
-                "tweet_meta": og["tweet_meta"],
+                "og_meta": og["og_meta"],
             }, ensure_ascii=False, default=str)
-        # OG-fetch failed (network etc.) — fall through to Brave as fallback.
+        # OG-fetch failed or empty — fall through to Brave as fallback.
 
     result = brave_fetch_sync(url, robust=robust)
     if result is None:
