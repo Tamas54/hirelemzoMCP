@@ -104,15 +104,18 @@ def compute_health(db_path: str | Path,
             GROUP BY je.value
         """).fetchall()
 
-        # datetime(a.published_at) normalizes mixed-tz ISO strings to UTC so
-        # MAX/comparisons are correct regardless of feed origin timezone.
+        # SQL uses plain string MAX on published_at (older SQLite builds on
+        # Railway return NULL for datetime() on ISO strings with +HH:MM offset).
+        # The age is computed in Python with proper tz awareness anyway, so
+        # string-max is good enough — same-sphere articles are typically same
+        # timezone, and mixed-zone spheres only see a few hours of skew.
         sphere_articles = conn.execute("""
             SELECT je.value AS sphere,
-                   SUM(CASE WHEN datetime(a.published_at) >= datetime('now', '-7 days')
+                   SUM(CASE WHEN a.published_at >= datetime('now', '-7 days')
                             THEN 1 ELSE 0 END) AS article_count_7d,
-                   SUM(CASE WHEN datetime(a.published_at) >= datetime('now', '-24 hours')
+                   SUM(CASE WHEN a.published_at >= datetime('now', '-24 hours')
                             THEN 1 ELSE 0 END) AS article_count_24h,
-                   MAX(datetime(a.published_at)) AS latest_at
+                   MAX(a.published_at) AS latest_at
             FROM articles a, json_each(a.spheres_json) je
             GROUP BY je.value
         """).fetchall()
@@ -120,7 +123,7 @@ def compute_health(db_path: str | Path,
         top_active = conn.execute("""
             SELECT source_id, source_name, COUNT(*) AS articles_24h
             FROM articles
-            WHERE datetime(published_at) >= datetime('now', '-24 hours')
+            WHERE published_at >= datetime('now', '-24 hours')
             GROUP BY source_id, source_name
             ORDER BY articles_24h DESC
             LIMIT ?
@@ -128,7 +131,7 @@ def compute_health(db_path: str | Path,
 
         slowest = conn.execute("""
             SELECT s.id AS source_id, s.name AS source_name,
-                   MAX(datetime(a.published_at)) AS latest_at,
+                   MAX(a.published_at) AS latest_at,
                    COUNT(a.article_id) AS lifetime_count
             FROM sources s
             LEFT JOIN articles a ON a.source_id = s.id
