@@ -52,6 +52,10 @@ SOURCES_PATH = Path(os.getenv("SOURCES_PATH", "sources.yaml"))
 
 FETCH_TIMEOUT_S = int(os.getenv("ECHOLOT_FETCH_TIMEOUT", "30"))
 FETCH_CONCURRENCY = int(os.getenv("ECHOLOT_CONCURRENCY", "20"))
+# Per-feed entry cap. Prolific sources (Sydney Morning Herald, Hindustan Times,
+# Breitbart, etc.) hit the previous 50-cap every scrape cycle and were losing
+# articles. 200 is well above any feed's actual entry count.
+MAX_ENTRIES_PER_FEED = int(os.getenv("ECHOLOT_MAX_ENTRIES_PER_FEED", "200"))
 USER_AGENT = os.getenv("ECHOLOT_UA", "Echolot/1.0 (+https://github.com/Tamas54/hirelemzoMCP)")
 RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "21"))
 
@@ -361,7 +365,7 @@ async def fetch_rss(session: aiohttp.ClientSession, src: Source) -> tuple[Source
         return src, [], f"parse error: {e}"
 
     articles: list[Article] = []
-    for entry in feed.entries[:50]:
+    for entry in feed.entries[:MAX_ENTRIES_PER_FEED]:
         url = (entry.get("link") or "").strip()
         title = (entry.get("title") or "").strip()
         if not url or not title:
