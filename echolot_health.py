@@ -139,6 +139,22 @@ def compute_health(db_path: str | Path,
             ORDER BY (latest_at IS NULL) DESC, latest_at ASC
             LIMIT ?
         """, (top_n,)).fetchall()
+
+        # full_text progress (populated by the Brave-MCP fetcher worker).
+        # Columns may not exist on very old DBs — guard the query.
+        try:
+            ft_row = conn.execute("""
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN full_text_status = 'ok'      THEN 1 ELSE 0 END) AS ok,
+                    SUM(CASE WHEN full_text_status = 'blocked' THEN 1 ELSE 0 END) AS blocked,
+                    SUM(CASE WHEN full_text_status = 'pending' THEN 1 ELSE 0 END) AS pending,
+                    SUM(CASE WHEN full_text_status IS NULL     THEN 1 ELSE 0 END) AS not_fetched,
+                    MAX(full_text_fetched_at) AS last_fetched_at
+                FROM articles
+            """).fetchone()
+        except sqlite3.OperationalError:
+            ft_row = None
     finally:
         conn.close()
 
@@ -192,6 +208,27 @@ def compute_health(db_path: str | Path,
             "lifetime_article_count": r["lifetime_count"],
         })
 
+    if ft_row is not None and ft_row["total"]:
+        total = ft_row["total"] or 0
+        ok = ft_row["ok"] or 0
+        blocked = ft_row["blocked"] or 0
+        attempted = ok + blocked
+        full_text_progress = {
+            "total_articles": total,
+            "ok": ok,
+            "blocked": blocked,
+            "pending": ft_row["pending"] or 0,
+            "not_fetched": ft_row["not_fetched"] or 0,
+            "pct_attempted": round(100.0 * attempted / total, 1),
+            "pct_full_text_ok": round(100.0 * ok / total, 1),
+            "last_fetched_at": ft_row["last_fetched_at"],
+        }
+    else:
+        full_text_progress = {"total_articles": 0, "ok": 0, "blocked": 0,
+                              "pending": 0, "not_fetched": 0,
+                              "pct_attempted": 0.0, "pct_full_text_ok": 0.0,
+                              "last_fetched_at": None}
+
     return {
         "checked_at": now_utc.isoformat(timespec="seconds") + "Z",
         "thresholds_minutes": {
@@ -199,6 +236,7 @@ def compute_health(db_path: str | Path,
             "yellow_below": yellow_max_minutes,
         },
         "summary": summary,
+        "full_text_progress": full_text_progress,
         "spheres": spheres_out,
         "top_active_sources_24h": top_active_out,
         "slowest_sources": slowest_out,
