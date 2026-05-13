@@ -37,6 +37,7 @@ from echolot_health import compute_health
 from echolot_diversity import diversify
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
+from echolot_twitter import is_twitter_status_url, fetch_tweet_og
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -653,6 +654,28 @@ def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
     """
     if not url.strip():
         return json.dumps({"error": "Empty url"})
+
+    # X / Twitter fast-path: the JS stub embeds the full tweet text in
+    # og:description, so a 300ms HTTP GET beats the 30-180s Brave render path.
+    if is_twitter_status_url(url):
+        og = fetch_tweet_og(url)
+        if og is not None:
+            text = og["text"]
+            total = len(text)
+            if max_chars and total > max_chars:
+                text = text[:max_chars] + f"\n…[truncated, full length {total} chars]"
+            return json.dumps({
+                "url": url,
+                "robust": False,
+                "fast_path": "twitter_og",
+                "content_usable": og["content_usable"],
+                "block_reason": og["block_reason"],
+                "title": og["title"],
+                "text": text,
+                "text_len_total": total,
+                "tweet_meta": og["tweet_meta"],
+            }, ensure_ascii=False, default=str)
+        # OG-fetch failed (network etc.) — fall through to Brave as fallback.
 
     result = brave_fetch_sync(url, robust=robust)
     if result is None:
