@@ -83,12 +83,15 @@ def main():
     t.start()
     log.info("scraper thread launched")
 
-    if os.environ.get("BRAVE_FETCH_ENABLED", "false").lower() in {"1", "true", "yes"}:
+    # Brave fetcher activates when BRAVE_MCP_URL env var is set.
+    # No URL = no fetcher (safe default for local/dev runs).
+    brave_url = os.environ.get("BRAVE_MCP_URL", "").strip()
+    if brave_url:
         t2 = threading.Thread(target=brave_fetcher_thread, daemon=True, name="brave-fetcher")
         t2.start()
-        log.info("brave-fetcher thread launched")
+        log.info("brave-fetcher thread launched (BRAVE_MCP_URL=%s)", brave_url)
     else:
-        log.info("brave-fetcher disabled (set BRAVE_FETCH_ENABLED=true to enable)")
+        log.info("brave-fetcher disabled (set BRAVE_MCP_URL to enable)")
 
     log.info("starting Echolot MCP server")
     import uvicorn
