@@ -200,8 +200,9 @@ def search_news(
     diversify_results: bool = True,
     max_per_source: int = 3,
     max_per_sphere: int = 5,
+    include_full_text: bool = True,
 ) -> str:
-    """Full-text search news (FTS5 across title/lead, English + original).
+    """Full-text search news (FTS5 across title, lead, and full article text).
 
     Args:
         query: Search keywords (e.g. "Trump tariffs", "MNB kamatdöntés", "iran nuclear")
@@ -214,6 +215,8 @@ def search_news(
                 feed cannot dominate the result. Default: True.
         max_per_source: when diversify_results=True, max articles from one source (default 3).
         max_per_sphere: when diversify_results=True, max articles from one primary sphere (default 5).
+        include_full_text: search article bodies (Brave-fetched) too, not just
+                title and lead. Default: True. Set False for strict headline matching.
     """
     days = max(1, min(21, days))
     limit = max(1, min(50, limit))
@@ -222,11 +225,15 @@ def search_news(
     if not query.strip():
         return json.dumps({"error": "Empty query"})
 
-    # FTS5 query — quote each term, OR them so partial matches work
+    # FTS5 query — quote each term, OR them so partial matches work.
+    # When include_full_text=False, restrict to title+lead columns via FTS5 column-filter.
     terms = [t for t in query.split() if len(t) > 2]
     if not terms:
         return json.dumps({"error": "Query too short — use 3+ char terms"})
-    fts_query = " OR ".join(f'"{t}"' for t in terms)
+    if include_full_text:
+        fts_query = " OR ".join(f'"{t}"' for t in terms)
+    else:
+        fts_query = " OR ".join(f'{{title lead}}:"{t}"' for t in terms)
 
     sql = """SELECT a.title, a.lead, a.url, a.source_name,
                     a.category, a.language, a.published_at, a.spheres_json,
@@ -473,17 +480,21 @@ def get_spheres() -> str:
 
 
 @mcp.tool()
-def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5) -> str:
+def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
+                         include_full_text: bool = True) -> str:
     """Across-sphere narrative comparison: "what does each sphere say about X?"
 
-    Searches FTS5 (title + lead, English + original), groups results by sphere,
-    so you can see e.g. how cn_state, iran_regime, iran_opposition, ua_front_osint,
-    and us_liberal_press cover the same topic side by side.
+    Searches FTS5 across title, lead, and (Brave-fetched) full article text,
+    then groups results by sphere — so you can see e.g. how cn_state,
+    iran_regime, iran_opposition, ua_front_osint, and us_liberal_press cover
+    the same topic side by side.
 
     Args:
         query: FTS terms (e.g. "iran nuclear", "taiwan", "trump powell")
         days: Look back N days (default: 3, max 21)
         per_sphere_limit: Max items per sphere (default: 5, max 20)
+        include_full_text: search article bodies too (default: True). Set
+                False to restrict matching to title+lead only.
     """
     days = max(1, min(21, days))
     per_sphere_limit = max(1, min(20, per_sphere_limit))
@@ -493,7 +504,10 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5) -
     terms = [t for t in query.split() if len(t) > 2]
     if not terms:
         return json.dumps({"error": "Query too short"})
-    fts_query = " OR ".join(f'"{t}"' for t in terms)
+    if include_full_text:
+        fts_query = " OR ".join(f'"{t}"' for t in terms)
+    else:
+        fts_query = " OR ".join(f'{{title lead}}:"{t}"' for t in terms)
     since = (datetime.now() - timedelta(days=days)).isoformat()
 
     sql = """

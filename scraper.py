@@ -176,6 +176,7 @@ CREATE INDEX IF NOT EXISTS ix_articles_language  ON articles(language);
 CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
     title,
     lead,
+    full_text,
     article_id UNINDEXED,
     tokenize='unicode61 remove_diacritics 2'
 );
@@ -231,6 +232,31 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, decl: str)
         log.info("added column %s.%s", table, column)
 
 
+def _ensure_fts_has_full_text(conn: sqlite3.Connection) -> None:
+    """FTS5 has no ALTER — if articles_fts is the old 2-column shape, drop and
+    rebuild with the 3-column shape (title, lead, full_text), then re-index
+    from the articles table. Idempotent: if full_text column already present,
+    no-op.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(articles_fts)").fetchall()}
+    if "full_text" in cols:
+        return
+    log.info("migrating articles_fts: adding full_text column (drop + rebuild)")
+    conn.execute("DROP TABLE articles_fts")
+    conn.execute("""
+        CREATE VIRTUAL TABLE articles_fts USING fts5(
+            title, lead, full_text, article_id UNINDEXED,
+            tokenize='unicode61 remove_diacritics 2'
+        )
+    """)
+    conn.execute("""
+        INSERT INTO articles_fts (article_id, title, lead, full_text)
+        SELECT article_id, title, lead, COALESCE(full_text, '') FROM articles
+    """)
+    log.info("articles_fts rebuilt with %d rows",
+             conn.execute("SELECT COUNT(*) FROM articles_fts").fetchone()[0])
+
+
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_db() as conn:
@@ -241,6 +267,7 @@ def init_db() -> None:
         _ensure_column(conn, "articles", "full_text_status", "TEXT")
         _ensure_column(conn, "articles", "full_text_fetched_at", "TEXT")
         _ensure_column(conn, "articles", "full_text_block_reason", "TEXT")
+        _ensure_fts_has_full_text(conn)
     log.info("DB initialised at %s", DB_PATH)
 
 
@@ -298,7 +325,7 @@ def upsert_article(conn: sqlite3.Connection, art: Article) -> bool:
     except sqlite3.IntegrityError:
         return False  # race
     conn.execute(
-        "INSERT INTO articles_fts (article_id, title, lead) VALUES (?, ?, ?)",
+        "INSERT INTO articles_fts (article_id, title, lead, full_text) VALUES (?, ?, ?, '')",
         (art.article_id, art.title, art.lead),
     )
     return True

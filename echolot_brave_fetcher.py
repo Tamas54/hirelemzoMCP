@@ -95,6 +95,16 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
                     full_text_fetched_at=?, full_text_block_reason=NULL
                 WHERE article_id=?
             """, (text, now, article_id))
+            # Keep FTS index in sync so search_news can hit the full text.
+            # If articles_fts is still the old 2-column shape (pre-migration),
+            # this update is a no-op which is fine — next init_db migrates.
+            try:
+                conn.execute(
+                    "UPDATE articles_fts SET full_text=? WHERE article_id=?",
+                    (text, article_id),
+                )
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
         return "ok"
 
