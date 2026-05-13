@@ -150,18 +150,22 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 
 CREATE TABLE IF NOT EXISTS articles (
-    article_id      TEXT PRIMARY KEY,
-    source_id       TEXT NOT NULL REFERENCES sources(id),
-    source_name     TEXT NOT NULL,
-    title           TEXT NOT NULL,
-    lead            TEXT,
-    url             TEXT NOT NULL UNIQUE,
-    published_at    TEXT,
-    language        TEXT NOT NULL,
-    category        TEXT NOT NULL DEFAULT 'general',
-    spheres_json    TEXT NOT NULL,
-    fetched_at      TEXT NOT NULL,
-    content_hash    TEXT
+    article_id              TEXT PRIMARY KEY,
+    source_id               TEXT NOT NULL REFERENCES sources(id),
+    source_name             TEXT NOT NULL,
+    title                   TEXT NOT NULL,
+    lead                    TEXT,
+    url                     TEXT NOT NULL UNIQUE,
+    published_at            TEXT,
+    language                TEXT NOT NULL,
+    category                TEXT NOT NULL DEFAULT 'general',
+    spheres_json            TEXT NOT NULL,
+    fetched_at              TEXT NOT NULL,
+    content_hash            TEXT,
+    full_text               TEXT,
+    full_text_status        TEXT,
+    full_text_fetched_at    TEXT,
+    full_text_block_reason  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS ix_articles_published ON articles(published_at DESC);
@@ -219,10 +223,24 @@ def get_db():
         conn.close()
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
+    """Idempotent ALTER TABLE ADD COLUMN — SQLite has no IF NOT EXISTS for columns."""
+    cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        log.info("added column %s.%s", table, column)
+
+
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        # Backfill columns on existing databases (idempotent).
+        # Full-text fetched by the Brave-MCP background worker (echolot_brave_fetcher).
+        _ensure_column(conn, "articles", "full_text", "TEXT")
+        _ensure_column(conn, "articles", "full_text_status", "TEXT")
+        _ensure_column(conn, "articles", "full_text_fetched_at", "TEXT")
+        _ensure_column(conn, "articles", "full_text_block_reason", "TEXT")
     log.info("DB initialised at %s", DB_PATH)
 
 
