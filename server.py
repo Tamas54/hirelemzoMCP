@@ -35,6 +35,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 
 from echolot_health import compute_health
 from echolot_diversity import diversify
+from echolot_velocity import compute_sphere_velocity
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
@@ -598,6 +599,47 @@ def echolot_health(
         green_max_minutes=green_max_minutes,
         yellow_max_minutes=yellow_max_minutes,
         top_n=top_n,
+    )
+    return json.dumps(report, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def echolot_velocity(
+    window_hours: int = 6,
+    baseline_offset_hours: int = 24,
+    min_baseline: int = 2,
+    limit: int = 30,
+) -> str:
+    """Which spheres are spiking right now? — sphere-level news velocity.
+
+    For each sphere, compares article volume in a recent window (default
+    last 6h) against a baseline window (default same hours yesterday).
+    Returns velocity_ratio + a status: spike / rising / normal / quiet.
+
+    Use this to spot "the Iran-opposition sphere is unusually loud in the
+    last 6h" or "global_climate is dead quiet today vs yesterday".
+
+    Args:
+        window_hours: recent window size, default 6
+        baseline_offset_hours: how far back the baseline starts (24 = same
+                hours yesterday), default 24
+        min_baseline: skip spheres with fewer than this many baseline
+                articles (avoids ratio noise on tiny spheres), default 2
+        limit: max spheres to return, default 30
+
+    Returns JSON with `spheres`: list of {sphere, current_count,
+    baseline_count, velocity_ratio, status}, ordered by velocity_ratio desc
+    (spikes first).
+    """
+    window_hours = max(1, min(48, window_hours))
+    baseline_offset_hours = max(1, min(168, baseline_offset_hours))
+    limit = max(1, min(63, limit))
+    report = compute_sphere_velocity(
+        DB_PATH,
+        window_hours=window_hours,
+        baseline_offset_hours=baseline_offset_hours,
+        min_baseline=min_baseline,
+        limit=limit,
     )
     return json.dumps(report, ensure_ascii=False, default=str)
 
