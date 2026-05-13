@@ -35,6 +35,8 @@ from starlette.responses import HTMLResponse, JSONResponse
 
 from echolot_health import compute_health
 from echolot_diversity import diversify
+from echolot_brave_client import search_sync as brave_search_sync
+from echolot_brave_client import fetch_sync as brave_fetch_sync
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -201,6 +203,8 @@ def search_news(
     max_per_source: int = 3,
     max_per_sphere: int = 5,
     include_full_text: bool = True,
+    include_web: bool = False,
+    web_count: int = 5,
 ) -> str:
     """Full-text search news (FTS5 across title, lead, and full article text).
 
@@ -217,6 +221,10 @@ def search_news(
         max_per_sphere: when diversify_results=True, max articles from one primary sphere (default 5).
         include_full_text: search article bodies (Brave-fetched) too, not just
                 title and lead. Default: True. Set False for strict headline matching.
+        include_web: also run a Brave web search and return the results under
+                `web_results` in the response. Default: False (the corpus is
+                primary; web is opt-in augmentation).
+        web_count: when include_web=True, how many web results to return (default 5).
     """
     days = max(1, min(21, days))
     limit = max(1, min(50, limit))
@@ -273,12 +281,25 @@ def search_news(
         enabled=diversify_results,
     )
 
-    return json.dumps({
+    web_results = None
+    if include_web:
+        web_count = max(1, min(20, web_count))
+        try:
+            web_results = brave_search_sync(query, count=web_count) or []
+        except Exception as exc:
+            logger.warning("web search failed for %r: %s", query, exc)
+            web_results = []
+
+    response: dict = {
         "query": query, "fts_query": fts_query, "days": days,
         "count": len(selected),
         "diversity": diversity_stats,
         "articles": selected,
-    }, ensure_ascii=False, default=str)
+    }
+    if include_web:
+        response["web_results"] = web_results
+        response["web_count"] = len(web_results) if web_results else 0
+    return json.dumps(response, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
@@ -578,6 +599,82 @@ def echolot_health(
         top_n=top_n,
     )
     return json.dumps(report, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def search_web(query: str, count: int = 10) -> str:
+    """Web search via our brave-mcp-server — independent of the Echolot corpus.
+
+    Use this when you need fresh internet results (current events, niche
+    topics, anything outside our 315 RSS sources). Returns Brave web search
+    hits as plain {title, url, description} dicts.
+
+    Args:
+        query: free-form search query (any language)
+        count: number of results to return, 1–30 (default: 10)
+    """
+    count = max(1, min(30, count))
+    if not query.strip():
+        return json.dumps({"error": "Empty query"})
+
+    results = brave_search_sync(query, count=count)
+    if results is None:
+        return json.dumps({"error": "Brave search unavailable",
+                           "query": query, "count": 0, "results": []},
+                          ensure_ascii=False)
+
+    return json.dumps({
+        "query": query, "engine": "brave", "count": len(results),
+        "results": results,
+    }, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
+    """Scrape any URL via our brave-mcp-server and return its main text.
+
+    Works for news articles, blog posts, social-media post pages (Twitter/X,
+    Reddit, etc.), forums, paywalled sites at varying success rates. Set
+    robust=True for tough sites (Reuters, Cloudflare-protected) — engages
+    the 7-level anti-bot chain (slower).
+
+    Args:
+        url: any HTTP/HTTPS URL to scrape
+        robust: True = use the 7-level anti-bot escalation chain (slower
+                but works on Reuters/DataDome/Cloudflare). Default False.
+        max_chars: cap the returned text length to keep responses agent-friendly.
+                Default 8000. Set 0 for no cap.
+
+    Returns:
+        JSON with: content_usable, block_reason, title, text (truncated),
+        text_len_total, url. Empty/blocked content sets content_usable=false
+        and explains via block_reason ("paywall_banner", "cloudflare_challenge",
+        "empty_response", etc.).
+    """
+    if not url.strip():
+        return json.dumps({"error": "Empty url"})
+
+    result = brave_fetch_sync(url, robust=robust)
+    if result is None:
+        return json.dumps({"error": "Brave scrape unavailable",
+                           "url": url, "content_usable": False},
+                          ensure_ascii=False)
+
+    text = result.get("text") or result.get("markdown") or ""
+    total = len(text)
+    if max_chars and total > max_chars:
+        text = text[:max_chars] + f"\n…[truncated, full length {total} chars]"
+
+    return json.dumps({
+        "url": url,
+        "robust": robust,
+        "content_usable": result.get("content_usable"),
+        "block_reason": result.get("block_reason"),
+        "title": result.get("title"),
+        "text": text,
+        "text_len_total": total,
+        "escalation_path": result.get("escalation_path"),
+    }, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
