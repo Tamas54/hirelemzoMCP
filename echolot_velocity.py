@@ -66,18 +66,30 @@ def compute_sphere_velocity(
 
     conn = _connect(db_path)
     try:
-        # One query: for each sphere, count articles in current and baseline windows.
-        # json_each unpacks the spheres_json list so each article counts in every
-        # sphere it belongs to.
+        # Two filtering rules baked in here:
+        #   1) We compare on fetched_at, not published_at. published_at carries
+        #      mixed source timezones (+10:00, +02:00, Z) that older SQLite
+        #      datetime() builds (Railway image) can't normalize. fetched_at
+        #      is UTC ISO set by the scraper, and "what's spiking right now"
+        #      is more honestly about ingest cadence than about source-side
+        #      publication time anyway.
+        #   2) Both sides of the comparison are normalized via
+        #      strftime('%Y-%m-%dT%H:%M:%S', ...). fetched_at is stored as
+        #      "YYYY-MM-DDTHH:MM:SS.ffffff+00:00" — datetime('now') alone would
+        #      give "YYYY-MM-DD HH:MM:SS" (space, no T), which loses to the
+        #      stored format lexicographically. strftime forces T on both sides.
+        #
+        # json_each unpacks the spheres_json list so each article counts in
+        # every sphere it belongs to.
         rows = conn.execute(f"""
             SELECT je.value AS sphere,
-                   SUM(CASE WHEN a.published_at >= datetime('now', '-{window_hours} hours')
+                   SUM(CASE WHEN a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{window_hours} hours')
                             THEN 1 ELSE 0 END) AS current_count,
-                   SUM(CASE WHEN a.published_at >= datetime('now', '-{baseline_start} hours')
-                              AND a.published_at <  datetime('now', '-{baseline_end} hours')
+                   SUM(CASE WHEN a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_start} hours')
+                              AND a.fetched_at <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_end} hours')
                             THEN 1 ELSE 0 END) AS baseline_count
             FROM articles a, json_each(a.spheres_json) je
-            WHERE a.published_at >= datetime('now', '-{baseline_start + 1} hours')
+            WHERE a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_start + 1} hours')
             GROUP BY je.value
         """).fetchall()
     finally:
