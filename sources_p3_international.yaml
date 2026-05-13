@@ -1,0 +1,311 @@
+# Echolot P3 — additional international sources.
+#
+# Loaded by scraper.load_sources() alongside sources.yaml.
+# Hungarian sources stay in sources.yaml; this file is non-Hungarian only.
+#
+# Layout: same as sources.yaml — a top-level list of source dicts.
+
+# ============================================================================
+# Reddit — subreddit RSS feeds
+# Each subreddit RSS: https://www.reddit.com/r/<sub>/.rss
+# ============================================================================
+
+- id: reddit_wallstreetbets
+  name: r/wallstreetbets
+  url: https://www.reddit.com/r/wallstreetbets/.rss
+  spheres: [reddit_finance, global_economy]
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: gazdaság
+  source_type: rss
+  notes: Retail trader sentiment, often noisy
+
+- id: reddit_stocks
+  name: r/stocks
+  url: https://www.reddit.com/r/stocks/.rss
+  spheres: [reddit_finance, global_economy]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: gazdaság
+  source_type: rss
+
+- id: reddit_investing
+  name: r/investing
+  url: https://www.reddit.com/r/investing/.rss
+  spheres: [reddit_finance, global_economy]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: gazdaság
+  source_type: rss
+
+- id: reddit_securityanalysis
+  name: r/SecurityAnalysis
+  url: https://www.reddit.com/r/SecurityAnalysis/.rss
+  spheres: [reddit_finance, global_economy]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: gazdaság
+  source_type: rss
+
+- id: reddit_geopolitics
+  name: r/geopolitics
+  url: https://www.reddit.com/r/geopolitics/.rss
+  spheres: [reddit_geopol, global_analysis]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+
+- id: reddit_crediblefefense
+  name: r/CredibleDefense
+  url: https://www.reddit.com/r/CredibleDefense/.rss
+  spheres: [reddit_geopol, global_osint]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: reddit_europe
+  name: r/europe
+  url: https://www.reddit.com/r/europe/.rss
+  spheres: [reddit_geopol, regional_uk]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+
+- id: reddit_worldnews
+  name: r/worldnews
+  url: https://www.reddit.com/r/worldnews/.rss
+  spheres: [reddit_geopol, global_press]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+
+- id: reddit_irstudies
+  name: r/IRstudies
+  url: https://www.reddit.com/r/IRstudies/.rss
+  spheres: [reddit_geopol, global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: reddit_ukrainewar
+  name: r/UkraineWarVideoReport
+  url: https://www.reddit.com/r/UkraineWarVideoReport/.rss
+  spheres: [reddit_ua_war, ua_front_osint]
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+
+- id: reddit_ukrainianconflict
+  name: r/UkrainianConflict
+  url: https://www.reddit.com/r/UkrainianConflict/.rss
+  spheres: [reddit_ua_war, ua_front_osint]
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: foreign
+  source_type: rss
+
+- id: reddit_machinelearning
+  name: r/MachineLearning
+  url: https://www.reddit.com/r/MachineLearning/.rss
+  spheres: [reddit_tech, global_tech, global_ai]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: reddit_localllama
+  name: r/LocalLLaMA
+  url: https://www.reddit.com/r/LocalLLaMA/.rss
+  spheres: [reddit_tech, global_ai]
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: reddit_singularity
+  name: r/singularity
+  url: https://www.reddit.com/r/singularity/.rss
+  spheres: [reddit_tech, global_ai]
+  language: en
+  trust_tier: 3
+  lean: unknown
+  category: tech
+  source_type: rss
+
+- id: reddit_programming
+  name: r/programming
+  url: https://www.reddit.com/r/programming/.rss
+  spheres: [reddit_tech, global_tech]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: tech
+  source_type: rss
+
+# ============================================================================
+# Substack — newsletter RSS feeds (international, English)
+# ============================================================================
+
+- id: substack_apricitas
+  name: Apricitas Economics (Joey Politano)
+  url: https://www.apricitas.io/feed
+  spheres: [us_liberal_substack, global_economy]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: gazdaság
+  source_type: rss
+
+- id: substack_noahpinion
+  name: Noahpinion (Noah Smith)
+  url: https://www.noahpinion.blog/feed
+  spheres: [us_liberal_substack, global_economy]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: gazdaság
+  source_type: rss
+
+- id: substack_stoller
+  name: BIG by Matt Stoller
+  url: https://mattstoller.substack.com/feed
+  spheres: [us_liberal_substack, global_economy]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: gazdaság
+  source_type: rss
+
+- id: substack_doomberg
+  name: Doomberg
+  url: https://doomberg.substack.com/feed
+  spheres: [us_maga_substack, global_economy]
+  language: en
+  trust_tier: 2
+  lean: right
+  category: gazdaság
+  source_type: rss
+
+- id: substack_commentisfreed
+  name: Comment is Freed (Lawrence & Sam Freedman)
+  url: https://samf.substack.com/feed
+  spheres: [global_analysis, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: substack_chinatalk
+  name: ChinaTalk (Jordan Schneider)
+  url: https://www.chinatalk.media/feed
+  spheres: [cn_diaspora_analysis, global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: substack_phillipsobrien
+  name: Phillips's Newsletter (Phillips O'Brien)
+  url: https://phillipspobrien.substack.com/feed
+  spheres: [global_analysis, ua_front_osint]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: substack_importai
+  name: Import AI (Jack Clark)
+  url: https://importai.substack.com/feed
+  spheres: [global_ai, global_tech]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: substack_aisnakeoil
+  name: AI Snake Oil (Narayanan & Kapoor)
+  url: https://www.aisnakeoil.com/feed
+  spheres: [global_ai, global_tech]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: tech
+  source_type: rss
+
+# ============================================================================
+# Mastodon — RSS via /@user.rss
+# ============================================================================
+
+- id: mastodon_nspector
+  name: Nicholas Spector (Mastodon)
+  url: https://mastodon.social/@nspector.rss
+  spheres: [mastodon_tech, global_tech]
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: tech
+  source_type: rss
+  notes: Infosec, OSS contributor commentary
+
+- id: mastodon_briankrebs
+  name: Brian Krebs (Mastodon, infosec)
+  url: https://infosec.exchange/@briankrebs.rss
+  spheres: [mastodon_tech, global_tech]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: mastodon_dangoodin
+  name: Dan Goodin (Ars Technica security)
+  url: https://infosec.exchange/@dangoodin.rss
+  spheres: [mastodon_tech, global_tech]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: tech
+  source_type: rss
+
+# ============================================================================
+# Bluesky — uncertain RSS support, probe entries (drop if scraper logs 404)
+# Pattern: https://bsky.app/profile/<handle>/rss  (NOT officially supported)
+# Backup: https://openbluesky.netlify.app/<handle> third-party RSS bridges
+# ============================================================================
+# NOTE: keep this list small until the scrape success is verified — Bluesky
+# native RSS is unreliable in 2026. If we see 404 in fetch_log, switch to
+# AT-protocol or a bsky-rss bridge.
+
+- id: bsky_journalism_test
+  name: Bluesky probe (journalism account)
+  url: https://bsky.app/profile/joshtpm.bsky.social/rss
+  spheres: [bsky_journalism, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+  notes: Probe — Josh Marshall (TPM editor); verify RSS works before adding more

@@ -123,8 +123,28 @@ class Article:
 
 def load_sources(path: Path = SOURCES_PATH) -> list[Source]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []
-    sources = [Source.from_dict(d) for d in raw]
-    log.info("loaded %d sources from %s", len(sources), path)
+    log.info("loaded %d sources from %s", len(raw), path)
+
+    # Optionally load extra source-pack(s) for P3 expansion (Reddit, Substack,
+    # Mastodon, Bluesky, etc.). Files are merged onto the main list with
+    # later entries overriding earlier ones if id collides.
+    extra_paths = [
+        Path(os.getenv("SOURCES_EXTRA_PATH", "sources_p3_international.yaml")),
+    ]
+    by_id: dict[str, dict] = {s["id"]: s for s in raw if "id" in s}
+    for ep in extra_paths:
+        if not ep.exists():
+            continue
+        extra = yaml.safe_load(ep.read_text(encoding="utf-8")) or []
+        new_n = sum(1 for s in extra if "id" in s and s["id"] not in by_id)
+        for s in extra:
+            if "id" in s:
+                by_id[s["id"]] = s
+        log.info("loaded %d sources from %s (%d new)", len(extra), ep, new_n)
+
+    merged = list(by_id.values())
+    sources = [Source.from_dict(d) for d in merged]
+    log.info("total sources after merge: %d", len(sources))
     return sources
 
 
