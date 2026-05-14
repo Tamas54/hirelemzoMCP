@@ -309,3 +309,122 @@
   category: global
   source_type: rss
   notes: Probe — Josh Marshall (TPM editor); verify RSS works before adding more
+
+# ============================================================================
+# YouTube — channel RSS feeds
+# Pattern: https://www.youtube.com/feeds/videos.xml?channel_id=UCxxxx
+# channel_ids resolved 2026-05-14 from the @-handle pages
+# Only metadata is scraped (title, lead, link, published) — no transcript.
+# ============================================================================
+
+- id: yt_perun
+  name: Perun (military economics)
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCC3ehuUksTyQ7bbjGntmx3Q
+  spheres: [yt_geopol_analysts, global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+  notes: Weekly strategic economics & defense industrial-base briefings
+
+- id: yt_caspian_report
+  name: Caspian Report
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCwnKziETDbHJtx78nIkfYug
+  spheres: [yt_geopol_analysts, global_analysis]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: yt_reallifelore
+  name: RealLifeLore
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCP5tjEmvPItGyLhmjdwP7Ww
+  spheres: [yt_geopol_analysts, global_analysis]
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: yt_goodtimesbadtimes
+  name: GoodTimesBadTimes
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCXW9oUSOwt7mcTT5d_5hQcA
+  spheres: [yt_geopol_analysts, global_analysis]
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: yt_patrick_boyle
+  name: Patrick Boyle (Finance)
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCASM0cgfkJxQ1ICmRilfHLw
+  spheres: [yt_finance, global_economy]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: gazdaság
+  source_type: rss
+
+- id: yt_coffeezilla
+  name: Coffeezilla
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCFQMnBA3CS502aghlcr0_aw
+  spheres: [yt_finance, global_investigative]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: gazdaság
+  source_type: rss
+  notes: Investigative reporting on crypto / financial fraud
+
+- id: yt_joseph_carlson
+  name: Joseph Carlson Show
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCbta0n8i6Rljh0obO7HzG9A
+  spheres: [yt_finance, global_economy]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: gazdaság
+  source_type: rss
+
+- id: yt_two_minute_papers
+  name: Two Minute Papers
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCbfYPyITQ-7l4upoX8nvctg
+  spheres: [yt_tech_ai, global_ai]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: yt_ai_explained
+  name: AI Explained
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCNJ1Ymd5yFuUPtn21xtRbbw
+  spheres: [yt_tech_ai, global_ai]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: yt_3blue1brown
+  name: 3Blue1Brown
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCYO_jab_esuFRV4b17AJtAw
+  spheres: [yt_tech_ai, global_science]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: tech
+  source_type: rss
+
+- id: yt_yannic_kilcher
+  name: Yannic Kilcher
+  url: https://www.youtube.com/feeds/videos.xml?channel_id=UCZHmQk67mSJgfCCTn7xBfew
+  spheres: [yt_tech_ai, global_ai]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: tech
+  source_type: rss
