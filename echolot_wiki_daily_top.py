@@ -25,10 +25,45 @@ CACHE_TTL = 60 * 60  # 1 hour
 _cache: dict[tuple, tuple[float, list]] = {}
 
 SKIP_PREFIXES = (
+    # English
     "Special:", "Wikipedia:", "File:", "Template:", "Help:",
     "Category:", "Portal:", "Draft:", "Module:", "MediaWiki:",
+    "User:", "Talk:",
+    # Hungarian
+    "Speciális:", "Wikipédia:", "Fájl:", "Sablon:", "Súgó:",
+    "Kategória:", "Portál:", "Modul:", "Szerkesztő:", "Vita:",
+    # German
+    "Spezial:", "Hilfe:", "Kategorie:", "Vorlage:", "Datei:",
+    "Diskussion:", "Benutzer:",
+    # French
+    "Spécial:", "Aide:", "Catégorie:", "Modèle:", "Fichier:",
+    "Discussion:", "Utilisateur:",
+    # Spanish
+    "Especial:", "Ayuda:", "Categoría:", "Plantilla:", "Archivo:",
+    "Usuario:",
+    # Italian
+    "Speciale:", "Aiuto:", "Categoria:", "Discussione:", "Utente:",
+    # Russian / Ukrainian (same script)
+    "Служебная:", "Категория:", "Шаблон:", "Файл:", "Участник:",
+    "Спеціальна:", "Категорія:", "Користувач:",
+    # Polish
+    "Specjalna:", "Pomoc:", "Kategoria:", "Szablon:", "Plik:",
+    # Portuguese
+    "Especial:", "Ajuda:", "Categoria:",
+    # Japanese
+    "特別:", "Wikipedia:", "ヘルプ:", "テンプレート:",
+    # Chinese
+    "Special:", "Wikipedia:", "Help:",
 )
-SKIP_EXACT = {"Main_Page", "Kezdőlap", "Hauptseite", "-", "Search"}
+SKIP_EXACT = {
+    # Main page in many wikis
+    "Main_Page", "Kezdőlap", "Hauptseite", "Accueil", "Wikipédia:Accueil_principal",
+    "Wikipedia:Portada", "Pagina_principale", "Главная_страница", "Strona_główna",
+    "メインページ", "Wikipedia:首页", "Hoofdpagina", "Wikipédia:Página_principal",
+    "Головна_сторінка",
+    # Misc
+    "-", "Search", "Keresés",
+}
 
 SUPPORTED_WIKIS = {
     "en", "hu", "de", "fr", "es", "it", "pl", "ru", "uk",
