@@ -45,10 +45,8 @@ def _lang_selector_html(current: str, target: str = "/") -> str:
         sel = " selected" if code == current else ""
         opts.append(f'<option value="{code}"{sel}>{_escape(native)}</option>')
     return f"""
-    <form method="get" action="{target}" class="inline-block">
-      <label class="text-xs text-gray-400 mr-1">{_escape(t('lang.label', current))}:</label>
-      <select name="lang" onchange="this.form.submit()"
-              class="bg-gray-800 text-gray-200 text-sm rounded px-2 py-1 border border-gray-700">
+    <form method="get" action="{target}" class="inline-flex items-center gap-2">
+      <select name="lang" onchange="this.form.submit()" class="lang-select" aria-label="{_escape(t('lang.label', current))}">
         {''.join(opts)}
       </select>
     </form>
@@ -58,41 +56,125 @@ def _lang_selector_html(current: str, target: str = "/") -> str:
 def _nav_html(lang: str, active: str) -> str:
     """Top tab-nav: divergence / trending / spheres / health."""
     tabs = [
-        ("divergence", "/",                "tab.divergence"),
-        ("trending",   "/dashboard/trending", "tab.trending"),
-        ("spheres",    "/dashboard/spheres",  "tab.spheres"),
-        ("health",     "/dashboard/health",   "tab.health"),
+        ("divergence", "/",                    "tab.divergence"),
+        ("trending",   "/dashboard/trending",  "tab.trending"),
+        ("spheres",    "/dashboard/spheres",   "tab.spheres"),
+        ("health",     "/dashboard/health",    "tab.health"),
     ]
     parts = []
     for key, url, t_key in tabs:
-        active_cls = "bg-indigo-700 text-white" if key == active else "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+        active_cls = " active" if key == active else ""
         parts.append(
-            f'<a href="{url}?lang={lang}" class="px-3 py-1.5 rounded text-sm {active_cls}">'
+            f'<a href="{url}?lang={lang}" class="nav-tab{active_cls}">'
             f'{_escape(t(t_key, lang))}</a>'
         )
-    return '<nav class="flex flex-wrap gap-1">' + "".join(parts) + "</nav>"
+    return '<nav class="flex flex-wrap gap-2">' + "".join(parts) + "</nav>"
 
 
 _BASE_STYLES = """
-    body { background: #0a0a0f; color: #e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
-    .sphere-card { background: #14141c; border: 1px solid #1f2937; }
-    .sphere-card:hover { border-color: #374151; }
-    .lean-left      { color: #93c5fd; }
-    .lean-right     { color: #fca5a5; }
-    .lean-center    { color: #d1d5db; }
-    .lean-analytical{ color: #fde68a; }
-    .lean-gov       { color: #c4b5fd; }
-    .lean-opposition{ color: #f9a8d4; }
-    .lean-unknown   { color: #9ca3af; }
-    .trust-1 { background: #064e3b; }
-    .trust-2 { background: #1e3a8a; }
-    .trust-3 { background: #7c2d12; }
-    .status-green  { background: #064e3b; color: #6ee7b7; }
-    .status-yellow { background: #78350f; color: #fcd34d; }
-    .status-red    { background: #7f1d1d; color: #fca5a5; }
+    :root {
+      --primary: #14b8a6;
+      --primary-dim: rgba(20, 184, 166, 0.15);
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-blue: #3b82f6;
+      --bg: #050608;
+      --bg-card: rgba(12, 14, 18, 0.7);
+      --text: #e8eef0;
+      --text-dim: #8a9499;
+      --border: rgba(255, 255, 255, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; overflow-x: hidden; margin: 0;
+    }
+    .ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.18;
+           animation: orb-float 16s ease-in-out infinite alternate; }
+    .orb-1 { background: var(--primary);     width: 600px; height: 600px; top: -200px; left: -200px; }
+    .orb-2 { background: var(--accent-rose); width: 500px; height: 500px; bottom: -150px; right: -150px; animation-delay: 4s; }
+    .orb-3 { background: var(--accent-amber);width: 350px; height: 350px; top: 40%; left: 50%; opacity: 0.1; animation-delay: 7s; }
+    @keyframes orb-float {
+      0%   { transform: translate(0,0) scale(1); }
+      50%  { transform: translate(30px,-40px) scale(1.05); }
+      100% { transform: translate(-20px,20px) scale(0.97); }
+    }
+    .echolot-logo {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.85rem; color: var(--primary);
+      letter-spacing: 0.3em; opacity: 0.9;
+    }
+    .echolot-title {
+      font-weight: 800; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #14b8a6, #06b6d4, #3b82f6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; color: transparent;
+    }
+    .header-bar {
+      position: relative; z-index: 10;
+      border-bottom: 1px solid var(--border);
+      background: rgba(5, 6, 8, 0.7); backdrop-filter: blur(10px);
+    }
+    .nav-tab {
+      padding: 0.4rem 0.85rem; border-radius: 999px; font-size: 0.78rem;
+      text-decoration: none; color: var(--text-dim);
+      border: 1px solid transparent; transition: all 0.18s;
+    }
+    .nav-tab:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+    .nav-tab.active {
+      background: var(--primary-dim); color: var(--primary);
+      border-color: rgba(20,184,166,0.3);
+    }
+    .lang-select {
+      background: rgba(255,255,255,0.04); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.3rem 0.5rem; font-size: 0.78rem; font-family: inherit;
+    }
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem 1.1rem;
+      transition: border-color 0.2s, transform 0.15s;
+      text-decoration: none; color: inherit; display: block;
+    }
+    .card:hover { border-color: rgba(20,184,166,0.25); transform: translateY(-1px); }
+    .card-mono { font-family: 'JetBrains Mono', ui-monospace, monospace;
+                 color: var(--primary); font-size: 0.85rem; }
+    .pill {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.62rem; text-transform: uppercase;
+      padding: 0.15rem 0.45rem; border-radius: 999px; letter-spacing: 0.05em;
+    }
+    .lean-left       { color: #93c5fd; }
+    .lean-right      { color: #fca5a5; }
+    .lean-center     { color: #d1d5db; }
+    .lean-analytical { color: #fde68a; }
+    .lean-gov        { color: #c4b5fd; }
+    .lean-opposition { color: #f9a8d4; }
+    .lean-unknown    { color: #9ca3af; }
+    .trust-1 { background: rgba(6, 78, 59, 0.6); color: #6ee7b7; }
+    .trust-2 { background: rgba(30, 58, 138, 0.5); color: #93c5fd; }
+    .trust-3 { background: rgba(124, 45, 18, 0.5); color: #fdba74; }
+    .status-green  { background: rgba(6, 78, 59, 0.6);  color: #6ee7b7; }
+    .status-yellow { background: rgba(120, 53, 15, 0.6); color: #fcd34d; }
+    .status-red    { background: rgba(127, 29, 29, 0.6); color: #fca5a5; }
+    .input {
+      background: rgba(255,255,255,0.04); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.6rem 0.85rem; font-size: 0.92rem; font-family: inherit;
+    }
+    .input:focus { outline: none; border-color: var(--primary); }
+    .btn-primary {
+      background: var(--primary); color: #042821; font-weight: 600;
+      padding: 0.6rem 1.2rem; border-radius: 8px; border: none;
+      cursor: pointer; font-family: inherit; font-size: 0.92rem;
+    }
+    .btn-primary:hover { background: #0ea5a3; }
+    a { color: var(--text); }
+    a:hover { color: var(--primary); }
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline; }
-    .htmx-request.htmx-indicator   { display: inline; }
 """
 
 
@@ -104,34 +186,46 @@ def _page_shell(lang: str, active_tab: str, body_html: str) -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{_escape(t('site.title', lang))}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <style>{_BASE_STYLES}</style>
 </head>
-<body class="min-h-screen">
-  <header class="border-b border-gray-800 bg-gray-900/50 sticky top-0 backdrop-blur z-10">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-      <div>
-        <a href="/?lang={lang}" class="block">
-          <h1 class="text-xl font-semibold">{_escape(t('site.title', lang))}</h1>
-          <p class="text-xs text-gray-400 mt-0.5">{_escape(t('site.subtitle', lang))}</p>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <header class="header-bar sticky top-0">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <a href="/?lang={lang}" class="block no-underline">
+          <div class="echolot-logo">ECHOLOT</div>
+          <h1 class="echolot-title text-2xl md:text-3xl mt-1">{_escape(t('site.title', lang))}</h1>
+          <p class="text-sm text-[color:var(--text-dim)] mt-1 max-w-xl">{_escape(t('site.subtitle', lang))}</p>
         </a>
+        <div class="lang-selector-wrap">
+          {_lang_selector_html(lang)}
+        </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="mt-4">
         {_nav_html(lang, active_tab)}
-        {_lang_selector_html(lang)}
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 py-6">
+  <main class="relative z-1 max-w-7xl mx-auto px-4 py-8">
     {body_html}
   </main>
 
-  <footer class="border-t border-gray-800 mt-12 py-6 text-center text-xs text-gray-500">
-    <p>{_escape(t('footer.about', lang))}</p>
-    <p class="mt-2 text-gray-600">
-      <a href="/landing-legacy" class="hover:text-gray-400 underline">Old view</a>
+  <footer class="relative z-1 border-t border-[color:var(--border)] mt-16 py-8 text-center text-xs text-[color:var(--text-dim)]">
+    <p class="max-w-2xl mx-auto px-4">{_escape(t('footer.about', lang))}</p>
+    <p class="mt-3">
+      <a href="/landing-legacy" class="opacity-70 hover:opacity-100">Old view</a>
     </p>
   </footer>
 </body>
@@ -171,7 +265,9 @@ def render_dashboard(request) -> tuple[str, str]:
 
 
 def render_spheres_page(request, conn_factory) -> tuple[str, str]:
-    """Sphere browser — list every sphere with article-count + sample sources."""
+    """Sphere browser — list every sphere with article-count + sample sources.
+    Cards link to /dashboard/sphere/<name> for the full feed.
+    """
     lang = _request_lang(request)
     sql = """
         SELECT je.value AS sphere,
@@ -189,18 +285,110 @@ def render_spheres_page(request, conn_factory) -> tuple[str, str]:
         sphere = r["sphere"]
         latest = (r["latest_at"] or "")[:16].replace("T", " ")
         cards.append(f"""
-          <a href="/?lang={lang}#sphere={_escape(sphere)}"
-             class="sphere-card rounded p-3 block hover:border-indigo-500">
-            <div class="font-mono text-sm text-indigo-300">{_escape(sphere)}</div>
-            <div class="text-xs text-gray-500 mt-1">
-              {r['article_count']} {_escape(t('article.source', lang))} ·
-              {r['source_count']} src · {_escape(latest)}
+          <a href="/dashboard/sphere/{quote(sphere)}?lang={lang}" class="card">
+            <div class="card-mono">{_escape(sphere)}</div>
+            <div class="text-xs text-[color:var(--text-dim)] mt-2 flex items-center gap-2 flex-wrap">
+              <span>{r['article_count']} cikk</span>
+              <span class="opacity-50">·</span>
+              <span>{r['source_count']} forrás</span>
+              <span class="opacity-50">·</span>
+              <span>{_escape(latest)}</span>
             </div>
           </a>""")
     body = f"""
-      <h2 class="text-lg font-semibold mb-4">{_escape(t('tab.spheres', lang))}</h2>
+      <h2 class="text-xl font-semibold mb-1">{_escape(t('tab.spheres', lang))}</h2>
+      <p class="text-sm text-[color:var(--text-dim)] mb-5">
+        {len(rows)} {_escape(t('tab.spheres', lang)).lower()}
+      </p>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {''.join(cards)}
+      </div>
+    """
+    return _page_shell(lang, "spheres", body), lang
+
+
+def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[str, str]:
+    """Single-sphere detail: recent articles + source list."""
+    lang = _request_lang(request)
+    # Recent articles in this sphere
+    art_sql = """
+        SELECT a.title, a.lead, a.url, a.source_name, a.published_at,
+               a.language, s.lean, s.trust_tier
+        FROM articles a
+        JOIN sources s ON s.id = a.source_id, json_each(a.spheres_json) je
+        WHERE je.value = ?
+        ORDER BY a.published_at DESC
+        LIMIT 40
+    """
+    src_sql = """
+        SELECT s.id, s.name, s.lean, s.trust_tier, s.language,
+               COUNT(a.article_id) AS n
+        FROM sources s, json_each(s.spheres_json) je
+        LEFT JOIN articles a ON a.source_id = s.id
+        WHERE je.value = ?
+        GROUP BY s.id
+        ORDER BY n DESC
+    """
+    with conn_factory() as conn:
+        articles = conn.execute(art_sql, (sphere_name,)).fetchall()
+        sources = conn.execute(src_sql, (sphere_name,)).fetchall()
+
+    art_html = []
+    for a in articles:
+        a = dict(a)
+        lean = (a.get("lean") or "unknown").replace(" ", "_")
+        trust = a.get("trust_tier") or 2
+        published = (a.get("published_at") or "")[:16].replace("T", " ")
+        art_html.append(f"""
+          <a href="{_escape(a['url'])}" target="_blank" rel="noopener" class="card">
+            <div class="flex items-center gap-2 flex-wrap text-xs mb-2">
+              <span class="card-mono text-[0.7rem]">{_escape(a['source_name'] or '')}</span>
+              <span class="pill trust-{trust}">T{trust}</span>
+              <span class="lean-{lean} text-[0.7rem]">{_escape(lean)}</span>
+              <span class="text-[color:var(--text-dim)] text-[0.7rem]">{_escape(a.get('language',''))}</span>
+              <span class="text-[color:var(--text-dim)] text-[0.7rem] ml-auto">{_escape(published)}</span>
+            </div>
+            <div class="text-sm font-medium leading-snug">{_escape(a.get('title') or '')}</div>
+            <div class="text-xs text-[color:var(--text-dim)] mt-2 line-clamp-2">{_escape((a.get('lead') or '')[:200])}</div>
+          </a>""")
+
+    src_html = []
+    for s in sources:
+        s = dict(s)
+        lean = (s.get("lean") or "unknown").replace(" ", "_")
+        src_html.append(f"""
+          <li class="py-1.5 flex items-center gap-3 text-sm border-b border-[color:var(--border)]">
+            <span class="flex-1">{_escape(s['name'])}</span>
+            <span class="pill trust-{s.get('trust_tier', 2)}">T{s.get('trust_tier', 2)}</span>
+            <span class="lean-{lean} text-[0.7rem]">{_escape(lean)}</span>
+            <span class="text-[color:var(--text-dim)] text-[0.75rem] w-12 text-right">{s['n']}</span>
+          </li>""")
+
+    body = f"""
+      <div class="mb-5">
+        <a href="/dashboard/spheres?lang={lang}" class="text-xs text-[color:var(--text-dim)] hover:text-[color:var(--primary)]">
+          ← {_escape(t('tab.spheres', lang))}
+        </a>
+        <h2 class="echolot-title text-2xl mt-2">{_escape(sphere_name)}</h2>
+        <p class="text-sm text-[color:var(--text-dim)] mt-1">
+          {len(articles)} {_escape(t('article.source', lang)).lower()} · {len(sources)} src
+        </p>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section class="lg:col-span-2">
+          <h3 class="text-sm uppercase tracking-wider text-[color:var(--text-dim)] mb-3">
+            {_escape(t('tab.search', lang))} → {_escape(sphere_name)}
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {''.join(art_html) or '<p class="text-sm text-[color:var(--text-dim)]">'+_escape(t('msg.no_results', lang))+'</p>'}
+          </div>
+        </section>
+        <aside>
+          <h3 class="text-sm uppercase tracking-wider text-[color:var(--text-dim)] mb-3">
+            {_escape(t('article.source', lang))} ({len(sources)})
+          </h3>
+          <ul>{''.join(src_html)}</ul>
+        </aside>
       </div>
     """
     return _page_shell(lang, "spheres", body), lang

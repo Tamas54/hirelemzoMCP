@@ -44,6 +44,7 @@ from echolot_dashboard import (
     render_dashboard,
     render_divergence_partial,
     render_spheres_page,
+    render_sphere_detail_page,
     render_health_page,
     render_trending_page,
 )
@@ -1692,6 +1693,15 @@ async def dashboard_divergence(request):
 @mcp.custom_route("/dashboard/spheres", methods=["GET"])
 async def dashboard_spheres(request):
     page, lang = render_spheres_page(request, get_db)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/dashboard/sphere/{name}", methods=["GET"])
+async def dashboard_sphere_detail(request):
+    name = request.path_params.get("name", "")
+    page, lang = render_sphere_detail_page(request, name, get_db)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
