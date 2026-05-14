@@ -133,7 +133,12 @@ async def top_pageviews(
             "article": name,
             "title": name.replace("_", " "),
             "views": a.get("views", 0),
-            "rank": a.get("rank"),
+            # Use a re-numbered rank starting at 1 after filtering, since
+            # the Wikipedia raw rank includes special pages we just dropped
+            # (Main_Page, Speciális:Keresés, etc.). The original rank is
+            # kept under raw_rank for completeness.
+            "rank": len(filtered) + 1,
+            "raw_rank": a.get("rank"),
             "wiki": f"{geo_wiki}.wikipedia",
             "date": target.strftime("%Y-%m-%d"),
         })
