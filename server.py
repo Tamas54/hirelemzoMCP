@@ -43,6 +43,7 @@ from echolot_og_fastpath import match_platform, fetch_og
 # Wikicorrelate engine (in-process, ported from Tamas54/wikicorrelate Phase A)
 from wikicorrelate.services.correlate import search_and_correlate as _wiki_search
 from wikicorrelate.database import init_db as _wiki_init_db, get_top_movers as _wiki_db_top_movers
+from echolot_wiki_daily_top import top_pageviews as _wiki_top_pageviews
 try:
     from wikicorrelate.services.predictive import find_predictive_signals_expanded as _wiki_predictive
 except Exception:  # optional path
@@ -787,45 +788,59 @@ async def wiki_trends(
     topic: str = "",
     days: int = 365,
     limit: int = 15,
+    mode: str = "auto",
+    geo_wiki: str = "en",
     include_predictive: bool = False,
 ) -> str:
-    """Wikipedia-pageview-based topic correlations & trending pairs.
+    """Wikipedia-pageview-based trending, correlations & lag-predictions.
 
-    Backed by the wikicorrelate engine, ported in-process into Echolot
-    (Tamas54/wikicorrelate Phase A — 2026-05-14). No external service
-    or env var needed; runs directly against the Wikipedia REST API
-    and caches in wikicorrelate/data/correlations.db.
+    Backed by the wikicorrelate engine, ported in-process (2026-05-14).
+    Hits the Wikipedia REST API directly; no external service needed.
 
-    Two modes:
-      - topic="something"  -> top correlated Wikipedia articles
-                              (Pearson on pageview series, last `days`)
-      - topic=""           -> current top-movers (pairs spiking right now)
+    Three modes:
+      - mode="pageviews" — Wikipedia's top-read articles yesterday in the
+        given language wiki (geo_wiki). Free, fresh, multilingual.
+      - mode="correlations" (or any topic given) — Pearson correlation
+        of `topic`'s pageview series against thousands of candidate
+        articles over `days`. Returns top correlated topics.
+      - mode="movers" — DB-stored top-movers (pairs whose correlation is
+        spiking right now; needs the nightly daily_correlation indexer
+        to have run).
+      - mode="auto" (default) — pageviews if no topic, correlations if topic.
 
     Args:
-        topic: search term; leave empty for global top-movers
-        days: history window in days, 30-3650 (default 365)
-        limit: max results, 1-100 (default 15)
+        topic: search term (any non-empty → correlations mode auto-triggers)
+        days: history window 30-3650 (default 365)
+        limit: max results 1-100 (default 15)
+        mode: 'auto' | 'pageviews' | 'correlations' | 'movers'
+        geo_wiki: language-prefix for the Wikipedia to read top-pageviews from
+            ('en','hu','de','fr','es','it','pl','ru','uk','ja','zh','ar', ...)
         include_predictive: also fetch lag-correlation predictions
+            (correlations mode only)
     """
     days = max(30, min(3650, days))
     limit = max(1, min(100, limit))
-    out: dict = {"backed_by": "wikicorrelate (in-process)"}
-
-    await _ensure_wiki_db_async()
-
     topic = (topic or "").strip()
-    if topic:
-        out["mode"] = "topic_correlations"
-        out["topic"] = topic
+
+    # Resolve mode
+    if mode == "auto":
+        mode = "correlations" if topic else "pageviews"
+
+    out: dict = {"backed_by": "wikicorrelate (in-process)", "mode": mode}
+
+    if mode == "pageviews":
         try:
-            data = await _wiki_search(query=topic, days=days, max_results=limit)
-            out["results"] = (data or {}).get("results", [])
+            items = await _wiki_top_pageviews(geo_wiki=geo_wiki, limit=limit)
+            out["geo_wiki"] = geo_wiki
+            out["results"] = items
         except Exception as exc:
-            logger.warning("wiki_search failed for %r: %s", topic, exc)
+            logger.warning("wiki top_pageviews failed: %s", exc)
             out["error"] = f"{type(exc).__name__}: {exc}"
             out["results"] = []
-    else:
-        out["mode"] = "top_movers"
+        return json.dumps(out, ensure_ascii=False, default=str)
+
+    if mode == "movers":
+        await _ensure_wiki_db_async()
         try:
             rows = await _wiki_db_top_movers(limit)
             out["top_movers"] = [dict(r) if hasattr(r, "keys") else r for r in (rows or [])]
@@ -833,8 +848,33 @@ async def wiki_trends(
             logger.warning("wiki top_movers failed: %s", exc)
             out["error"] = f"{type(exc).__name__}: {exc}"
             out["top_movers"] = []
+        return json.dumps(out, ensure_ascii=False, default=str)
 
-    if include_predictive and _wiki_predictive is not None and topic:
+    # mode == "correlations" — needs a topic
+    if not topic:
+        out["error"] = "correlations mode requires a `topic`"
+        out["results"] = []
+        return json.dumps(out, ensure_ascii=False, default=str)
+
+    await _ensure_wiki_db_async()
+    out["topic"] = topic
+    try:
+        data = await _wiki_search(query=topic, days=days, max_results=limit)
+        out["results"] = (
+            (data or {}).get("correlations")
+            or (data or {}).get("results")
+            or []
+        )
+        if data and data.get("error"):
+            out["engine_error"] = data["error"]
+        if data and "candidates_tested" in data:
+            out["candidates_tested"] = data["candidates_tested"]
+    except Exception as exc:
+        logger.warning("wiki_search failed for %r: %s", topic, exc)
+        out["error"] = f"{type(exc).__name__}: {exc}"
+        out["results"] = []
+
+    if include_predictive and _wiki_predictive is not None:
         try:
             pred = await _wiki_predictive(
                 target_topic=topic, days=days,
@@ -1874,10 +1914,11 @@ async def dashboard_health(request):
 
 @mcp.custom_route("/dashboard/trending", methods=["GET"])
 async def dashboard_trending(request):
-    # Both engines are always on now: Google News RSS (free) + in-process
-    # wikicorrelate. Pre-fetch the wiki top-movers here in async context,
-    # then hand the cached result to render_trending_page (which is sync).
+    # Pre-fetch async data sources in this async route, then pass cached
+    # results to the sync render helper.
     await _ensure_wiki_db_async()
+
+    # Wikipedia top-movers (from local DB; empty until cache-warmer runs)
     wiki_cached = {"results": []}
     try:
         rows = await _wiki_db_top_movers(15)
@@ -1885,13 +1926,29 @@ async def dashboard_trending(request):
     except Exception as exc:
         logger.warning("dashboard wiki movers: %s", exc)
 
+    # Wikipedia top daily pageviews — language follows the dashboard's lang cookie
+    # (with a sensible map: e.g. 'hu'→'hu', else 'en' for international audience)
+    lang_for_wiki = (request.cookies.get("echolot_lang") or "hu").lower()
+    if lang_for_wiki not in ("en", "hu", "de", "fr", "es", "it", "pl", "ru", "uk", "ja", "zh"):
+        lang_for_wiki = "en"
+    pageviews_cached = []
+    try:
+        pageviews_cached = await _wiki_top_pageviews(geo_wiki=lang_for_wiki, limit=15)
+    except Exception as exc:
+        logger.warning("dashboard wiki pageviews: %s", exc)
+
     def wiki_fn(limit: int = 15):
         return wiki_cached
+
+    def wiki_pageviews_fn(limit: int = 15):
+        return pageviews_cached
 
     page, lang = render_trending_page(
         request, compute_sphere_velocity, DB_PATH,
         wiki_top_movers_fn=wiki_fn,
         google_trends_fn=gnews_trending,
+        wiki_pageviews_fn=wiki_pageviews_fn,
+        wiki_pageviews_lang=lang_for_wiki,
     )
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")

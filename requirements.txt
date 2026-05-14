@@ -6,7 +6,8 @@ PyYAML>=6.0
 python-dateutil>=2.8.2
 
 # wikicorrelate in-process (Phase A — 2026-05-14)
-httpx>=0.25
+httpx[http2]>=0.25
+h2>=4.1
 aiosqlite>=0.19
 numpy>=1.26
 scipy>=1.11

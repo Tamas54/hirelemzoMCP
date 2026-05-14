@@ -598,13 +598,16 @@ def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
 
 def render_trending_page(request, compute_velocity_fn, db_path,
                           wiki_top_movers_fn=None,
-                          google_trends_fn=None) -> tuple[str, str]:
+                          google_trends_fn=None,
+                          wiki_pageviews_fn=None,
+                          wiki_pageviews_lang="en") -> tuple[str, str]:
     """Trending sphere-velocity — which spheres are spiking now.
 
     Optional panels below the velocity table when those data sources
     are configured:
-    - wiki_top_movers_fn: Wikipedia-pageview correlations (wikicorrelate)
-    - google_trends_fn:   Google Trends realtime searches (SerpAPI)
+    - wiki_top_movers_fn:  Wikipedia top-movers (wikicorrelate DB)
+    - google_trends_fn:    Google News RSS (free, country-scoped)
+    - wiki_pageviews_fn:   Wikipedia daily top-pageviews (multilingual)
     """
     lang = _request_lang(request)
     try:
@@ -708,6 +711,47 @@ def render_trending_page(request, compute_velocity_fn, db_path,
               </div>
             """
 
+    # Optional Wikipedia daily top-pageviews panel (multilingual)
+    pageviews_panel = ""
+    if wiki_pageviews_fn is not None:
+        try:
+            pv_items = wiki_pageviews_fn(limit=15) or []
+        except Exception:
+            pv_items = []
+        if pv_items:
+            pv_rows = []
+            for it in pv_items[:15]:
+                article = it.get("article", "")
+                title = it.get("title", "")
+                views = it.get("views", 0)
+                rank = it.get("rank", "")
+                wiki = it.get("wiki", f"{wiki_pageviews_lang}.wikipedia")
+                wiki_url = f"https://{wiki}/wiki/{article}"
+                pv_rows.append(f"""
+                  <tr class="border-b border-[color:var(--border)] hover:bg-white/[0.02]">
+                    <td class="py-2 text-sm text-[color:var(--text-dim)] font-mono w-12">#{rank}</td>
+                    <td class="py-2 text-sm">
+                      <a href="{_escape(wiki_url)}" target="_blank" rel="noopener" class="hover:text-[color:var(--primary)]">{_escape(title)}</a>
+                    </td>
+                    <td class="py-2 text-sm font-mono text-[color:var(--primary)] text-right">{int(views):,}</td>
+                  </tr>""")
+            pageviews_panel = f"""
+              <h3 class="text-lg font-semibold mt-10 mb-2">Wikipedia top — {_escape(wiki_pageviews_lang)}.wikipedia</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">
+                Most-read articles yesterday · daily pageviews via Wikimedia API
+              </p>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
+                    <tr><th class="py-2 w-12">#</th>
+                        <th class="py-2">Article</th>
+                        <th class="py-2 text-right">Views</th></tr>
+                  </thead>
+                  <tbody>{''.join(pv_rows)}</tbody>
+                </table>
+              </div>
+            """
+
     body = f"""
       <h2 class="text-lg font-semibold mb-1">{_escape(t('tab.trending', lang))}</h2>
       <p class="text-xs text-[color:var(--text-dim)] mb-4">
@@ -726,6 +770,7 @@ def render_trending_page(request, compute_velocity_fn, db_path,
         </table>
       </div>
       {google_panel}
+      {pageviews_panel}
       {wiki_panel}
     """
     return _page_shell(lang, "trending", body), lang
