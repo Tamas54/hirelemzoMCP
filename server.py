@@ -36,6 +36,7 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from echolot_health import compute_health
 from echolot_diversity import diversify
+from echolot_sphere_taxonomy import dedup_spheres
 from echolot_velocity import compute_sphere_velocity
 from echolot_entities import resolve as resolve_entity
 from echolot_trending_filter import (
@@ -609,7 +610,8 @@ def get_spheres() -> str:
 @mcp.tool()
 def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
                          include_full_text: bool = True,
-                         match_mode: str = "and") -> str:
+                         match_mode: str = "and",
+                         collapse_to_parent: bool = False) -> str:
     """Across-sphere narrative comparison: "what does each sphere say about X?"
 
     Searches FTS5 across title, lead, and (Brave-fetched) full article text,
@@ -624,6 +626,9 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
         include_full_text: search article bodies too (default: True). Set
                 False to restrict matching to title+lead only.
         match_mode: "and" (default, strict — every term must match) or "or" (loose, legacy).
+        collapse_to_parent: if False (default), prefer specific child spheres over regional
+                parents (kr_press_english wins over regional_korean). If True, roll up
+                children into their regional parent for higher-level comparison.
     """
     days = max(1, min(21, days))
     per_sphere_limit = max(1, min(20, per_sphere_limit))
@@ -656,7 +661,8 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
 
     by_sphere: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
-        spheres = json.loads(r["spheres_json"])
+        raw_spheres = json.loads(r["spheres_json"])
+        spheres = dedup_spheres(raw_spheres, collapse_to_parent=collapse_to_parent)
         entry = {
             "title": r["title"],
             "lead": (r["lead"] or "")[:400],
@@ -672,6 +678,7 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
     return json.dumps({
         "query": query, "fts_query": fts_query, "days": days,
         "spheres_found": len(out),
+        "collapse_to_parent": collapse_to_parent,
         "by_sphere": out,
     }, ensure_ascii=False, default=str)
 

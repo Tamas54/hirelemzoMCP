@@ -14,9 +14,14 @@ States stored in articles.full_text_status:
              these as NULL — see _claim_batch).
 
 Env:
-  BRAVE_FETCH_BATCH       — max articles per cycle (default 20)
-  BRAVE_FETCH_CONCURRENCY — parallel Brave calls (default 5)
-  BRAVE_FETCH_ROBUST      — "true" to always use brave_scrape_robust (default false)
+  BRAVE_FETCH_BATCH            — max articles per cycle (default 50)
+  BRAVE_FETCH_CONCURRENCY      — parallel Brave calls (default 15)
+  BRAVE_FETCH_ROBUST           — "true" to always use brave_scrape_robust (default false)
+  BRAVE_FETCH_HTTPX_FALLBACK   — "true" to fall back to direct httpx fetch when
+                                 Brave returns None (default true)
+  BRAVE_FETCH_HTTPX_TIMEOUT_S  — per-request timeout for httpx fallback (default 20)
+  BRAVE_FETCH_HTTPX_MIN_CHARS  — minimum extracted-text length to count as
+                                 successful httpx recovery (default 200)
 
 Run as CLI for ad-hoc fetching:
     python3 echolot_brave_fetcher.py [batch_size]
@@ -33,15 +38,73 @@ from pathlib import Path
 from typing import Optional
 
 import aiohttp
+import httpx
 
 from echolot_brave_client import fetch as brave_fetch
+from echolot_content_extract import extract_main_text
 
 log = logging.getLogger("echolot.brave_fetcher")
 
 DB_PATH = Path(os.getenv("DB_PATH", "echolot.db"))
-BATCH_SIZE = int(os.getenv("BRAVE_FETCH_BATCH", "20"))
-CONCURRENCY = int(os.getenv("BRAVE_FETCH_CONCURRENCY", "5"))
+BATCH_SIZE = int(os.getenv("BRAVE_FETCH_BATCH", "50"))
+CONCURRENCY = int(os.getenv("BRAVE_FETCH_CONCURRENCY", "15"))
 ROBUST = os.getenv("BRAVE_FETCH_ROBUST", "false").lower() in {"1", "true", "yes"}
+HTTPX_FALLBACK = os.getenv("BRAVE_FETCH_HTTPX_FALLBACK", "true").lower() in {"1", "true", "yes"}
+HTTPX_TIMEOUT_S = int(os.getenv("BRAVE_FETCH_HTTPX_TIMEOUT_S", "20"))
+HTTPX_MIN_CHARS = int(os.getenv("BRAVE_FETCH_HTTPX_MIN_CHARS", "200"))
+
+_HTTPX_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; EcholotFetcher/0.1; +https://github.com/Tamas54/hirelemzoMCP)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,hu;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+}
+
+
+async def _httpx_fetch_extract(client: httpx.AsyncClient, url: str) -> Optional[dict]:
+    """Direct httpx fetch + content extraction.
+
+    Returns None on transport error (network, timeout, HTTP >= 400).
+    Returns a Brave-shaped dict on success or extract-too-short.
+    """
+    try:
+        resp = await client.get(url, timeout=HTTPX_TIMEOUT_S, follow_redirects=True)
+        if resp.status_code >= 400:
+            log.info("httpx_fallback: HTTP %d for %s", resp.status_code, url)
+            return None
+        html = resp.text
+    except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPError) as exc:
+        log.info("httpx_fallback: %s for %s", type(exc).__name__, url)
+        return None
+    except Exception as exc:
+        log.warning("httpx_fallback: %s: %s", type(exc).__name__, exc)
+        return None
+
+    try:
+        extracted = extract_main_text(html, url=url) or {}
+    except Exception as exc:
+        log.warning("httpx_fallback: extract_main_text failed for %s: %s", url, exc)
+        return None
+
+    text = extracted.get("text") or ""
+    title = extracted.get("title") or ""
+    if len(text) < HTTPX_MIN_CHARS:
+        return {
+            "content_usable": False,
+            "block_reason": "httpx_extract_too_short",
+            "text": text,
+            "markdown": "",
+            "title": title,
+            "_via": "httpx_fallback",
+        }
+    return {
+        "content_usable": True,
+        "block_reason": None,
+        "text": text,
+        "markdown": "",
+        "title": title,
+        "_via": "httpx_fallback",
+    }
 
 
 def _utc_now_iso() -> str:
@@ -88,13 +151,20 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
 
     if result.get("content_usable"):
         text = result.get("text") or result.get("markdown") or ""
+        # Tag httpx-recovered rows so observability is clear without inventing a
+        # new column. NULL stays NULL for the normal Brave path.
+        block_marker = (
+            "recovered_via_httpx_fallback"
+            if result.get("_via") == "httpx_fallback"
+            else None
+        )
         with sqlite3.connect(db_path, timeout=30.0) as conn:
             conn.execute("""
                 UPDATE articles
                 SET full_text=?, full_text_status='ok',
-                    full_text_fetched_at=?, full_text_block_reason=NULL
+                    full_text_fetched_at=?, full_text_block_reason=?
                 WHERE article_id=?
-            """, (text, now, article_id))
+            """, (text, now, block_marker, article_id))
             # Keep FTS index in sync so search_news can hit the full text.
             # If articles_fts is still the old 2-column shape (pre-migration),
             # this update is a no-op which is fine — next init_db migrates.
@@ -129,16 +199,26 @@ async def run_cycle_async(
     """One async cycle: claim → fetch in parallel → persist. Returns stats."""
     rows = _claim_batch(db_path, batch_size)
     if not rows:
-        return {"claimed": 0, "ok": 0, "blocked": 0, "failed": 0}
+        return {"claimed": 0, "ok": 0, "blocked": 0, "failed": 0, "recovered": 0}
 
     sem = asyncio.Semaphore(concurrency)
-    stats = {"claimed": len(rows), "ok": 0, "blocked": 0, "failed": 0}
+    stats = {"claimed": len(rows), "ok": 0, "blocked": 0, "failed": 0, "recovered": 0}
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession() as session, \
+            httpx.AsyncClient(headers=_HTTPX_HEADERS, max_redirects=3) as httpx_client:
+
         async def worker(article_id: str, url: str) -> None:
             async with sem:
                 result = await brave_fetch(session, url, robust=robust)
+                if result is None and HTTPX_FALLBACK:
+                    result = await _httpx_fetch_extract(httpx_client, url)
                 outcome = _persist(db_path, article_id, result)
+                if (
+                    result
+                    and result.get("_via") == "httpx_fallback"
+                    and result.get("content_usable")
+                ):
+                    stats["recovered"] = stats.get("recovered", 0) + 1
                 stats[outcome] = stats.get(outcome, 0) + 1
 
         await asyncio.gather(*[worker(aid, url) for aid, url in rows])
