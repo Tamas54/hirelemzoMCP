@@ -26,6 +26,80 @@ from echolot_i18n import (
 )
 
 
+def _augment_strip_css() -> str:
+    """Inline CSS for the multilingual nav-strip injected on top of
+    the original LANDING_HTML."""
+    return """
+    .echolot-augment {
+      max-width: 1100px; width: 100%; margin: 1rem auto 0;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap; padding: 0 1.5rem;
+      position: relative; z-index: 5;
+    }
+    .echolot-augment nav { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .echolot-augment .augment-tab {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #8a9499; padding: 0.32rem 0.85rem; border-radius: 999px;
+      font-size: 0.74rem; text-decoration: none; transition: all 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .echolot-augment .augment-tab:hover,
+    .echolot-augment .augment-tab.active {
+      background: rgba(20, 184, 166, 0.15); color: #14b8a6;
+      border-color: rgba(20, 184, 166, 0.3);
+    }
+    .echolot-augment select {
+      background: rgba(255,255,255,0.04); color: #e8eef0;
+      border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
+      padding: 0.3rem 0.6rem; font-family: inherit; font-size: 0.78rem;
+    }
+    """
+
+
+def _augment_block_html(lang: str, active: str = "feed") -> str:
+    """The nav-bar + lang-selector HTML to inject into LANDING_HTML."""
+    tabs = [
+        ("feed",     "/",                     "Hírfolyam" if lang == "hu" else t("tab.divergence", lang)),
+        ("trending", "/dashboard/trending",   t("tab.trending", lang)),
+        ("spheres",  "/dashboard/spheres",    t("tab.spheres", lang)),
+        ("health",   "/dashboard/health",     t("tab.health", lang)),
+        ("dashboard","/dashboard",            t("tab.search", lang)),
+    ]
+    tab_html = []
+    for key, url, label in tabs:
+        cls = "augment-tab active" if key == active else "augment-tab"
+        tab_html.append(f'<a href="{url}?lang={lang}" class="{cls}">{html.escape(label, quote=True)}</a>')
+    opts = []
+    for code, native in lang_options():
+        sel = " selected" if code == lang else ""
+        opts.append(f'<option value="{code}"{sel}>{html.escape(native, quote=True)}</option>')
+    return f"""
+    <div class="echolot-augment">
+      <nav>{''.join(tab_html)}</nav>
+      <form method="get" action="/" class="inline-flex items-center gap-2">
+        <select name="lang" onchange="this.form.submit()" aria-label="{html.escape(t('lang.label', lang), quote=True)}">
+          {''.join(opts)}
+        </select>
+      </form>
+    </div>
+    """
+
+
+def augment_landing(request, landing_html: str) -> tuple[str, str]:
+    """Inject the lang-selector + tab-bar into the original LANDING_HTML
+    with two surgical edits (no structural change).
+    Returns (html, resolved_lang).
+    """
+    lang = _request_lang(request)
+    css = _augment_strip_css()
+    block = _augment_block_html(lang, active="feed")
+    out = landing_html.replace("</style>", css + "\n</style>", 1)
+    out = out.replace("<body>", "<body>\n" + block, 1)
+    out = out.replace('<html lang="hu">', f'<html lang="{lang}">', 1)
+    return out, lang
+
+
 def _request_lang(request) -> str:
     """Pick a language from the request: ?lang= > cookie > Accept-Language."""
     query_lang = request.query_params.get("lang")

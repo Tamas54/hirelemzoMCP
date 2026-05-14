@@ -41,6 +41,7 @@ from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
 from echolot_dashboard import (
+    augment_landing,
     render_dashboard,
     render_divergence_partial,
     render_spheres_page,
@@ -1677,16 +1678,16 @@ fetchNews('', 'Mind');
 
 @mcp.custom_route("/dashboard", methods=["GET"])
 async def dashboard(request):
+    """New-style polished dashboard (divergence search front-and-center)."""
     page, lang = render_dashboard(request)
     resp = HTMLResponse(page)
-    # Remember the chosen language across visits
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
 
 
 @mcp.custom_route("/dashboard/divergence", methods=["GET"])
 async def dashboard_divergence(request):
-    """HTMX partial — renders one form-submission worth of sphere-cards."""
+    """HTMX partial — sphere-cards for one divergence query."""
     return HTMLResponse(render_divergence_partial(request, get_db))
 
 
@@ -1725,8 +1726,9 @@ async def dashboard_trending(request):
 
 @mcp.custom_route("/", methods=["GET"])
 async def landing(request):
-    """Main landing page — same multilingual dashboard as /dashboard."""
-    page, lang = render_dashboard(request)
+    """The original Echolot landing page, augmented with a language
+    selector + a top-level tab-bar that links to the new sub-pages."""
+    page, lang = augment_landing(request, LANDING_HTML)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
@@ -1734,8 +1736,7 @@ async def landing(request):
 
 @mcp.custom_route("/landing-legacy", methods=["GET"])
 async def landing_legacy(request):
-    """Original single-page landing — kept reachable from the dashboard's
-    'Old view' link so nothing's lost."""
+    """The original landing page without any augmentation — for reference."""
     return HTMLResponse(LANDING_HTML)
 
 
