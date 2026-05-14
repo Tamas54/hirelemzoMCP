@@ -40,12 +40,26 @@ from echolot_entities import resolve as resolve_entity
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
-from echolot_wikicorrelate_client import (
-    is_enabled as wikicorrelate_enabled,
-    search_correlations as wiki_search,
-    top_movers as wiki_top_movers,
-    predictive as wiki_predictive,
-)
+# Wikicorrelate engine (in-process, ported from Tamas54/wikicorrelate Phase A)
+from wikicorrelate.services.correlate import search_and_correlate as _wiki_search
+from wikicorrelate.database import init_db as _wiki_init_db, get_top_movers as _wiki_db_top_movers
+try:
+    from wikicorrelate.services.predictive import find_predictive_signals_expanded as _wiki_predictive
+except Exception:  # optional path
+    _wiki_predictive = None
+
+_wiki_db_inited = False
+
+async def _ensure_wiki_db_async():
+    """One-time wikicorrelate DB init; safe to call repeatedly."""
+    global _wiki_db_inited
+    if _wiki_db_inited:
+        return
+    try:
+        await _wiki_init_db()
+        _wiki_db_inited = True
+    except Exception as exc:
+        logger.warning("wikicorrelate init_db failed: %s", exc)
 from echolot_gnews_trends import (
     fetch_country_trending as gnews_trending,
     cross_source_supertrends as gnews_supertrends,
@@ -769,7 +783,7 @@ def entity_search(
 
 
 @mcp.tool()
-def wiki_trends(
+async def wiki_trends(
     topic: str = "",
     days: int = 365,
     limit: int = 15,
@@ -777,58 +791,59 @@ def wiki_trends(
 ) -> str:
     """Wikipedia-pageview-based topic correlations & trending pairs.
 
-    Backed by our own wikicorrelate FastAPI service (Tamas54/wikicorrelate,
-    deployed separately). Set WIKICORRELATE_URL env var on the Echolot
-    service to enable.
+    Backed by the wikicorrelate engine, ported in-process into Echolot
+    (Tamas54/wikicorrelate Phase A — 2026-05-14). No external service
+    or env var needed; runs directly against the Wikipedia REST API
+    and caches in wikicorrelate/data/correlations.db.
 
     Two modes:
-      - topic="something"  -> top correlated Wikipedia articles for that
-                              topic (Pearson on pageview series, last
-                              `days` of history)
-      - topic=""           -> current top-movers (Wikipedia articles whose
-                              correlation pairs are spiking right now)
-
-    Plus optional `include_predictive`: lag-correlation forecasts (which
-    articles tend to *follow* the topic with N-day delay).
+      - topic="something"  -> top correlated Wikipedia articles
+                              (Pearson on pageview series, last `days`)
+      - topic=""           -> current top-movers (pairs spiking right now)
 
     Args:
         topic: search term; leave empty for global top-movers
         days: history window in days, 30-3650 (default 365)
         limit: max results, 1-100 (default 15)
         include_predictive: also fetch lag-correlation predictions
-
-    Returns JSON with: enabled, mode, results, top_movers, predictive,
-    backed_by ('wikicorrelate').
     """
-    if not wikicorrelate_enabled():
-        return json.dumps({
-            "enabled": False,
-            "hint": "Set WIKICORRELATE_URL env var on the Echolot service",
-            "results": [],
-        }, ensure_ascii=False)
-
     days = max(30, min(3650, days))
     limit = max(1, min(100, limit))
-    out: dict = {"enabled": True, "backed_by": "wikicorrelate"}
+    out: dict = {"backed_by": "wikicorrelate (in-process)"}
+
+    await _ensure_wiki_db_async()
 
     topic = (topic or "").strip()
     if topic:
         out["mode"] = "topic_correlations"
         out["topic"] = topic
-        data = wiki_search(topic, days=days, limit=limit)
-        out["results"] = data.get("results", []) if data else []
-        if data is None:
-            out["error"] = "wikicorrelate request failed"
+        try:
+            data = await _wiki_search(query=topic, days=days, limit=limit)
+            out["results"] = (data or {}).get("results", [])
+        except Exception as exc:
+            logger.warning("wiki_search failed for %r: %s", topic, exc)
+            out["error"] = f"{type(exc).__name__}: {exc}"
+            out["results"] = []
     else:
         out["mode"] = "top_movers"
-        data = wiki_top_movers(limit=limit)
-        out["top_movers"] = data.get("results", []) if data else []
-        if data is None:
-            out["error"] = "wikicorrelate request failed"
+        try:
+            rows = await _wiki_db_top_movers(limit)
+            out["top_movers"] = [dict(r) if hasattr(r, "keys") else r for r in (rows or [])]
+        except Exception as exc:
+            logger.warning("wiki top_movers failed: %s", exc)
+            out["error"] = f"{type(exc).__name__}: {exc}"
+            out["top_movers"] = []
 
-    if include_predictive:
-        pred = wiki_predictive(topic=topic or None, days=days)
-        out["predictive"] = pred.get("results", []) if pred else []
+    if include_predictive and _wiki_predictive is not None and topic:
+        try:
+            pred = await _wiki_predictive(
+                target_topic=topic, days=days,
+                min_correlation=0.4, min_occurrences=3, max_results=limit,
+            )
+            out["predictive"] = (pred or {}).get("results", [])
+        except Exception as exc:
+            logger.warning("wiki_predictive failed for %r: %s", topic, exc)
+            out["predictive"] = []
 
     return json.dumps(out, ensure_ascii=False, default=str)
 
@@ -1859,9 +1874,20 @@ async def dashboard_health(request):
 
 @mcp.custom_route("/dashboard/trending", methods=["GET"])
 async def dashboard_trending(request):
-    # Google News RSS engine is always on (no key needed); Wikipedia
-    # top-movers only when WIKICORRELATE_URL is set.
-    wiki_fn = wiki_top_movers if wikicorrelate_enabled() else None
+    # Both engines are always on now: Google News RSS (free) + in-process
+    # wikicorrelate. Pre-fetch the wiki top-movers here in async context,
+    # then hand the cached result to render_trending_page (which is sync).
+    await _ensure_wiki_db_async()
+    wiki_cached = {"results": []}
+    try:
+        rows = await _wiki_db_top_movers(15)
+        wiki_cached = {"results": [dict(r) if hasattr(r, "keys") else r for r in (rows or [])]}
+    except Exception as exc:
+        logger.warning("dashboard wiki movers: %s", exc)
+
+    def wiki_fn(limit: int = 15):
+        return wiki_cached
+
     page, lang = render_trending_page(
         request, compute_sphere_velocity, DB_PATH,
         wiki_top_movers_fn=wiki_fn,
