@@ -27,8 +27,8 @@ from echolot_i18n import (
 
 
 def _augment_strip_css() -> str:
-    """Inline CSS for the multilingual nav-strip injected on top of
-    the original LANDING_HTML."""
+    """Inline CSS for the multilingual nav-strip + search form injected
+    at the very top of the original LANDING_HTML."""
     return """
     .echolot-augment {
       max-width: 1100px; width: 100%; margin: 1rem auto 0;
@@ -54,17 +54,59 @@ def _augment_strip_css() -> str:
       border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
       padding: 0.3rem 0.6rem; font-family: inherit; font-size: 0.78rem;
     }
+    .echolot-search-form {
+      max-width: 1100px; width: calc(100% - 3rem);
+      margin: 1rem auto 0.5rem;
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+      padding: 0 1.5rem;
+      position: relative; z-index: 5;
+    }
+    .echolot-search-input {
+      flex: 1; min-width: 240px;
+      background: rgba(12, 14, 18, 0.7); backdrop-filter: blur(16px);
+      color: #e8eef0;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      font-family: inherit; font-size: 0.95rem;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .echolot-search-input:focus {
+      outline: none;
+      border-color: rgba(20, 184, 166, 0.5);
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+    }
+    .echolot-search-input::placeholder { color: #5b6266; }
+    .echolot-search-days {
+      width: 70px;
+      background: rgba(12, 14, 18, 0.7); backdrop-filter: blur(16px);
+      color: #e8eef0;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 0.7rem 0.6rem;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      text-align: center;
+    }
+    .echolot-search-btn {
+      background: linear-gradient(135deg, #14b8a6, #06b6d4);
+      color: white; font-weight: 600;
+      padding: 0.7rem 1.4rem; border-radius: 10px;
+      border: none; cursor: pointer;
+      font-family: inherit; font-size: 0.92rem;
+      transition: opacity 0.18s, transform 0.12s;
+    }
+    .echolot-search-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .echolot-search-btn:active { transform: translateY(0); }
     """
 
 
 def _augment_block_html(lang: str, active: str = "feed") -> str:
-    """The nav-bar + lang-selector HTML to inject into LANDING_HTML."""
+    """The nav-bar + lang-selector + search HTML to inject into LANDING_HTML."""
     tabs = [
         ("feed",     "/",                     "Hírfolyam" if lang == "hu" else t("tab.divergence", lang)),
         ("trending", "/dashboard/trending",   t("tab.trending", lang)),
         ("spheres",  "/dashboard/spheres",    t("tab.spheres", lang)),
         ("health",   "/dashboard/health",     t("tab.health", lang)),
-        ("dashboard","/dashboard",            t("tab.search", lang)),
     ]
     tab_html = []
     for key, url, label in tabs:
@@ -83,6 +125,19 @@ def _augment_block_html(lang: str, active: str = "feed") -> str:
         </select>
       </form>
     </div>
+    <form method="get" action="/dashboard" class="echolot-search-form">
+      <input type="hidden" name="lang" value="{lang}">
+      <input type="text" name="query" required
+             placeholder="{html.escape(t('search.placeholder', lang), quote=True)}"
+             class="echolot-search-input"
+             autocomplete="off">
+      <input type="number" name="days" value="3" min="1" max="21"
+             title="{html.escape(t('search.days_label', lang), quote=True)}"
+             class="echolot-search-days">
+      <button type="submit" class="echolot-search-btn">
+        {html.escape(t('search.button', lang), quote=True)} →
+      </button>
+    </form>
     """
 
 
@@ -307,8 +362,32 @@ def _page_shell(lang: str, active_tab: str, body_html: str) -> str:
 
 
 def render_dashboard(request) -> tuple[str, str]:
-    """Return (html, lang) for the main page (= divergence tab)."""
+    """Return (html, lang) for the main page (= divergence tab).
+
+    If ?query=... is set in the URL (e.g. when the user submits the
+    search form on the landing page), trigger an automatic search on
+    page load — saves a click and supports shareable links.
+    """
     lang = _request_lang(request)
+    query = (request.query_params.get("query") or "").strip()
+    try:
+        days = max(1, min(21, int(request.query_params.get("days") or 3)))
+    except ValueError:
+        days = 3
+
+    if query:
+        # HTMX trigger="load" → fires the divergence partial immediately on render
+        results_block = f"""
+        <div id="results"
+             hx-get="/dashboard/divergence?query={quote(query)}&days={days}&lang={lang}"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+          <p class="text-sm text-[color:var(--text-dim)]">⏳ {_escape(t('msg.loading', lang))}</p>
+        </div>
+        """
+    else:
+        results_block = f'<div id="results"><p class="text-sm text-[color:var(--text-dim)]">{_escape(t("msg.empty_query", lang))}</p></div>'
+
     body = f"""
     <form hx-get="/dashboard/divergence"
           hx-target="#results"
@@ -318,22 +397,20 @@ def render_dashboard(request) -> tuple[str, str]:
       <input type="hidden" name="lang" value="{lang}">
       <div class="flex gap-2 flex-wrap">
         <input type="text" name="query" required
+               value="{_escape(query)}"
                placeholder="{_escape(t('search.placeholder', lang))}"
-               class="flex-1 min-w-[200px] bg-gray-800 text-gray-100 px-3 py-2 rounded border border-gray-700 focus:border-indigo-500 focus:outline-none">
-        <input type="number" name="days" value="3" min="1" max="21"
+               class="input flex-1 min-w-[240px]">
+        <input type="number" name="days" value="{days}" min="1" max="21"
                title="{_escape(t('search.days_label', lang))}"
-               class="w-20 bg-gray-800 text-gray-100 px-3 py-2 rounded border border-gray-700">
-        <button type="submit"
-                class="bg-indigo-600 hover:bg-indigo-500 px-5 py-2 rounded font-medium">
+               class="input w-20">
+        <button type="submit" class="btn-primary">
           {_escape(t('search.button', lang))}
           <span id="search-spinner" class="htmx-indicator ml-2">…</span>
         </button>
       </div>
     </form>
 
-    <div id="results">
-      <p class="text-gray-500 text-sm">{_escape(t('msg.empty_query', lang))}</p>
-    </div>
+    {results_block}
     """
     return _page_shell(lang, "divergence", body), lang
 
