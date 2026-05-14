@@ -669,44 +669,39 @@ def render_trending_page(request, compute_velocity_fn, db_path,
               </div>
             """
 
-    # Optional Google Trends panel
+    # Optional Google News trending panel (free, no API key)
     google_panel = ""
     if google_trends_fn is not None:
         geo = (request.query_params.get("geo") or "HU").upper()
         try:
-            gdata = google_trends_fn(geo=geo)
+            items = google_trends_fn(geo=geo, limit=15)
         except Exception:
-            gdata = None
-        items = (gdata or {}).get("realtime_searches") or (gdata or {}).get("daily_searches") or []
+            items = []
         if items:
             g_rows = []
-            for it in items[:15]:
-                title = it.get("title") or it.get("query") or ""
-                vol = it.get("search_volume") or ""
-                first_article = (it.get("articles") or [{}])[0]
-                src = first_article.get("source") or ""
-                link = first_article.get("link") or ""
+            for it in items:
+                title = it.get("title", "")
+                src = it.get("source", "")
+                link = it.get("link", "")
                 title_html = (
-                    f'<a href="{_escape(link)}" target="_blank" rel="noopener" class="hover:text-[color:var(--primary)]">{_escape(str(title))}</a>'
-                    if link else _escape(str(title))
+                    f'<a href="{_escape(link)}" target="_blank" rel="noopener" class="hover:text-[color:var(--primary)]">{_escape(title)}</a>'
+                    if link else _escape(title)
                 )
                 g_rows.append(f"""
                   <tr class="border-b border-[color:var(--border)] hover:bg-white/[0.02]">
                     <td class="py-2 text-sm">{title_html}</td>
-                    <td class="py-2 text-sm text-[color:var(--text-dim)]">{_escape(str(src))}</td>
-                    <td class="py-2 text-sm font-mono text-[color:var(--primary)]">{_escape(str(vol))}</td>
+                    <td class="py-2 text-sm text-[color:var(--text-dim)]">{_escape(src)}</td>
                   </tr>""")
             google_panel = f"""
-              <h3 class="text-lg font-semibold mt-10 mb-2">Google Trends — {_escape(geo)}</h3>
+              <h3 class="text-lg font-semibold mt-10 mb-2">Google News — {_escape(geo)}</h3>
               <p class="text-xs text-[color:var(--text-dim)] mb-4">
-                Realtime trending searches · backed by SerpAPI
+                Top stories trending right now in {_escape(geo)} · via Google News RSS
               </p>
               <div class="overflow-x-auto">
                 <table class="w-full text-left">
                   <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
-                    <tr><th class="py-2">Trend</th>
-                        <th class="py-2">Top source</th>
-                        <th class="py-2">Volume</th></tr>
+                    <tr><th class="py-2">Story</th>
+                        <th class="py-2">Source</th></tr>
                   </thead>
                   <tbody>{''.join(g_rows)}</tbody>
                 </table>

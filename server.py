@@ -46,10 +46,10 @@ from echolot_wikicorrelate_client import (
     top_movers as wiki_top_movers,
     predictive as wiki_predictive,
 )
-from echolot_serpapi_client import (
-    is_enabled as serpapi_enabled,
-    trending_now as serpapi_trending_now,
-    trends_for as serpapi_trends_for,
+from echolot_gnews_trends import (
+    fetch_country_trending as gnews_trending,
+    cross_source_supertrends as gnews_supertrends,
+    GEO_FEEDS as GNEWS_GEO_FEEDS,
 )
 from echolot_dashboard import (
     augment_landing,
@@ -836,66 +836,64 @@ def wiki_trends(
 @mcp.tool()
 def google_trends(
     geo: str = "HU",
-    query: str = "",
-    frequency: str = "realtime",
-    date_range: str = "now 7-d",
+    limit: int = 15,
+    super_trends: bool = False,
+    super_geos: list[str] | None = None,
+    super_min_overlap: int = 2,
 ) -> str:
-    """Google Trends data via SerpAPI (set SERPAPI_KEY env var to enable).
+    """Trending stories from Google News RSS — free, no API key.
 
-    Two modes:
-      - query=""           -> trending_now: currently spiking searches in `geo`
-      - query="something"  -> interest-over-time series for that query
+    The pytrends library is broken since Google blocked its scraping path,
+    and SerpAPI's google_trends engine costs money. Trendinghub solved
+    the problem with Google News RSS feeds per country — the country's
+    Top Stories feed effectively reflects what's trending there, and
+    cross-source overlap detects global super-trends.
 
     Args:
-        geo: 2-letter country code (HU, US, DE, FR, ES, JP, CN, GB, ...).
-             Default 'HU'.
-        query: search term (leave empty for the global trending-now feed)
-        frequency: 'realtime' or 'daily' (only used when query is empty)
-        date_range: time range when query is set — 'now 1-d', 'now 7-d',
-            'today 1-m', 'today 12-m'
+        geo: 2-letter country code (HU, US, GB, DE, FR, ES, IT, PL, RU,
+             UA, JP, CN, BR, MX). Default 'HU'.
+        limit: max items, 1-30 (default 15)
+        super_trends: if True, instead of one country's feed, compare
+             multiple countries (super_geos) and return topics that
+             appear in at least super_min_overlap of them — the actual
+             global trending signal.
+        super_geos: list of geos for super-trend detection. Default
+             ['HU','US','GB','DE','FR'].
+        super_min_overlap: min country overlap for a super-trend. Default 2.
 
-    Returns JSON with: enabled, mode, geo, results / timeseries,
-    backed_by ('google_trends_serpapi').
+    Returns JSON with: mode, geo(s), results (or supertrends),
+    backed_by ('google_news_rss').
     """
-    if not serpapi_enabled():
-        return json.dumps({
-            "enabled": False,
-            "hint": "Set SERPAPI_KEY env var on the Echolot service",
-            "results": [],
-        }, ensure_ascii=False)
+    limit = max(1, min(30, limit))
+    out: dict = {"backed_by": "google_news_rss"}
 
-    query = (query or "").strip()
-    out: dict = {"enabled": True, "backed_by": "google_trends_serpapi", "geo": geo}
-
-    if query:
-        out["mode"] = "interest_over_time"
-        out["query"] = query
-        out["date_range"] = date_range
-        data = serpapi_trends_for(query, geo=geo, date_range=date_range)
-        if data is None:
-            out["error"] = "serpapi request failed"
-            out["timeseries"] = []
-        else:
-            out["timeseries"] = (data.get("interest_over_time") or {}).get("timeline_data", [])
+    if super_trends:
+        out["mode"] = "supertrends"
+        out["geos"] = super_geos or ["HU", "US", "GB", "DE", "FR"]
+        out["min_overlap"] = super_min_overlap
+        try:
+            out["supertrends"] = gnews_supertrends(
+                geos=out["geos"],
+                min_overlap=super_min_overlap,
+                limit=limit,
+            )
+        except Exception as exc:
+            out["error"] = f"{type(exc).__name__}: {exc}"
+            out["supertrends"] = []
     else:
+        geo_u = geo.upper()
+        if geo_u not in GNEWS_GEO_FEEDS:
+            return json.dumps({
+                "error": f"Unknown geo {geo!r}",
+                "available": list(GNEWS_GEO_FEEDS.keys()),
+            }, ensure_ascii=False)
         out["mode"] = "trending_now"
-        out["frequency"] = frequency
-        data = serpapi_trending_now(geo=geo, frequency=frequency)
-        if data is None:
-            out["error"] = "serpapi request failed"
+        out["geo"] = geo_u
+        try:
+            out["results"] = gnews_trending(geo=geo_u, limit=limit)
+        except Exception as exc:
+            out["error"] = f"{type(exc).__name__}: {exc}"
             out["results"] = []
-        else:
-            results = []
-            for item in (data.get("realtime_searches") or data.get("daily_searches") or [])[:30]:
-                results.append({
-                    "title": item.get("title") or item.get("query") or "",
-                    "search_volume": item.get("search_volume"),
-                    "articles": [
-                        {"title": a.get("title"), "source": a.get("source"), "url": a.get("link")}
-                        for a in (item.get("articles") or [])[:3]
-                    ],
-                })
-            out["results"] = results
 
     return json.dumps(out, ensure_ascii=False, default=str)
 
@@ -1861,14 +1859,13 @@ async def dashboard_health(request):
 
 @mcp.custom_route("/dashboard/trending", methods=["GET"])
 async def dashboard_trending(request):
-    # Pass the wiki top-movers fetcher only if it's actually configured;
-    # the dashboard helper renders an extra panel when it gets non-None.
+    # Google News RSS engine is always on (no key needed); Wikipedia
+    # top-movers only when WIKICORRELATE_URL is set.
     wiki_fn = wiki_top_movers if wikicorrelate_enabled() else None
-    google_fn = serpapi_trending_now if serpapi_enabled() else None
     page, lang = render_trending_page(
         request, compute_sphere_velocity, DB_PATH,
         wiki_top_movers_fn=wiki_fn,
-        google_trends_fn=google_fn,
+        google_trends_fn=gnews_trending,
     )
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
