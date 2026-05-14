@@ -155,6 +155,19 @@ def compute_health(db_path: str | Path,
             """).fetchone()
         except sqlite3.OperationalError:
             ft_row = None
+
+        # x_-prefixed sphere health (relies on the RSSHub Twitter cookie staying
+        # valid; if cookie rotates, articles in these spheres stop arriving).
+        # Counts fetched_at-based to avoid the published_at tz minefield.
+        x_sources_rows = conn.execute("""
+            SELECT je.value AS sphere,
+                   SUM(CASE WHEN a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-24 hours')
+                            THEN 1 ELSE 0 END) AS articles_24h,
+                   MAX(a.fetched_at) AS latest_fetched_at
+            FROM articles a, json_each(a.spheres_json) je
+            WHERE je.value LIKE 'x\\_%' ESCAPE '\\'
+            GROUP BY je.value
+        """).fetchall()
     finally:
         conn.close()
 
@@ -208,6 +221,34 @@ def compute_health(db_path: str | Path,
             "lifetime_article_count": r["lifetime_count"],
         })
 
+    # x-sources health: alarm-friendly summary of RSSHub-fed X spheres.
+    # If x_total_24h == 0, the TWITTER_AUTH_TOKEN cookie is very likely
+    # expired — time to renew (see rsshub_cookie_renewal.md).
+    x_sources_out = []
+    x_total_24h = 0
+    for r in x_sources_rows:
+        n = r["articles_24h"] or 0
+        x_total_24h += n
+        x_sources_out.append({
+            "sphere": r["sphere"],
+            "articles_24h": n,
+            "latest_fetched_at": r["latest_fetched_at"],
+        })
+    if x_sources_out:
+        if x_total_24h == 0:
+            x_alert = "RED: 0 X articles in last 24h — TWITTER_AUTH_TOKEN cookie likely expired (see rsshub_cookie_renewal.md)"
+        elif x_total_24h < 5:
+            x_alert = f"YELLOW: only {x_total_24h} X articles in last 24h — auth may be degrading"
+        else:
+            x_alert = None
+        x_sources_health = {
+            "total_articles_24h": x_total_24h,
+            "spheres": x_sources_out,
+            "alert": x_alert,
+        }
+    else:
+        x_sources_health = None
+
     if ft_row is not None and ft_row["total"]:
         total = ft_row["total"] or 0
         ok = ft_row["ok"] or 0
@@ -236,6 +277,7 @@ def compute_health(db_path: str | Path,
             "yellow_below": yellow_max_minutes,
         },
         "summary": summary,
+        "x_sources_health": x_sources_health,
         "full_text_progress": full_text_progress,
         "spheres": spheres_out,
         "top_active_sources_24h": top_active_out,
