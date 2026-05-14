@@ -818,7 +818,7 @@ async def wiki_trends(
         out["mode"] = "topic_correlations"
         out["topic"] = topic
         try:
-            data = await _wiki_search(query=topic, days=days, limit=limit)
+            data = await _wiki_search(query=topic, days=days, max_results=limit)
             out["results"] = (data or {}).get("results", [])
         except Exception as exc:
             logger.warning("wiki_search failed for %r: %s", topic, exc)
