@@ -57,6 +57,44 @@ def scraper_thread():
         time.sleep(interval_min * 60)
 
 
+def wikicorrelate_warmer_thread():
+    """Nightly cache-warmer for the wikicorrelate engine.
+
+    Pre-fetches top Wikipedia articles' pageview series so correlation
+    searches don't pay the per-call API latency. Runs once on startup
+    (after a delay) and then every 24h.
+
+    Disabled by default; set WIKICORRELATE_WARM=true to enable.
+    """
+    if os.environ.get("WIKICORRELATE_WARM", "").lower() not in {"1", "true", "yes"}:
+        log.info("wikicorrelate cache-warmer disabled (set WIKICORRELATE_WARM=true to enable)")
+        return
+
+    # Wait 5 minutes after startup so the main app is healthy first
+    time.sleep(300)
+    interval_s = int(os.environ.get("WIKICORRELATE_WARM_INTERVAL_S", str(24 * 3600)))
+    max_articles = int(os.environ.get("WIKICORRELATE_WARM_MAX", "2000"))
+    batch_size = int(os.environ.get("WIKICORRELATE_WARM_BATCH", "100"))
+    days = int(os.environ.get("WIKICORRELATE_WARM_DAYS", "365"))
+
+    log.info("wikicorrelate cache-warmer: every %ds, max %d articles, batch %d, %d days",
+             interval_s, max_articles, batch_size, days)
+
+    cycle = 0
+    while True:
+        try:
+            import asyncio
+            from wikicorrelate.jobs.warm_cache import warm_cache
+            log.info("wikicorrelate warm cycle %d starting", cycle)
+            asyncio.run(warm_cache(batch_size=batch_size, max_articles=max_articles, days=days))
+            log.info("wikicorrelate warm cycle %d done", cycle)
+        except Exception as e:
+            log.error("wikicorrelate warm cycle %d crashed: %s\n%s",
+                      cycle, e, traceback.format_exc())
+        cycle += 1
+        time.sleep(interval_s)
+
+
 def brave_fetcher_thread():
     """Background full-text fetcher via our brave-mcp-server. Survives crashes."""
     time.sleep(20)  # let scraper get articles in first
@@ -92,6 +130,10 @@ def main():
         log.info("brave-fetcher thread launched (BRAVE_MCP_URL=%s)", brave_url)
     else:
         log.info("brave-fetcher disabled (set BRAVE_MCP_URL to enable)")
+
+    # Wikicorrelate cache-warmer (off by default — set WIKICORRELATE_WARM=true)
+    t3 = threading.Thread(target=wikicorrelate_warmer_thread, daemon=True, name="wiki-warmer")
+    t3.start()
 
     log.info("starting Echolot MCP server")
     import uvicorn

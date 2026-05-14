@@ -48,6 +48,14 @@ try:
     from wikicorrelate.services.predictive import find_predictive_signals_expanded as _wiki_predictive
 except Exception:  # optional path
     _wiki_predictive = None
+try:
+    from wikicorrelate.services.markov_discovery import discover_hidden_connections as _wiki_markov
+except Exception:
+    _wiki_markov = None
+try:
+    from wikicorrelate.services.cascade_tracker import track_topic_cascade as _wiki_cascade
+except Exception:
+    _wiki_cascade = None
 
 _wiki_db_inited = False
 
@@ -797,32 +805,41 @@ async def wiki_trends(
     mode: str = "auto",
     geo_wiki: str = "en",
     include_predictive: bool = False,
+    method: str = "pearson",
+    threshold: float = 0.1,
+    categories: list[str] | None = None,
 ) -> str:
-    """Wikipedia-pageview-based trending, correlations & lag-predictions.
+    """Wikipedia-pageview-based trending, correlations, predictions, hidden
+    connections, and cascade tracking.
 
-    Backed by the wikicorrelate engine, ported in-process (2026-05-14).
-    Hits the Wikipedia REST API directly; no external service needed.
+    Backed by the wikicorrelate engine, in-process (2026-05-14 Phase A+C).
 
-    Three modes:
-      - mode="pageviews" — Wikipedia's top-read articles yesterday in the
-        given language wiki (geo_wiki). Free, fresh, multilingual.
-      - mode="correlations" (or any topic given) — Pearson correlation
-        of `topic`'s pageview series against thousands of candidate
-        articles over `days`. Returns top correlated topics.
-      - mode="movers" — DB-stored top-movers (pairs whose correlation is
-        spiking right now; needs the nightly daily_correlation indexer
-        to have run).
-      - mode="auto" (default) — pageviews if no topic, correlations if topic.
+    Six modes:
+      - mode="pageviews"    — top-read Wikipedia articles yesterday
+                              (multilingual via geo_wiki)
+      - mode="correlations" — Pearson correlation of topic's pageview
+                              series against thousands of candidates
+                              over `days`
+      - mode="movers"       — DB top-movers (needs nightly indexer)
+      - mode="predictive"   — lag-correlation forecasts: which topics
+                              tend to *lead* the target topic by N days
+      - mode="markov"       — hidden connections via Markov-random-walk
+                              graph traversal (surprising paths between
+                              your topic and seemingly unrelated articles)
+      - mode="cascade"      — temporal cascade pattern: how attention
+                              propagates from topic to related articles
+                              with time lag
+      - mode="auto" (default) — pageviews if no topic, correlations if topic
 
     Args:
-        topic: search term (any non-empty → correlations mode auto-triggers)
+        topic: search term (required for all modes except pageviews/movers)
         days: history window 30-3650 (default 365)
         limit: max results 1-100 (default 15)
-        mode: 'auto' | 'pageviews' | 'correlations' | 'movers'
-        geo_wiki: language-prefix for the Wikipedia to read top-pageviews from
-            ('en','hu','de','fr','es','it','pl','ru','uk','ja','zh','ar', ...)
+        mode: 'auto' | 'pageviews' | 'correlations' | 'movers' |
+              'predictive' | 'markov' | 'cascade'
+        geo_wiki: 'en','hu','de','fr','es','it','pl','ru','uk','ja','zh', …
         include_predictive: also fetch lag-correlation predictions
-            (correlations mode only)
+            (correlations mode only — same as mode='predictive')
     """
     days = max(30, min(3650, days))
     limit = max(1, min(100, limit))
@@ -856,6 +873,66 @@ async def wiki_trends(
             out["top_movers"] = []
         return json.dumps(out, ensure_ascii=False, default=str)
 
+    if mode == "predictive":
+        if not topic:
+            out["error"] = "predictive mode requires a `topic`"
+            out["results"] = []
+            return json.dumps(out, ensure_ascii=False, default=str)
+        if _wiki_predictive is None:
+            out["error"] = "predictive engine not available"
+            out["results"] = []
+            return json.dumps(out, ensure_ascii=False, default=str)
+        out["topic"] = topic
+        try:
+            pred = await _wiki_predictive(
+                target_topic=topic, days=days,
+                min_correlation=0.4, min_occurrences=3, max_results=limit,
+            )
+            out["results"] = (pred or {}).get("results", []) or (pred or {}).get("predictive_signals", [])
+        except Exception as exc:
+            logger.warning("wiki_predictive failed: %s", exc)
+            out["error"] = f"{type(exc).__name__}: {exc}"
+            out["results"] = []
+        return json.dumps(out, ensure_ascii=False, default=str)
+
+    if mode == "markov":
+        if not topic:
+            out["error"] = "markov mode requires a `topic`"
+            out["results"] = []
+            return json.dumps(out, ensure_ascii=False, default=str)
+        if _wiki_markov is None:
+            out["error"] = "markov engine not available"
+            out["results"] = []
+            return json.dumps(out, ensure_ascii=False, default=str)
+        out["topic"] = topic
+        try:
+            md = await _wiki_markov(topic=topic, max_steps=4, limit=limit)
+            out["results"] = md if isinstance(md, list) else (md or {}).get("surprising") or (md or {}).get("connections") or md
+        except Exception as exc:
+            logger.warning("wiki_markov failed: %s", exc)
+            out["error"] = f"{type(exc).__name__}: {exc}"
+            out["results"] = []
+        return json.dumps(out, ensure_ascii=False, default=str)
+
+    if mode == "cascade":
+        if not topic:
+            out["error"] = "cascade mode requires a `topic`"
+            out["results"] = []
+            return json.dumps(out, ensure_ascii=False, default=str)
+        if _wiki_cascade is None:
+            out["error"] = "cascade engine not available"
+            out["results"] = []
+            return json.dumps(out, ensure_ascii=False, default=str)
+        out["topic"] = topic
+        try:
+            cd = await _wiki_cascade(topic=topic, days=days)
+            out["results"] = cd
+        except Exception as exc:
+            logger.warning("wiki_cascade failed: %s", exc)
+            out["error"] = f"{type(exc).__name__}: {exc}"
+            out["results"] = []
+        return json.dumps(out, ensure_ascii=False, default=str)
+
     # mode == "correlations" — needs a topic
     if not topic:
         out["error"] = "correlations mode requires a `topic`"
@@ -865,12 +942,18 @@ async def wiki_trends(
     await _ensure_wiki_db_async()
     out["topic"] = topic
     try:
-        data = await _wiki_search(query=topic, days=days, max_results=limit)
+        data = await _wiki_search(
+            query=topic, days=days, max_results=limit,
+            method=method, threshold=threshold,
+            categories=categories,
+        )
         out["results"] = (
             (data or {}).get("correlations")
             or (data or {}).get("results")
             or []
         )
+        out["method"] = method
+        out["threshold"] = threshold
         if data and data.get("error"):
             out["engine_error"] = data["error"]
         if data and "candidates_tested" in data:
