@@ -40,6 +40,7 @@ from echolot_entities import resolve as resolve_entity
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
+from echolot_dashboard import render_dashboard, render_divergence_partial
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -1665,6 +1666,21 @@ fetchNews('', 'Mind');
 </script>
 </body>
 </html>"""
+
+
+@mcp.custom_route("/dashboard", methods=["GET"])
+async def dashboard(request):
+    page, lang = render_dashboard(request)
+    resp = HTMLResponse(page)
+    # Remember the chosen language across visits
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/dashboard/divergence", methods=["GET"])
+async def dashboard_divergence(request):
+    """HTMX partial — renders one form-submission worth of sphere-cards."""
+    return HTMLResponse(render_divergence_partial(request, get_db))
 
 
 @mcp.custom_route("/", methods=["GET"])
