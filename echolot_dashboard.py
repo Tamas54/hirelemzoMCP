@@ -600,7 +600,9 @@ def render_trending_page(request, compute_velocity_fn, db_path,
                           wiki_top_movers_fn=None,
                           google_trends_fn=None,
                           wiki_pageviews_fn=None,
-                          wiki_pageviews_lang="en") -> tuple[str, str]:
+                          wiki_pageviews_lang="en",
+                          youtube_trends_fn=None,
+                          youtube_region="HU") -> tuple[str, str]:
     """Trending sphere-velocity — which spheres are spiking now.
 
     Optional panels below the velocity table when those data sources
@@ -608,6 +610,7 @@ def render_trending_page(request, compute_velocity_fn, db_path,
     - wiki_top_movers_fn:  Wikipedia top-movers (wikicorrelate DB)
     - google_trends_fn:    Google News RSS (free, country-scoped)
     - wiki_pageviews_fn:   Wikipedia daily top-pageviews (multilingual)
+    - youtube_trends_fn:   YouTube Data API v3 trending videos
     """
     lang = _request_lang(request)
     try:
@@ -752,6 +755,41 @@ def render_trending_page(request, compute_velocity_fn, db_path,
               </div>
             """
 
+    # Optional YouTube trending videos panel
+    youtube_panel = ""
+    if youtube_trends_fn is not None:
+        try:
+            yt_items = youtube_trends_fn(region=youtube_region, count=12) or []
+        except Exception:
+            yt_items = []
+        if yt_items:
+            yt_cards = []
+            for v in yt_items[:12]:
+                title = v.get("title", "")
+                channel = v.get("channel", "")
+                url = v.get("url", "")
+                thumb = v.get("thumbnail", "")
+                views = v.get("views", 0)
+                yt_cards.append(f"""
+                  <a href="{_escape(url)}" target="_blank" rel="noopener"
+                     class="card flex gap-3 items-start">
+                    {'<img src="' + _escape(thumb) + '" class="w-32 rounded shrink-0" loading="lazy">' if thumb else ''}
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-medium leading-snug">{_escape(title)[:120]}</div>
+                      <div class="text-xs text-[color:var(--text-dim)] mt-1">{_escape(channel)}</div>
+                      <div class="text-xs font-mono text-[color:var(--primary)] mt-1">{views:,} views</div>
+                    </div>
+                  </a>""")
+            youtube_panel = f"""
+              <h3 class="text-lg font-semibold mt-10 mb-2">YouTube trending — {_escape(youtube_region)}</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">
+                Most-popular videos right now · via YouTube Data API v3
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {''.join(yt_cards)}
+              </div>
+            """
+
     body = f"""
       <h2 class="text-lg font-semibold mb-1">{_escape(t('tab.trending', lang))}</h2>
       <p class="text-xs text-[color:var(--text-dim)] mb-4">
@@ -771,6 +809,7 @@ def render_trending_page(request, compute_velocity_fn, db_path,
       </div>
       {google_panel}
       {pageviews_panel}
+      {youtube_panel}
       {wiki_panel}
     """
     return _page_shell(lang, "trending", body), lang

@@ -66,6 +66,12 @@ from echolot_gnews_trends import (
     cross_source_supertrends as gnews_supertrends,
     GEO_FEEDS as GNEWS_GEO_FEEDS,
 )
+from echolot_youtube_trends import (
+    is_enabled as youtube_enabled,
+    trending_videos as youtube_trending_videos,
+    SUPPORTED_REGIONS as YT_REGIONS,
+    CATEGORY_IDS as YT_CATEGORIES,
+)
 from echolot_dashboard import (
     augment_landing,
     render_dashboard,
@@ -886,6 +892,69 @@ async def wiki_trends(
             out["predictive"] = []
 
     return json.dumps(out, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+async def youtube_trends(
+    region: str = "HU",
+    count: int = 20,
+    category: str = "all",
+) -> str:
+    """YouTube most-popular trending videos via Data API v3.
+
+    Set YOUTUBE_API_KEY env var on the Echolot service to enable.
+    Free-tier quota: 10,000 units/day (each call ~1 unit; with 1h cache
+    this is effectively unlimited at our usage).
+
+    Args:
+        region: ISO 3166-1 alpha-2 country code. Supported: HU, US, GB,
+            DE, FR, ES, IT, PL, RU, UA, JP, KR, CN, BR, MX, IN, TR, NL,
+            SE, CZ. Default 'HU'.
+        count: max videos to return, 1-50 (default 20).
+        category: filter category. Options: 'all', 'news', 'tech',
+            'gaming', 'music', 'sports', 'edu', 'comedy', 'movies'.
+            Default 'all'.
+
+    Returns:
+        JSON with: enabled, region, category, results[] each with
+        rank, title, channel, url, views, likes, comments,
+        engagement_score, published_at, description, thumbnail.
+    """
+    if not youtube_enabled():
+        return json.dumps({
+            "enabled": False,
+            "hint": "Set YOUTUBE_API_KEY env var on the Echolot service",
+            "results": [],
+        }, ensure_ascii=False)
+
+    region = region.upper()
+    if region not in YT_REGIONS:
+        return json.dumps({
+            "error": f"Unsupported region {region!r}",
+            "supported": sorted(YT_REGIONS),
+        }, ensure_ascii=False)
+    if category not in YT_CATEGORIES:
+        return json.dumps({
+            "error": f"Unknown category {category!r}",
+            "available": list(YT_CATEGORIES.keys()),
+        }, ensure_ascii=False)
+
+    items = await youtube_trending_videos(region=region, count=count, category=category)
+    if items is None:
+        return json.dumps({
+            "enabled": True,
+            "error": "YouTube API request failed (check key + quota)",
+            "region": region, "category": category, "results": [],
+        }, ensure_ascii=False)
+
+    return json.dumps({
+        "enabled": True,
+        "region": region,
+        "category": category,
+        "backed_by": "youtube_data_api_v3",
+        "count": len(items),
+        "results": items,
+    }, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
@@ -1937,11 +2006,25 @@ async def dashboard_trending(request):
     except Exception as exc:
         logger.warning("dashboard wiki pageviews: %s", exc)
 
+    # YouTube trending (only if key configured)
+    youtube_region = (request.query_params.get("yt_region") or "HU").upper()
+    if youtube_region not in YT_REGIONS:
+        youtube_region = "HU"
+    youtube_cached = None
+    if youtube_enabled():
+        try:
+            youtube_cached = await youtube_trending_videos(region=youtube_region, count=12)
+        except Exception as exc:
+            logger.warning("dashboard youtube trends: %s", exc)
+
     def wiki_fn(limit: int = 15):
         return wiki_cached
 
     def wiki_pageviews_fn(limit: int = 15):
         return pageviews_cached
+
+    def youtube_fn(region: str = "HU", count: int = 12):
+        return youtube_cached or []
 
     page, lang = render_trending_page(
         request, compute_sphere_velocity, DB_PATH,
@@ -1949,6 +2032,8 @@ async def dashboard_trending(request):
         google_trends_fn=gnews_trending,
         wiki_pageviews_fn=wiki_pageviews_fn,
         wiki_pageviews_lang=lang_for_wiki,
+        youtube_trends_fn=youtube_fn,
+        youtube_region=youtube_region,
     )
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
