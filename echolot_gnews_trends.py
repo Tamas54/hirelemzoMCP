@@ -153,36 +153,100 @@ def cross_source_supertrends(
         items = fetch_country_trending(geo, limit=25)
         per_geo[geo] = [(keywords(it["title"]), it["title"]) for it in items]
 
+    # Weak/generic tokens common in product copy or clickbait — drop any
+    # n-gram that contains one of these. Prevents fragments like
+    # "fits neatly", "pocket your budget", "your pocket" from inflating
+    # the supertrend list.
+    WEAK_TOKENS = {
+        "your", "their", "his", "her", "its", "this", "that",
+        "these", "those", "fits", "neatly", "pocket", "budget",
+        "really", "very", "much", "more", "less", "just",
+        "they", "them", "with", "from", "have", "been", "what",
+        "when", "where", "which", "while", "about", "after", "before",
+    }
+
     # Find phrases that appear in >= min_overlap geos
-    # Use 2-3 word phrases for richer signal
+    # Use 2-3 word phrases for richer signal. Reject any n-gram that
+    # contains a stopword OR a weak token (per-token check, not whole
+    # phrase) — fixes the "fits neatly" / "pocket your budget" leak.
     def phrases(text: str) -> set[str]:
         clean = _strip_html(text).lower()
         clean = re.sub(r"[^\w\s]", " ", clean, flags=re.UNICODE)
         toks = [w for w in clean.split() if len(w) >= 4 and w not in STOPWORDS]
         out = set()
         for i in range(len(toks) - 1):
-            out.add(" ".join(toks[i:i + 2]))
+            bigram = toks[i:i + 2]
+            if not any(t in WEAK_TOKENS or t in STOPWORDS for t in bigram):
+                out.add(" ".join(bigram))
             if i + 2 < len(toks):
-                out.add(" ".join(toks[i:i + 3]))
+                trigram = toks[i:i + 3]
+                if not any(t in WEAK_TOKENS or t in STOPWORDS for t in trigram):
+                    out.add(" ".join(trigram))
         return out
 
     phrase_to_geos: dict[str, set[str]] = {}
     phrase_to_titles: dict[str, list[str]] = {}
+    phrase_to_urls: dict[str, set[str]] = {}
     for geo in geos:
         items = fetch_country_trending(geo, limit=25)
         for it in items:
             for p in phrases(it["title"]):
                 phrase_to_geos.setdefault(p, set()).add(geo)
                 phrase_to_titles.setdefault(p, []).append(f"[{geo}] {it['title']}")
+                url = (it.get("link") or "").strip()
+                if url:
+                    phrase_to_urls.setdefault(p, set()).add(url)
 
     supertrends = []
     for phrase, geo_set in phrase_to_geos.items():
-        if len(geo_set) >= min_overlap:
-            supertrends.append({
-                "topic_phrase": phrase,
-                "geos": sorted(geo_set),
-                "count": len(geo_set),
-                "sample_titles": phrase_to_titles[phrase][:5],
-            })
-    supertrends.sort(key=lambda x: (-x["count"], x["topic_phrase"]))
-    return supertrends[:limit]
+        if len(geo_set) < min_overlap:
+            continue
+        # Require >= min_overlap DIFFERENT URLs — guards against the
+        # same article being syndicated under different geos but
+        # representing only ONE underlying story.
+        url_set = phrase_to_urls.get(phrase, set())
+        if len(url_set) < min_overlap:
+            continue
+        supertrends.append({
+            "topic_phrase": phrase,
+            "geos": sorted(geo_set),
+            "count": len(geo_set),
+            "sample_titles": phrase_to_titles[phrase][:5],
+            "_url_count": len(url_set),
+        })
+
+    # Article-cluster dedup: phrases that appear in the SAME set of
+    # titles describe the same underlying story. Collapse each cluster
+    # to its single best representative (most countries → longest →
+    # fewest weak tokens).
+    def _normalize_titles(titles: list[str]) -> frozenset[str]:
+        # Strip "[GEO] " prefix and lowercase for comparison.
+        out: set[str] = set()
+        for t in titles:
+            if "] " in t:
+                t = t.split("] ", 1)[-1]
+            out.add(t.lower().strip())
+        return frozenset(out)
+
+    def _phrase_quality(st: dict) -> tuple:
+        toks = st["topic_phrase"].split()
+        weak = sum(1 for t in toks if t in WEAK_TOKENS)
+        # Lower sort key wins: more countries, then longer phrase,
+        # then fewer weak tokens, then more distinct URLs.
+        return (-st["count"], -len(toks), weak, -st.get("_url_count", 0))
+
+    clusters: dict[frozenset, list[dict]] = {}
+    for st in supertrends:
+        key = _normalize_titles(st["sample_titles"])
+        clusters.setdefault(key, []).append(st)
+
+    deduped: list[dict] = []
+    for group in clusters.values():
+        group.sort(key=_phrase_quality)
+        best = group[0]
+        # Drop the internal sort-only field before returning.
+        best.pop("_url_count", None)
+        deduped.append(best)
+
+    deduped.sort(key=lambda x: (-x["count"], x["topic_phrase"]))
+    return deduped[:limit]

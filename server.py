@@ -38,9 +38,16 @@ from echolot_health import compute_health
 from echolot_diversity import diversify
 from echolot_velocity import compute_sphere_velocity
 from echolot_entities import resolve as resolve_entity
+from echolot_trending_filter import (
+    ALL_STOPWORDS as _TRENDING_STOPWORDS,
+    is_proper_noun_like as _is_proper_noun_like,
+    normalize as _normalize_token,
+    tokenize_with_case as _tokenize_with_case,
+)
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
+from echolot_content_extract import extract_main_text
 # Wikicorrelate engine (in-process, ported from Tamas54/wikicorrelate Phase A)
 from wikicorrelate.services.correlate import search_and_correlate as _wiki_search
 from wikicorrelate.database import init_db as _wiki_init_db, get_top_movers as _wiki_db_top_movers
@@ -445,7 +452,7 @@ def get_weekly_digest(week: str = "current", category: str = "",
 
 @mcp.tool()
 def get_trending(days: int = 1, min_sources: int = 3, limit: int = 15,
-                 sphere: str = "") -> str:
+                 sphere: str = "", mode: str = "strict") -> str:
     """Trending topics — keywords mentioned by multiple sources.
 
     Args:
@@ -453,6 +460,9 @@ def get_trending(days: int = 1, min_sources: int = 3, limit: int = 15,
         min_sources: Minimum distinct sources for a topic (default: 3)
         limit: Max trending topics (1–30, default: 15)
         sphere: Restrict to a specific sphere (default: all)
+        mode: "strict" (default — proper-noun-like tokens only, multilingual
+              stopwords, year/calendar drop, light lemmatization) or
+              "loose" (legacy: any token over min_sources).
     """
     days = max(1, min(7, days))
     since = (datetime.now() - timedelta(days=days)).isoformat()
@@ -469,30 +479,43 @@ def get_trending(days: int = 1, min_sources: int = 3, limit: int = 15,
     with get_db() as conn:
         articles = [_row_to_dict(r) for r in conn.execute(sql, params).fetchall()]
 
-    stop_words = {
-        "a", "az", "és", "is", "hogy", "nem", "van", "volt", "lesz", "már",
-        "még", "meg", "el", "ki", "be", "fel", "le", "ezt", "azt", "egy",
-        "mint", "csak", "vagy", "ide", "oda", "ami", "aki", "amely", "ez",
-        "the", "and", "for", "with", "from", "has", "have", "are", "was",
-        "will", "but", "not", "its", "can", "into", "over", "about", "after",
-        "this", "that", "said", "says", "new", "more", "been", "also", "their",
-        "than", "what", "when", "where", "which", "would", "could", "should",
-    }
+    strict = (mode or "strict").lower() != "loose"
 
-    def keywords(title: str) -> list[str]:
-        words = [w.lower().strip(".:,;!?\"'()-–—") for w in (title or "").split()]
-        return [w for w in words if len(w) > 3 and w not in stop_words]
+    # Per-token aggregates.
+    by_kw_articles: dict[str, list[dict]] = defaultdict(list)
+    by_kw_cap_count: Counter = Counter()
+    by_kw_total_count: Counter = Counter()
 
-    by_kw: dict[str, list[dict]] = defaultdict(list)
     for a in articles:
-        for kw in keywords(a.get("title") or ""):
-            by_kw[kw].append(a)
+        title = a.get("title") or ""
+        seen_in_article: set[str] = set()
+        for raw_lower, was_capitalized in _tokenize_with_case(title):
+            if len(raw_lower) <= 3:
+                continue
+            if raw_lower in _TRENDING_STOPWORDS:
+                continue
+            lemma = _normalize_token(raw_lower)
+            if not lemma or len(lemma) <= 3:
+                continue
+            # Capitalization & frequency telemetry per occurrence (every
+            # surface form of the token in this title contributes).
+            by_kw_total_count[lemma] += 1
+            if was_capitalized:
+                by_kw_cap_count[lemma] += 1
+            # One article-membership entry per (lemma, article) pair.
+            if lemma not in seen_in_article:
+                by_kw_articles[lemma].append(a)
+                seen_in_article.add(lemma)
 
     trending = []
     seen_urls: set[str] = set()
-    for kw, arts in sorted(by_kw.items(), key=lambda x: -len({a["source_name"] for a in x[1]})):
+    for kw, arts in sorted(by_kw_articles.items(),
+                           key=lambda x: -len({a["source_name"] for a in x[1]})):
         sources_set = {a["source_name"] for a in arts}
         if len(sources_set) < min_sources:
+            continue
+        if strict and not _is_proper_noun_like(by_kw_cap_count[kw],
+                                               by_kw_total_count[kw]):
             continue
         unique_arts = []
         for a in arts:
@@ -513,6 +536,7 @@ def get_trending(days: int = 1, min_sources: int = 3, limit: int = 15,
 
     return json.dumps({
         "days": days, "min_sources": min_sources, "sphere": sphere or "all",
+        "mode": "strict" if strict else "loose",
         "trending_count": len(trending), "trending": trending,
     }, ensure_ascii=False, default=str)
 
@@ -1294,7 +1318,9 @@ def search_social(
                 logger.warning("brave fallback failed for %s: %s", c["url"], exc)
                 brave = None
             if brave and brave.get("content_usable"):
-                text = brave.get("text") or brave.get("markdown") or ""
+                raw = brave.get("text") or brave.get("markdown") or ""
+                extracted = extract_main_text(raw, url=c["url"])
+                text = extracted["text"]
                 # Cap to keep the response readable
                 if len(text) > 1000:
                     text = text[:1000] + f"…[truncated, full {len(text)} chars]"
@@ -1302,7 +1328,7 @@ def search_social(
                     "platform": platform,
                     "url": c["url"],
                     "text": text,
-                    "title": brave.get("title", ""),
+                    "title": extracted.get("title") or brave.get("title", ""),
                     "preview_title": c["preview_title"],
                     "via": "brave_scrape",
                 })
@@ -1372,7 +1398,12 @@ def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
                            "url": url, "content_usable": False},
                           ensure_ascii=False)
 
-    text = result.get("text") or result.get("markdown") or ""
+    raw = result.get("text") or result.get("markdown") or ""
+    raw_total = len(raw)
+    # Brave returns full-page text/HTML without main-content extraction —
+    # nav, footer, <style>, <svg> all included. Strip down to article body.
+    extracted = extract_main_text(raw, url=url)
+    text = extracted["text"]
     total = len(text)
     if max_chars and total > max_chars:
         text = text[:max_chars] + f"\n…[truncated, full length {total} chars]"
@@ -1382,9 +1413,11 @@ def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
         "robust": robust,
         "content_usable": result.get("content_usable"),
         "block_reason": result.get("block_reason"),
-        "title": result.get("title"),
+        "title": extracted.get("title") or result.get("title"),
         "text": text,
         "text_len_total": total,
+        "raw_len": raw_total,
+        "extractor": extracted["extractor"],
         "escalation_path": result.get("escalation_path"),
     }, ensure_ascii=False, default=str)
 

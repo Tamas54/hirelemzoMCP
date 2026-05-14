@@ -14,3 +14,5 @@ scipy>=1.11
 pandas>=2.0
 scikit-learn>=1.3
 statsmodels>=0.14
+trafilatura>=1.12
+readability-lxml>=0.8
