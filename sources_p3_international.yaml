@@ -428,3 +428,288 @@
   lean: analytical
   category: tech
   source_type: rss
+
+# ============================================================================
+# X / Twitter — via our own RSSHub Railway deploy
+# Base URL: https://rsshub-production-82fc.up.railway.app/twitter/user/<handle>
+# Auth: TWITTER_AUTH_TOKEN env on the RSSHub service (Clauscommandant
+# throwaway account). Cookie rotates every 1-2 weeks — see
+# rsshub_cookie_renewal.md for the renewal procedure.
+# ============================================================================
+
+# --- x_milblog_west (Western OSINT / military analysts) ---
+- id: x_isw
+  name: Institute for the Study of War (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/TheStudyofWar
+  spheres: [x_milblog_west, global_osint, ua_front_osint]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_defmon3
+  name: Def Mon (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/Defmon3
+  spheres: [x_milblog_west, ua_front_osint]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_nrg8000
+  name: Nrg8000 (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/Nrg8000
+  spheres: [x_milblog_west, ua_front_osint]
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_markito0171
+  name: Markito0171 (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/markito0171
+  spheres: [x_milblog_west, ua_front_osint]
+  language: en
+  trust_tier: 3
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_war_mapper
+  name: War Mapper (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/war_mapper
+  spheres: [x_milblog_west, ua_front_osint]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+# --- x_milblog_ua (Ukrainian official / pro-UA) ---
+- id: x_kyiv_independent
+  name: Kyiv Independent (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/KyivIndependent
+  spheres: [x_milblog_ua, ua_front_osint]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_united24media
+  name: United24 Media (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/United24media
+  spheres: [x_milblog_ua, ua_front_osint]
+  language: en
+  trust_tier: 2
+  lean: gov
+  category: foreign
+  source_type: rss
+
+- id: x_zelenskyy
+  name: Volodymyr Zelenskyy (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/ZelenskyyUa
+  spheres: [x_milblog_ua, ua_front_osint]
+  language: en
+  trust_tier: 1
+  lean: gov
+  category: foreign
+  source_type: rss
+
+- id: x_defenceu
+  name: Defence of Ukraine (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/DefenceU
+  spheres: [x_milblog_ua, ua_front_osint]
+  language: en
+  trust_tier: 1
+  lean: gov
+  category: foreign
+  source_type: rss
+
+# --- x_milblog_ru (Russian milblog / counter-perspective) ---
+- id: x_julianroepcke
+  name: Julian Röpcke (X, counter-RU)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/JulianRoepcke
+  spheres: [x_milblog_ru, ua_front_osint]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_andrewperpetua
+  name: Andrew Perpetua (X, counter-RU OSINT)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/AndrewPerpetua
+  spheres: [x_milblog_ru, ua_front_osint]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+# --- x_geopol_analysts ---
+- id: x_kofmanmichael
+  name: Michael Kofman (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/KofmanMichael
+  spheres: [x_geopol_analysts, ua_front_osint, global_analysis]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_ralee85
+  name: Rob Lee (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/RALee85
+  spheres: [x_geopol_analysts, ua_front_osint]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+- id: x_dalperovitch
+  name: Dmitri Alperovitch (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/DAlperovitch
+  spheres: [x_geopol_analysts, global_analysis]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: foreign
+  source_type: rss
+
+# --- x_central_banks (Hungarian @mnb_official intentionally omitted) ---
+- id: x_lagarde
+  name: Christine Lagarde (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/Lagarde
+  spheres: [x_central_banks, global_economy]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: gazdaság
+  source_type: rss
+
+- id: x_ecb
+  name: European Central Bank (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/ecb
+  spheres: [x_central_banks, global_economy]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: gazdaság
+  source_type: rss
+
+- id: x_federalreserve
+  name: Federal Reserve (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/federalreserve
+  spheres: [x_central_banks, global_economy]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: gazdaság
+  source_type: rss
+
+- id: x_bankofengland
+  name: Bank of England (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/bankofengland
+  spheres: [x_central_banks, global_economy, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: gazdaság
+  source_type: rss
+
+# --- x_us_politics ---
+- id: x_potus
+  name: POTUS (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/POTUS
+  spheres: [x_us_politics, regional_us]
+  language: en
+  trust_tier: 1
+  lean: gov
+  category: foreign
+  source_type: rss
+
+- id: x_secstate
+  name: Secretary of State (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/SecState
+  spheres: [x_us_politics, regional_us]
+  language: en
+  trust_tier: 1
+  lean: gov
+  category: foreign
+  source_type: rss
+
+- id: x_speakerjohnson
+  name: Speaker Mike Johnson (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/SpeakerJohnson
+  spheres: [x_us_politics, regional_us]
+  language: en
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+
+- id: x_senschumer
+  name: Senator Chuck Schumer (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/SenSchumer
+  spheres: [x_us_politics, regional_us]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+
+- id: x_realdonaldtrump
+  name: Donald J. Trump (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/realDonaldTrump
+  spheres: [x_us_politics, regional_us]
+  language: en
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+
+# --- x_finance_traders ---
+- id: x_zerohedge
+  name: Zero Hedge (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/zerohedge
+  spheres: [x_finance_traders, global_economy]
+  language: en
+  trust_tier: 3
+  lean: right
+  category: gazdaság
+  source_type: rss
+
+- id: x_lizannsonders
+  name: Liz Ann Sonders (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/LizAnnSonders
+  spheres: [x_finance_traders, global_economy]
+  language: en
+  trust_tier: 1
+  lean: analytical
+  category: gazdaság
+  source_type: rss
+
+- id: x_steverattner
+  name: Steve Rattner (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/SteveRattner
+  spheres: [x_finance_traders, global_economy]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: gazdaság
+  source_type: rss
+
+- id: x_nouriel
+  name: Nouriel Roubini (X)
+  url: https://rsshub-production-82fc.up.railway.app/twitter/user/Nouriel
+  spheres: [x_finance_traders, global_economy]
+  language: en
+  trust_tier: 2
+  lean: analytical
+  category: gazdaság
+  source_type: rss
