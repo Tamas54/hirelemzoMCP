@@ -776,79 +776,112 @@ def search_web(query: str, count: int = 10) -> str:
     }, ensure_ascii=False, default=str)
 
 
+PLATFORM_SITE_FILTERS = {
+    "x":          "(site:x.com OR site:twitter.com)",
+    "facebook":   "site:facebook.com",
+    "reddit":     "(site:reddit.com OR site:old.reddit.com)",
+    "threads":    "(site:threads.net OR site:threads.com)",
+    "linkedin":   "site:linkedin.com",
+    "instagram":  "site:instagram.com",
+    "bluesky":    "site:bsky.app",
+    "hackernews": "site:news.ycombinator.com",
+}
+
+
 @mcp.tool()
-def search_x_tweets(query: str, count: int = 5) -> str:
-    """Find tweets matching a keyword. Workaround for X's Premium-only search.
+def search_social(
+    query: str,
+    platforms: list[str] | None = None,
+    count: int = 10,
+    per_platform_limit: int = 3,
+) -> str:
+    """Search social-media posts across platforms via Brave + OG fast-path.
 
-    The X `SearchTimeline` endpoint is paywalled since 2025; free accounts
-    get HTTP 404. This tool reaches the same goal by combining two tools:
+    X's keyword search is Premium-only ($8-16/mo) and Facebook/Instagram/
+    LinkedIn don't expose a free search at all. We reach the same goal by
+    Brave-searching with site:-restriction, then OG-meta-scraping each hit
+    in ~300ms (no JS render, no API key, no auth-token-rot).
 
-      1. brave_search "site:x.com <query>" — Brave indexes individual
-         /status/<id>/ tweet URLs publicly
-      2. OG fast-path scrape on each match — pulls the tweet text from
-         the og:description meta tag in ~300ms (no JS render)
-
-    Returns a list of {url, text, title} dicts — agents don't need to
-    chain the workflow themselves.
+    Per platform we keep up to `per_platform_limit` results so a noisy
+    platform (e.g. lots of Reddit links) can't crowd out the others.
 
     Args:
-        query: free-form search terms (any language). "site:x.com " is
-            prepended automatically.
-        count: how many tweets to return, 1-20 (default 5)
+        query: free-form search terms (any language)
+        platforms: list of platforms to search. Default = all 8:
+            ['x', 'facebook', 'reddit', 'threads', 'linkedin',
+             'instagram', 'bluesky', 'hackernews']
+        count: total max posts across all platforms, 1-30 (default 10)
+        per_platform_limit: max posts per platform, 1-10 (default 3)
 
-    Returns JSON with: query, urls_found, tweets_extracted, tweets[].
-    Each tweet has: url, text (300+ chars typical), title, preview_title
-    (Brave's snippet).
+    Returns JSON with:
+        query, platforms_queried, urls_found_per_platform,
+        posts_extracted, posts: [{platform, url, text, title,
+        preview_title}].
     """
-    count = max(1, min(20, count))
     if not query.strip():
         return json.dumps({"error": "Empty query"})
 
-    full_query = f"site:x.com {query}"
-    # Fetch more than `count` so we have buffer after filtering to /status/.
-    web_results = brave_search_sync(full_query, count=count * 3)
-    if web_results is None:
-        return json.dumps({
-            "error": "Brave search unavailable",
-            "query": query, "web_query_used": full_query,
-            "urls_found": 0, "tweets_extracted": 0, "tweets": [],
-        }, ensure_ascii=False)
+    count = max(1, min(30, count))
+    per_platform_limit = max(1, min(10, per_platform_limit))
 
-    import re as _re
-    status_re = _re.compile(r'^https?://(?:x|twitter)\.com/[^/]+/status/\d+', _re.IGNORECASE)
-    candidates = []
-    seen = set()
-    for r in web_results:
-        url = r.get("url", "")
-        if not status_re.match(url):
-            continue
-        # Dedupe by /status/<id>/
-        m = _re.match(r'^(https?://(?:x|twitter)\.com/[^/]+/status/\d+)', url, _re.IGNORECASE)
-        canonical = m.group(1) if m else url
-        if canonical in seen:
-            continue
-        seen.add(canonical)
-        candidates.append({"url": canonical, "preview_title": r.get("title", "")})
-        if len(candidates) >= count:
+    if not platforms:
+        platforms = list(PLATFORM_SITE_FILTERS.keys())
+    else:
+        invalid = [p for p in platforms if p not in PLATFORM_SITE_FILTERS]
+        platforms = [p for p in platforms if p in PLATFORM_SITE_FILTERS]
+        if not platforms:
+            return json.dumps({
+                "error": "No valid platforms",
+                "invalid": invalid,
+                "available": list(PLATFORM_SITE_FILTERS.keys()),
+            }, ensure_ascii=False)
+
+    urls_per_platform: dict[str, int] = {}
+    posts: list[dict] = []
+
+    for platform in platforms:
+        if len(posts) >= count:
             break
+        site_filter = PLATFORM_SITE_FILTERS[platform]
+        full_query = f"{site_filter} {query}"
+        web_results = brave_search_sync(full_query, count=per_platform_limit * 3)
+        if not web_results:
+            urls_per_platform[platform] = 0
+            continue
 
-    tweets = []
-    for c in candidates:
-        og = fetch_og(c["url"])
-        if og and og.get("content_usable"):
-            tweets.append({
-                "url": c["url"],
-                "text": og.get("text", ""),
-                "title": og.get("title", ""),
-                "preview_title": c["preview_title"],
-            })
+        seen: set[str] = set()
+        candidates: list[dict] = []
+        for r in web_results:
+            url = r.get("url", "")
+            if match_platform(url) != platform:
+                continue
+            if url in seen:
+                continue
+            seen.add(url)
+            candidates.append({"url": url, "preview_title": r.get("title", "")})
+            if len(candidates) >= per_platform_limit:
+                break
+        urls_per_platform[platform] = len(candidates)
+
+        for c in candidates:
+            if len(posts) >= count:
+                break
+            og = fetch_og(c["url"])
+            if og and og.get("content_usable"):
+                posts.append({
+                    "platform": platform,
+                    "url": c["url"],
+                    "text": og.get("text", ""),
+                    "title": og.get("title", ""),
+                    "preview_title": c["preview_title"],
+                })
 
     return json.dumps({
         "query": query,
-        "web_query_used": full_query,
-        "urls_found": len(candidates),
-        "tweets_extracted": len(tweets),
-        "tweets": tweets,
+        "platforms_queried": platforms,
+        "urls_found_per_platform": urls_per_platform,
+        "posts_extracted": len(posts),
+        "posts": posts,
     }, ensure_ascii=False, default=str)
 
 
