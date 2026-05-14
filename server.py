@@ -40,6 +40,17 @@ from echolot_entities import resolve as resolve_entity
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
+from echolot_wikicorrelate_client import (
+    is_enabled as wikicorrelate_enabled,
+    search_correlations as wiki_search,
+    top_movers as wiki_top_movers,
+    predictive as wiki_predictive,
+)
+from echolot_serpapi_client import (
+    is_enabled as serpapi_enabled,
+    trending_now as serpapi_trending_now,
+    trends_for as serpapi_trends_for,
+)
 from echolot_dashboard import (
     augment_landing,
     render_dashboard,
@@ -755,6 +766,138 @@ def entity_search(
         "diversity": diversity_stats,
         "articles": selected,
     }, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def wiki_trends(
+    topic: str = "",
+    days: int = 365,
+    limit: int = 15,
+    include_predictive: bool = False,
+) -> str:
+    """Wikipedia-pageview-based topic correlations & trending pairs.
+
+    Backed by our own wikicorrelate FastAPI service (Tamas54/wikicorrelate,
+    deployed separately). Set WIKICORRELATE_URL env var on the Echolot
+    service to enable.
+
+    Two modes:
+      - topic="something"  -> top correlated Wikipedia articles for that
+                              topic (Pearson on pageview series, last
+                              `days` of history)
+      - topic=""           -> current top-movers (Wikipedia articles whose
+                              correlation pairs are spiking right now)
+
+    Plus optional `include_predictive`: lag-correlation forecasts (which
+    articles tend to *follow* the topic with N-day delay).
+
+    Args:
+        topic: search term; leave empty for global top-movers
+        days: history window in days, 30-3650 (default 365)
+        limit: max results, 1-100 (default 15)
+        include_predictive: also fetch lag-correlation predictions
+
+    Returns JSON with: enabled, mode, results, top_movers, predictive,
+    backed_by ('wikicorrelate').
+    """
+    if not wikicorrelate_enabled():
+        return json.dumps({
+            "enabled": False,
+            "hint": "Set WIKICORRELATE_URL env var on the Echolot service",
+            "results": [],
+        }, ensure_ascii=False)
+
+    days = max(30, min(3650, days))
+    limit = max(1, min(100, limit))
+    out: dict = {"enabled": True, "backed_by": "wikicorrelate"}
+
+    topic = (topic or "").strip()
+    if topic:
+        out["mode"] = "topic_correlations"
+        out["topic"] = topic
+        data = wiki_search(topic, days=days, limit=limit)
+        out["results"] = data.get("results", []) if data else []
+        if data is None:
+            out["error"] = "wikicorrelate request failed"
+    else:
+        out["mode"] = "top_movers"
+        data = wiki_top_movers(limit=limit)
+        out["top_movers"] = data.get("results", []) if data else []
+        if data is None:
+            out["error"] = "wikicorrelate request failed"
+
+    if include_predictive:
+        pred = wiki_predictive(topic=topic or None, days=days)
+        out["predictive"] = pred.get("results", []) if pred else []
+
+    return json.dumps(out, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def google_trends(
+    geo: str = "HU",
+    query: str = "",
+    frequency: str = "realtime",
+    date_range: str = "now 7-d",
+) -> str:
+    """Google Trends data via SerpAPI (set SERPAPI_KEY env var to enable).
+
+    Two modes:
+      - query=""           -> trending_now: currently spiking searches in `geo`
+      - query="something"  -> interest-over-time series for that query
+
+    Args:
+        geo: 2-letter country code (HU, US, DE, FR, ES, JP, CN, GB, ...).
+             Default 'HU'.
+        query: search term (leave empty for the global trending-now feed)
+        frequency: 'realtime' or 'daily' (only used when query is empty)
+        date_range: time range when query is set — 'now 1-d', 'now 7-d',
+            'today 1-m', 'today 12-m'
+
+    Returns JSON with: enabled, mode, geo, results / timeseries,
+    backed_by ('google_trends_serpapi').
+    """
+    if not serpapi_enabled():
+        return json.dumps({
+            "enabled": False,
+            "hint": "Set SERPAPI_KEY env var on the Echolot service",
+            "results": [],
+        }, ensure_ascii=False)
+
+    query = (query or "").strip()
+    out: dict = {"enabled": True, "backed_by": "google_trends_serpapi", "geo": geo}
+
+    if query:
+        out["mode"] = "interest_over_time"
+        out["query"] = query
+        out["date_range"] = date_range
+        data = serpapi_trends_for(query, geo=geo, date_range=date_range)
+        if data is None:
+            out["error"] = "serpapi request failed"
+            out["timeseries"] = []
+        else:
+            out["timeseries"] = (data.get("interest_over_time") or {}).get("timeline_data", [])
+    else:
+        out["mode"] = "trending_now"
+        out["frequency"] = frequency
+        data = serpapi_trending_now(geo=geo, frequency=frequency)
+        if data is None:
+            out["error"] = "serpapi request failed"
+            out["results"] = []
+        else:
+            results = []
+            for item in (data.get("realtime_searches") or data.get("daily_searches") or [])[:30]:
+                results.append({
+                    "title": item.get("title") or item.get("query") or "",
+                    "search_volume": item.get("search_volume"),
+                    "articles": [
+                        {"title": a.get("title"), "source": a.get("source"), "url": a.get("link")}
+                        for a in (item.get("articles") or [])[:3]
+                    ],
+                })
+            out["results"] = results
+
+    return json.dumps(out, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
@@ -1718,7 +1861,15 @@ async def dashboard_health(request):
 
 @mcp.custom_route("/dashboard/trending", methods=["GET"])
 async def dashboard_trending(request):
-    page, lang = render_trending_page(request, compute_sphere_velocity, DB_PATH)
+    # Pass the wiki top-movers fetcher only if it's actually configured;
+    # the dashboard helper renders an extra panel when it gets non-None.
+    wiki_fn = wiki_top_movers if wikicorrelate_enabled() else None
+    google_fn = serpapi_trending_now if serpapi_enabled() else None
+    page, lang = render_trending_page(
+        request, compute_sphere_velocity, DB_PATH,
+        wiki_top_movers_fn=wiki_fn,
+        google_trends_fn=google_fn,
+    )
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp

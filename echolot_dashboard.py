@@ -596,8 +596,16 @@ def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
     return _page_shell(lang, "health", body), lang
 
 
-def render_trending_page(request, compute_velocity_fn, db_path) -> tuple[str, str]:
-    """Trending sphere-velocity — which spheres are spiking now."""
+def render_trending_page(request, compute_velocity_fn, db_path,
+                          wiki_top_movers_fn=None,
+                          google_trends_fn=None) -> tuple[str, str]:
+    """Trending sphere-velocity — which spheres are spiking now.
+
+    Optional panels below the velocity table when those data sources
+    are configured:
+    - wiki_top_movers_fn: Wikipedia-pageview correlations (wikicorrelate)
+    - google_trends_fn:   Google Trends realtime searches (SerpAPI)
+    """
     lang = _request_lang(request)
     try:
         report = compute_velocity_fn(db_path, window_hours=6, baseline_offset_hours=24, limit=30)
@@ -622,14 +630,97 @@ def render_trending_page(request, compute_velocity_fn, db_path) -> tuple[str, st
               <span class="status-{color} px-2 py-0.5 rounded text-[10px] uppercase">{status}</span>
             </td>
           </tr>""")
+    # Optional Wikipedia top-movers panel
+    wiki_panel = ""
+    if wiki_top_movers_fn is not None:
+        try:
+            data = wiki_top_movers_fn(limit=15)
+        except Exception:
+            data = None
+        if data and data.get("results"):
+            wiki_rows = []
+            for r in data["results"][:15]:
+                title = r.get("topic_a") or r.get("title") or r.get("topic") or "?"
+                corr = r.get("correlation") or r.get("score") or 0
+                pair = r.get("topic_b") or ""
+                wiki_rows.append(f"""
+                  <tr class="border-b border-[color:var(--border)] hover:bg-white/[0.02]">
+                    <td class="py-2 text-sm">{_escape(str(title))}</td>
+                    <td class="py-2 text-sm text-[color:var(--text-dim)]">{_escape(str(pair))}</td>
+                    <td class="py-2 text-sm font-mono text-[color:var(--primary)]">{corr:.2f}</td>
+                  </tr>""" if isinstance(corr, (int, float)) else f"""
+                  <tr class="border-b border-[color:var(--border)]">
+                    <td class="py-2 text-sm">{_escape(str(title))}</td>
+                    <td class="py-2 text-sm">{_escape(str(pair))}</td>
+                    <td class="py-2 text-sm">{_escape(str(corr))}</td>
+                  </tr>""")
+            wiki_panel = f"""
+              <h3 class="text-lg font-semibold mt-10 mb-2">Wikipedia top-movers</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">
+                Pageview-correlation pairs spiking right now · backed by wikicorrelate
+              </p>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
+                    <tr><th class="py-2">Topic</th><th class="py-2">Correlated with</th><th class="py-2">r</th></tr>
+                  </thead>
+                  <tbody>{''.join(wiki_rows)}</tbody>
+                </table>
+              </div>
+            """
+
+    # Optional Google Trends panel
+    google_panel = ""
+    if google_trends_fn is not None:
+        geo = (request.query_params.get("geo") or "HU").upper()
+        try:
+            gdata = google_trends_fn(geo=geo)
+        except Exception:
+            gdata = None
+        items = (gdata or {}).get("realtime_searches") or (gdata or {}).get("daily_searches") or []
+        if items:
+            g_rows = []
+            for it in items[:15]:
+                title = it.get("title") or it.get("query") or ""
+                vol = it.get("search_volume") or ""
+                first_article = (it.get("articles") or [{}])[0]
+                src = first_article.get("source") or ""
+                link = first_article.get("link") or ""
+                title_html = (
+                    f'<a href="{_escape(link)}" target="_blank" rel="noopener" class="hover:text-[color:var(--primary)]">{_escape(str(title))}</a>'
+                    if link else _escape(str(title))
+                )
+                g_rows.append(f"""
+                  <tr class="border-b border-[color:var(--border)] hover:bg-white/[0.02]">
+                    <td class="py-2 text-sm">{title_html}</td>
+                    <td class="py-2 text-sm text-[color:var(--text-dim)]">{_escape(str(src))}</td>
+                    <td class="py-2 text-sm font-mono text-[color:var(--primary)]">{_escape(str(vol))}</td>
+                  </tr>""")
+            google_panel = f"""
+              <h3 class="text-lg font-semibold mt-10 mb-2">Google Trends — {_escape(geo)}</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">
+                Realtime trending searches · backed by SerpAPI
+              </p>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
+                    <tr><th class="py-2">Trend</th>
+                        <th class="py-2">Top source</th>
+                        <th class="py-2">Volume</th></tr>
+                  </thead>
+                  <tbody>{''.join(g_rows)}</tbody>
+                </table>
+              </div>
+            """
+
     body = f"""
       <h2 class="text-lg font-semibold mb-1">{_escape(t('tab.trending', lang))}</h2>
-      <p class="text-xs text-gray-500 mb-4">
+      <p class="text-xs text-[color:var(--text-dim)] mb-4">
         {report.get('window_hours', 6)}h vs {report.get('baseline_window', '?')}
       </p>
       <div class="overflow-x-auto">
         <table class="w-full text-left">
-          <thead class="border-b border-gray-700 text-xs uppercase text-gray-400">
+          <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
             <tr><th class="py-2">{_escape(t('tab.spheres', lang))}</th>
                 <th class="py-2">current</th>
                 <th class="py-2">baseline</th>
@@ -639,6 +730,8 @@ def render_trending_page(request, compute_velocity_fn, db_path) -> tuple[str, st
           <tbody>{''.join(rows)}</tbody>
         </table>
       </div>
+      {google_panel}
+      {wiki_panel}
     """
     return _page_shell(lang, "trending", body), lang
 
