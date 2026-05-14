@@ -794,6 +794,7 @@ def search_social(
     platforms: list[str] | None = None,
     count: int = 10,
     per_platform_limit: int = 3,
+    brave_fallback: bool = True,
 ) -> str:
     """Search social-media posts across platforms via Brave + OG fast-path.
 
@@ -805,6 +806,12 @@ def search_social(
     Per platform we keep up to `per_platform_limit` results so a noisy
     platform (e.g. lots of Reddit links) can't crowd out the others.
 
+    Two-tier extraction per URL:
+      1. OG fast-path (~300ms) — works for X, Threads, Facebook, LinkedIn
+      2. Brave scrape (~5-15s) — fallback for Reddit, HackerNews, Bluesky
+         where the OG description is empty by design. Set
+         brave_fallback=False to skip and save time.
+
     Args:
         query: free-form search terms (any language)
         platforms: list of platforms to search. Default = all 8:
@@ -812,11 +819,14 @@ def search_social(
              'instagram', 'bluesky', 'hackernews']
         count: total max posts across all platforms, 1-30 (default 10)
         per_platform_limit: max posts per platform, 1-10 (default 3)
+        brave_fallback: if True (default), Brave-scrape URLs where the OG
+            fast-path returned nothing usable. Slows the call by ~5-15s
+            per fallback URL.
 
     Returns JSON with:
         query, platforms_queried, urls_found_per_platform,
         posts_extracted, posts: [{platform, url, text, title,
-        preview_title}].
+        preview_title, via}]. `via` is "og_fastpath" or "brave_scrape".
     """
     if not query.strip():
         return json.dumps({"error": "Empty query"})
@@ -866,6 +876,7 @@ def search_social(
         for c in candidates:
             if len(posts) >= count:
                 break
+            # Tier 1: fast-path (300ms)
             og = fetch_og(c["url"])
             if og and og.get("content_usable"):
                 posts.append({
@@ -874,6 +885,30 @@ def search_social(
                     "text": og.get("text", ""),
                     "title": og.get("title", ""),
                     "preview_title": c["preview_title"],
+                    "via": "og_fastpath",
+                })
+                continue
+            # Tier 2: Brave scrape fallback (5-15s) — for Reddit/HN/Bluesky
+            # where OG description is empty by site policy.
+            if not brave_fallback:
+                continue
+            try:
+                brave = brave_fetch_sync(c["url"], robust=False)
+            except Exception as exc:
+                logger.warning("brave fallback failed for %s: %s", c["url"], exc)
+                brave = None
+            if brave and brave.get("content_usable"):
+                text = brave.get("text") or brave.get("markdown") or ""
+                # Cap to keep the response readable
+                if len(text) > 1000:
+                    text = text[:1000] + f"…[truncated, full {len(text)} chars]"
+                posts.append({
+                    "platform": platform,
+                    "url": c["url"],
+                    "text": text,
+                    "title": brave.get("title", ""),
+                    "preview_title": c["preview_title"],
+                    "via": "brave_scrape",
                 })
 
     return json.dumps({
