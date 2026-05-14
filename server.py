@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import sqlite3
 from collections import Counter, defaultdict
 from contextlib import contextmanager
@@ -147,6 +148,36 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     return d
 
 
+def _build_fts_query(
+    query: str,
+    *,
+    column_filter: str | None = None,
+    mode: str = "and",
+) -> tuple[str | None, list[str]]:
+    """Parse a free-form query into an FTS5 MATCH expression.
+
+    - mode="and": "iran nuclear" → '"iran" AND "nuclear"' (default — strict)
+    - mode="or":  "iran nuclear" → '"iran" OR "nuclear"' (loose, legacy)
+    - column_filter: e.g. "{title lead}" to restrict columns
+
+    Phrase-aware: shlex.split honors "..." for multi-word phrases.
+    Returns (fts_expr, terms_list). fts_expr is None if no usable terms (<3 chars all).
+    """
+    try:
+        tokens = shlex.split(query)
+    except ValueError:
+        tokens = query.split()
+    terms = [t for t in tokens if len(t) > 2]
+    if not terms:
+        return None, []
+    op = " AND " if mode == "and" else " OR "
+    if column_filter:
+        parts = [f'{column_filter}:"{t}"' for t in terms]
+    else:
+        parts = [f'"{t}"' for t in terms]
+    return op.join(parts), terms
+
+
 # ===========================================================================
 # MCP TOOLS
 # ===========================================================================
@@ -257,6 +288,7 @@ def search_news(
     include_full_text: bool = True,
     include_web: bool = False,
     web_count: int = 5,
+    match_mode: str = "and",
 ) -> str:
     """Full-text search news (FTS5 across title, lead, and full article text).
 
@@ -273,6 +305,7 @@ def search_news(
         max_per_sphere: when diversify_results=True, max articles from one primary sphere (default 5).
         include_full_text: search article bodies (Brave-fetched) too, not just
                 title and lead. Default: True. Set False for strict headline matching.
+        match_mode: "and" (default, strict — every term must match) or "or" (loose, legacy).
         include_web: also run a Brave web search and return the results under
                 `web_results` in the response. Default: False (the corpus is
                 primary; web is opt-in augmentation).
@@ -285,15 +318,12 @@ def search_news(
     if not query.strip():
         return json.dumps({"error": "Empty query"})
 
-    # FTS5 query — quote each term, OR them so partial matches work.
-    # When include_full_text=False, restrict to title+lead columns via FTS5 column-filter.
-    terms = [t for t in query.split() if len(t) > 2]
-    if not terms:
+    # FTS5 AND-default: every term must match (strict). Use match_mode="or" for the
+    # legacy looser behavior. Phrase-aware via shlex (quoted strings honored).
+    col = None if include_full_text else "{title lead}"
+    fts_query, terms = _build_fts_query(query, column_filter=col, mode=match_mode)
+    if fts_query is None:
         return json.dumps({"error": "Query too short — use 3+ char terms"})
-    if include_full_text:
-        fts_query = " OR ".join(f'"{t}"' for t in terms)
-    else:
-        fts_query = " OR ".join(f'{{title lead}}:"{t}"' for t in terms)
 
     sql = """SELECT a.title, a.lead, a.url, a.source_name,
                     a.category, a.language, a.published_at, a.spheres_json,
@@ -554,7 +584,8 @@ def get_spheres() -> str:
 
 @mcp.tool()
 def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
-                         include_full_text: bool = True) -> str:
+                         include_full_text: bool = True,
+                         match_mode: str = "and") -> str:
     """Across-sphere narrative comparison: "what does each sphere say about X?"
 
     Searches FTS5 across title, lead, and (Brave-fetched) full article text,
@@ -568,19 +599,17 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
         per_sphere_limit: Max items per sphere (default: 5, max 20)
         include_full_text: search article bodies too (default: True). Set
                 False to restrict matching to title+lead only.
+        match_mode: "and" (default, strict — every term must match) or "or" (loose, legacy).
     """
     days = max(1, min(21, days))
     per_sphere_limit = max(1, min(20, per_sphere_limit))
     if not query.strip():
         return json.dumps({"error": "Empty query"})
 
-    terms = [t for t in query.split() if len(t) > 2]
-    if not terms:
+    col = None if include_full_text else "{title lead}"
+    fts_query, terms = _build_fts_query(query, column_filter=col, mode=match_mode)
+    if fts_query is None:
         return json.dumps({"error": "Query too short"})
-    if include_full_text:
-        fts_query = " OR ".join(f'"{t}"' for t in terms)
-    else:
-        fts_query = " OR ".join(f'{{title lead}}:"{t}"' for t in terms)
     since = (datetime.now() - timedelta(days=days)).isoformat()
 
     sql = """
@@ -656,38 +685,48 @@ def echolot_health(
 @mcp.tool()
 def echolot_velocity(
     window_hours: int = 6,
-    baseline_offset_hours: int = 24,
+    baseline_offset_hours: int = 48,
+    baseline_window_hours: int = 24,
     min_baseline: int = 2,
     limit: int = 30,
 ) -> str:
     """Which spheres are spiking right now? — sphere-level news velocity.
 
     For each sphere, compares article volume in a recent window (default
-    last 6h) against a baseline window (default same hours yesterday).
-    Returns velocity_ratio + a status: spike / rising / normal / quiet.
+    last 6h) against a baseline window (default 24h-wide window starting 48h
+    ago). The ratio is per-hour normalized so windows of different widths
+    are directly comparable. Returns status: spike / rising / normal / quiet.
 
     Use this to spot "the Iran-opposition sphere is unusually loud in the
     last 6h" or "global_climate is dead quiet today vs yesterday".
 
     Args:
-        window_hours: recent window size, default 6
-        baseline_offset_hours: how far back the baseline starts (24 = same
-                hours yesterday), default 24
+        window_hours: recent window size, default 6 (max 48)
+        baseline_offset_hours: how far back the baseline window starts,
+                default 48. The wider this is, the more stable the baseline.
+        baseline_window_hours: width of the baseline window, default 24.
+                Wider = smoother baseline, less noise from spike-recovery.
         min_baseline: skip spheres with fewer than this many baseline
                 articles (avoids ratio noise on tiny spheres), default 2
         limit: max spheres to return, default 30
 
+    Note: this measures `fetched_at` (scraper ingest cadence), NOT
+    `published_at` — so a backfill of old articles will show up as a spike.
+    For source-publication rate use echolot_health instead.
+
     Returns JSON with `spheres`: list of {sphere, current_count,
     baseline_count, velocity_ratio, status}, ordered by velocity_ratio desc
-    (spikes first).
+    (spikes first), plus `metric` and `note` clarifying what's being measured.
     """
     window_hours = max(1, min(48, window_hours))
     baseline_offset_hours = max(1, min(168, baseline_offset_hours))
+    baseline_window_hours = max(1, min(168, baseline_window_hours))
     limit = max(1, min(63, limit))
     report = compute_sphere_velocity(
         DB_PATH,
         window_hours=window_hours,
         baseline_offset_hours=baseline_offset_hours,
+        baseline_window_hours=baseline_window_hours,
         min_baseline=min_baseline,
         limit=limit,
     )
@@ -1471,10 +1510,10 @@ async def api_search(request):
     query = request.query_params.get("query", "").strip()
     if not query:
         return JSONResponse({"error": "Empty query"}, status_code=400)
-    terms = [t for t in query.split() if len(t) > 2]
-    if not terms:
+    match_mode = request.query_params.get("match_mode", "and")
+    fts_query, terms = _build_fts_query(query, mode=match_mode)
+    if fts_query is None:
         return JSONResponse({"error": "Query too short — use 3+ char terms"}, status_code=400)
-    fts_query = " OR ".join(f'"{t}"' for t in terms)
 
     days = max(1, min(21, int(request.query_params.get("days", "3"))))
     limit = max(1, min(50, int(request.query_params.get("limit", "20"))))
@@ -1528,10 +1567,10 @@ async def api_narrative_divergence(request):
     query = request.query_params.get("query", "").strip()
     if not query:
         return JSONResponse({"error": "Empty query"}, status_code=400)
-    terms = [t for t in query.split() if len(t) > 2]
-    if not terms:
+    match_mode = request.query_params.get("match_mode", "and")
+    fts_query, terms = _build_fts_query(query, mode=match_mode)
+    if fts_query is None:
         return JSONResponse({"error": "Query too short"}, status_code=400)
-    fts_query = " OR ".join(f'"{t}"' for t in terms)
 
     days = max(1, min(21, int(request.query_params.get("days", "3"))))
     per_sphere_limit = max(1, min(20, int(request.query_params.get("per_sphere_limit", "5"))))

@@ -47,22 +47,27 @@ def _status(ratio: float | None,
 def compute_sphere_velocity(
     db_path: str | Path,
     window_hours: int = 6,
-    baseline_offset_hours: int = 24,
+    baseline_offset_hours: int = 48,
+    baseline_window_hours: int = 24,
     min_baseline: int = 2,
     limit: int = 30,
 ) -> dict:
-    """Per-sphere recent-window vs baseline-window article count.
+    """Per-sphere recent-window vs baseline-window article rate.
 
     Args:
         window_hours: how recent to count (default 6h)
-        baseline_offset_hours: where the baseline window starts (default 24h ago,
-            so baseline = [24h..24+window_hours ago], i.e. same hour-of-day yesterday)
+        baseline_offset_hours: where the baseline window starts (default 48h ago)
+        baseline_window_hours: how wide the baseline window is (default 24h, so
+            baseline = [48h..72h ago] by default — a full day for stable rate)
         min_baseline: skip spheres with fewer than this many baseline articles
             (avoids "1 / 0.5 = 2x" noise on tiny spheres)
         limit: how many spheres to return (sorted by velocity_ratio desc)
+
+    Note: ratio compares per-hour rates, not raw counts, so current and
+    baseline windows can have different widths.
     """
     baseline_end = baseline_offset_hours
-    baseline_start = baseline_offset_hours + window_hours
+    baseline_start = baseline_offset_hours + baseline_window_hours
 
     conn = _connect(db_path)
     try:
@@ -89,7 +94,7 @@ def compute_sphere_velocity(
                               AND a.fetched_at <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_end} hours')
                             THEN 1 ELSE 0 END) AS baseline_count
             FROM articles a, json_each(a.spheres_json) je
-            WHERE a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_start + 1} hours')
+            WHERE a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_offset_hours + baseline_window_hours + 1} hours')
             GROUP BY je.value
         """).fetchall()
     finally:
@@ -102,10 +107,14 @@ def compute_sphere_velocity(
         if baseline < min_baseline and current < min_baseline:
             # Skip dead spheres entirely.
             continue
-        if baseline == 0:
-            ratio = None
+        # Per-hour normalize so current vs baseline windows of different
+        # widths compare as rates, not raw counts.
+        current_rate = current / window_hours if window_hours > 0 else 0.0
+        baseline_rate = baseline / baseline_window_hours if baseline_window_hours > 0 else 0.0
+        if baseline_rate > 0:
+            ratio = round(current_rate / baseline_rate, 2)
         else:
-            ratio = round(current / baseline, 2)
+            ratio = None
         out.append({
             "sphere": r["sphere"],
             "current_count": current,
@@ -124,8 +133,11 @@ def compute_sphere_velocity(
 
     return {
         "window_hours": window_hours,
-        "baseline_window": f"{baseline_end}-{baseline_start}h ago",
+        "baseline_window": f"{baseline_end}-{baseline_start}h ago, {baseline_window_hours}h wide",
+        "baseline_window_hours": baseline_window_hours,
         "min_baseline": min_baseline,
+        "metric": "fetched_at (ingest cadence)",
+        "note": "compares scraper ingest rate, not source publication rate",
         "spheres_evaluated": len(out),
         "spheres": out[:limit],
     }
@@ -134,11 +146,17 @@ def compute_sphere_velocity(
 def main(argv: list[str]) -> int:
     db = argv[1] if len(argv) > 1 else "echolot.db"
     window = int(argv[2]) if len(argv) > 2 else 6
-    baseline_off = int(argv[3]) if len(argv) > 3 else 24
+    baseline_off = int(argv[3]) if len(argv) > 3 else 48
+    baseline_win = int(argv[4]) if len(argv) > 4 else 24
     if not Path(db).exists():
         print(f"DB not found: {db}", file=sys.stderr)
         return 2
-    r = compute_sphere_velocity(db, window_hours=window, baseline_offset_hours=baseline_off)
+    r = compute_sphere_velocity(
+        db,
+        window_hours=window,
+        baseline_offset_hours=baseline_off,
+        baseline_window_hours=baseline_win,
+    )
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
     return 0
 
