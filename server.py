@@ -31,7 +31,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from echolot_health import compute_health
 from echolot_diversity import diversify
@@ -40,7 +40,13 @@ from echolot_entities import resolve as resolve_entity
 from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
-from echolot_dashboard import render_dashboard, render_divergence_partial
+from echolot_dashboard import (
+    render_dashboard,
+    render_divergence_partial,
+    render_spheres_page,
+    render_health_page,
+    render_trending_page,
+)
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -1683,8 +1689,43 @@ async def dashboard_divergence(request):
     return HTMLResponse(render_divergence_partial(request, get_db))
 
 
+@mcp.custom_route("/dashboard/spheres", methods=["GET"])
+async def dashboard_spheres(request):
+    page, lang = render_spheres_page(request, get_db)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/dashboard/health", methods=["GET"])
+async def dashboard_health(request):
+    page, lang = render_health_page(request, compute_health, DB_PATH)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/dashboard/trending", methods=["GET"])
+async def dashboard_trending(request):
+    page, lang = render_trending_page(request, compute_sphere_velocity, DB_PATH)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 @mcp.custom_route("/", methods=["GET"])
 async def landing(request):
+    """Main landing page — same multilingual dashboard as /dashboard."""
+    page, lang = render_dashboard(request)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/landing-legacy", methods=["GET"])
+async def landing_legacy(request):
+    """Original single-page landing — kept reachable from the dashboard's
+    'Old view' link so nothing's lost."""
     return HTMLResponse(LANDING_HTML)
 
 
