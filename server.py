@@ -777,6 +777,82 @@ def search_web(query: str, count: int = 10) -> str:
 
 
 @mcp.tool()
+def search_x_tweets(query: str, count: int = 5) -> str:
+    """Find tweets matching a keyword. Workaround for X's Premium-only search.
+
+    The X `SearchTimeline` endpoint is paywalled since 2025; free accounts
+    get HTTP 404. This tool reaches the same goal by combining two tools:
+
+      1. brave_search "site:x.com <query>" — Brave indexes individual
+         /status/<id>/ tweet URLs publicly
+      2. OG fast-path scrape on each match — pulls the tweet text from
+         the og:description meta tag in ~300ms (no JS render)
+
+    Returns a list of {url, text, title} dicts — agents don't need to
+    chain the workflow themselves.
+
+    Args:
+        query: free-form search terms (any language). "site:x.com " is
+            prepended automatically.
+        count: how many tweets to return, 1-20 (default 5)
+
+    Returns JSON with: query, urls_found, tweets_extracted, tweets[].
+    Each tweet has: url, text (300+ chars typical), title, preview_title
+    (Brave's snippet).
+    """
+    count = max(1, min(20, count))
+    if not query.strip():
+        return json.dumps({"error": "Empty query"})
+
+    full_query = f"site:x.com {query}"
+    # Fetch more than `count` so we have buffer after filtering to /status/.
+    web_results = brave_search_sync(full_query, count=count * 3)
+    if web_results is None:
+        return json.dumps({
+            "error": "Brave search unavailable",
+            "query": query, "web_query_used": full_query,
+            "urls_found": 0, "tweets_extracted": 0, "tweets": [],
+        }, ensure_ascii=False)
+
+    import re as _re
+    status_re = _re.compile(r'^https?://(?:x|twitter)\.com/[^/]+/status/\d+', _re.IGNORECASE)
+    candidates = []
+    seen = set()
+    for r in web_results:
+        url = r.get("url", "")
+        if not status_re.match(url):
+            continue
+        # Dedupe by /status/<id>/
+        m = _re.match(r'^(https?://(?:x|twitter)\.com/[^/]+/status/\d+)', url, _re.IGNORECASE)
+        canonical = m.group(1) if m else url
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        candidates.append({"url": canonical, "preview_title": r.get("title", "")})
+        if len(candidates) >= count:
+            break
+
+    tweets = []
+    for c in candidates:
+        og = fetch_og(c["url"])
+        if og and og.get("content_usable"):
+            tweets.append({
+                "url": c["url"],
+                "text": og.get("text", ""),
+                "title": og.get("title", ""),
+                "preview_title": c["preview_title"],
+            })
+
+    return json.dumps({
+        "query": query,
+        "web_query_used": full_query,
+        "urls_found": len(candidates),
+        "tweets_extracted": len(tweets),
+        "tweets": tweets,
+    }, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
 def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
     """Scrape any URL via our brave-mcp-server and return its main text.
 
