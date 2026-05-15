@@ -4463,3 +4463,325 @@
   category: foreign
   source_type: rss
   notes: Páneurópai think tank, EU-külpolitikai elemzések, londoni-berlini-párizsi-varsói-római-szófiai irodákkal
+
+# ──────────────────────────────────────────────────────────────────────
+# FR politikai sajtó-bővítés 2026-05-15 — a "Francia Politikai RSS Csatornák"
+# elemzés alapján. Les Echos (5 feed) + Liberation /feed/ + Bruxelles2 +
+# Toute l'Europe + LCP kihagyva: 403-blokk vagy nincs publikus RSS-feed
+# (P2.5 brave-fallback körre).
+# ──────────────────────────────────────────────────────────────────────
+
+# --- Le Monde tematikus csomag (a meglévő une.xml mellé) ---
+- id: fr_lemonde_international
+  name: Le Monde — International
+  url: https://www.lemonde.fr/international/rss_full.xml
+  spheres:
+  - regional_french
+  - global_anchor
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+- id: fr_lemonde_politique
+  name: Le Monde — Politique
+  url: https://www.lemonde.fr/politique/rss_full.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: fr_lemonde_economie
+  name: Le Monde — Économie
+  url: https://www.lemonde.fr/economie/rss_full.xml
+  spheres:
+  - regional_french
+  - global_economy
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: economy
+  source_type: rss
+- id: fr_lemonde_europe
+  name: Le Monde — Europe
+  url: https://www.lemonde.fr/europe/rss_full.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+- id: fr_lemonde_afrique
+  name: Le Monde — Afrique
+  url: https://www.lemonde.fr/afrique/rss_full.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Frankofón stratégiai érdekek, francia perspektíva afrikai politikára
+- id: fr_lemonde_idees
+  name: Le Monde — Idées
+  url: https://www.lemonde.fr/idees/rss_full.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Vélemény, esszé, intellektuális diskurzus
+- id: fr_lemonde_planete
+  name: Le Monde — Planète
+  url: https://www.lemonde.fr/planete/rss_full.xml
+  spheres:
+  - regional_french
+  - global_climate
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+
+# --- Le Figaro tematikus (a meglévő figaro_actualites mellé) ---
+- id: fr_lefigaro_politique
+  name: Le Figaro — Politique
+  url: https://www.lefigaro.fr/rss/figaro_politique.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Konzervatív-liberális, polgári elit
+- id: fr_lefigaro_international
+  name: Le Figaro — International
+  url: https://www.lefigaro.fr/rss/figaro_international.xml
+  spheres:
+  - regional_french
+  - global_anchor
+  language: fr
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+- id: fr_lefigaro_economie
+  name: Le Figaro — Économie
+  url: https://www.lefigaro.fr/rss/figaro_economie.xml
+  spheres:
+  - regional_french
+  - global_economy
+  language: fr
+  trust_tier: 2
+  lean: right
+  category: economy
+  source_type: rss
+
+# --- Le Point ARC outboundfeeds (jobboldali liberális hetilap) ---
+- id: fr_lepoint_editos
+  name: Le Point — Éditos
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/category/editos-du-point/
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: Vezető publicisták véleménye, liberális-konzervatív
+- id: fr_lepoint_politique
+  name: Le Point — Politique
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/category/politique/
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+- id: fr_lepoint_monde
+  name: Le Point — Monde
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/category/monde/
+  spheres:
+  - regional_french
+  - global_anchor
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: foreign
+  source_type: rss
+- id: fr_lepoint_economie
+  name: Le Point — Économie
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/category/economie/
+  spheres:
+  - regional_french
+  - global_economy
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: economy
+  source_type: rss
+- id: fr_lepoint_afrique
+  name: Le Point — Afrique
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/category/afrique/
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: foreign
+  source_type: rss
+  notes: Frankofón stratégiai érdekek + biztonságpolitika
+- id: fr_lepoint_etats_unis
+  name: Le Point — États-Unis (tag)
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/tags_slug/etats-unis/
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: foreign
+  source_type: rss
+  notes: Transzatlanti kapcsolatok francia szempontból
+- id: fr_lepoint_hongrie
+  name: Le Point — Hongrie (tag)
+  url: https://www.lepoint.fr/arc/outboundfeeds/rss/tags_slug/hongrie/
+  spheres:
+  - regional_french
+  - regional_v4
+  language: fr
+  trust_tier: 3
+  lean: right
+  category: foreign
+  source_type: rss
+  notes: Francia szempontú magyar/V4 monitoring — az egyik kevés FR-tag explicit Magyarország-ra
+
+# --- Le Monde Diplomatique (anti-imperialista, mély geopolitikai) ---
+- id: fr_monde_diplomatique
+  name: Le Monde Diplomatique
+  url: https://www.monde-diplomatique.fr/recents.xml
+  spheres:
+  - regional_french
+  - global_analysis
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Globalizáció-kritikus, anti-imperialista perspektíva — Le Monde-tól szerkesztőségileg független
+
+# --- Egyéb országos napilapok / hetilapok ---
+- id: fr_liberation
+  name: Libération
+  url: https://www.liberation.fr/arc/outboundfeeds/rss/?outputType=xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Balliberális napilap, 1973-as alapítás (Sartre)
+- id: fr_la_croix
+  name: La Croix
+  url: https://www.la-croix.com/RSS/UNIVERS_WFRA
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Katolikus napilap, etikai/társadalmi nézőpont
+- id: fr_lobs
+  name: L'Obs (Nouvel Observateur)
+  url: https://www.nouvelobs.com/rss.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Balközép hetilap, intellektuális
+- id: fr_lexpress
+  name: L'Express
+  url: https://www.lexpress.fr/rss/alaune.xml
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Centrista-liberális hetilap
+
+# --- Oknyomozó (Mediapart) ---
+- id: fr_mediapart
+  name: Mediapart
+  url: https://www.mediapart.fr/articles/feed
+  spheres:
+  - regional_french
+  - global_investigative
+  language: fr
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Oknyomozó balliberális online napilap, Edwy Plenel-féle alapítás
+
+# --- Közszolgálati / globális ---
+- id: fr_france_inter
+  name: France Inter (közszolgálati rádió)
+  url: https://www.franceinter.fr/rss
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Radio France, közszolgálati
+- id: fr_france24_fr
+  name: France 24 (FR)
+  url: https://www.france24.com/fr/rss
+  spheres:
+  - regional_french
+  - global_anchor
+  language: fr
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Állam-finanszírozott globális hírcsatorna, francia nyelvű
+- id: fr_france24_en
+  name: France 24 (EN)
+  url: https://www.france24.com/en/rss
+  spheres:
+  - regional_french
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: France 24 angol nyelvű kiadás — a francia szempont angol nyelven a globális közönségnek
+
+# --- Intézményi (kormányzati hivatalos) ---
+- id: fr_vie_publique_en_bref
+  name: Vie-publique.fr — En bref
+  url: https://www.vie-publique.fr/en-bref/rss
+  spheres:
+  - regional_french
+  language: fr
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Hivatalos közigazgatási portál, törvényhozási folyamat-tracking, napi összefoglalók
