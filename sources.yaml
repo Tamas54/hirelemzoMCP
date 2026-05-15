@@ -4140,3 +4140,294 @@
   category: general
   source_type: rss
   notes: Brexit-after libertariánus magazin — politikailag kontroverziális, használat előtt értelmezni
+
+# ──────────────────────────────────────────────────────────────────────
+# DE politikai sajtó-bővítés 2026-05-15 — a "Német Politikai RSS Hírcsatornák"
+# elemzés alapján. IPS Journal kihagyva: nincs publikus RSS-feedje.
+# ──────────────────────────────────────────────────────────────────────
+
+# --- Országos napilapok ---
+- id: de_welt
+  name: Die Welt
+  url: https://www.welt.de/feeds/latest.rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Axel Springer csoport — konzervatív-liberális profil
+- id: de_sz_politik
+  name: Süddeutsche Zeitung — Politik
+  url: https://rss.sueddeutsche.de/rss/Politik
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: München, presztízsű balliberális napilap, oknyomozó
+- id: de_zeit
+  name: Die Zeit
+  url: https://newsfeed.zeit.de/index
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Hetilap, reflexív-elemző, intellektuális
+- id: de_zeit_politik
+  name: Die Zeit — Politik
+  url: https://newsfeed.zeit.de/politik/index
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: de_taz
+  name: taz — Politik
+  url: https://taz.de/Politik/!p4615;rss/
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Baloldali-ökológiai, alternatív perspektíva
+
+# --- Hírmagazinok (Spiegel csomag, granulárisan) ---
+- id: de_spiegel_politik
+  name: Der Spiegel — Politik
+  url: https://www.spiegel.de/politik/index.rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: de_spiegel_inland
+  name: Der Spiegel — Inland (Deutschland)
+  url: https://www.spiegel.de/politik/deutschland/index.rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: de_spiegel_ausland
+  name: Der Spiegel — Ausland
+  url: https://www.spiegel.de/ausland/index.rss
+  spheres:
+  - regional_german
+  - global_anchor
+  language: de
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+- id: de_spiegel_wirtschaft
+  name: Der Spiegel — Wirtschaft
+  url: https://www.spiegel.de/wirtschaft/index.rss
+  spheres:
+  - regional_german
+  - global_economy
+  language: de
+  trust_tier: 2
+  lean: left
+  category: economy
+  source_type: rss
+- id: de_spiegel_international
+  name: Der Spiegel International (EN)
+  url: https://www.spiegel.de/international/index.rss
+  spheres:
+  - regional_german
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Angol nyelvű kiadás, geopolitika
+- id: de_focus_politik
+  name: Focus Online — Politik
+  url: https://rss.focus.de/politik/
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: de_stern
+  name: Stern
+  url: https://www.stern.de/feed/standard/all/
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Riportázs jellegű, társadalmi-fókuszú
+
+# --- Közszolgálati (T1) ---
+- id: de_tagesschau
+  name: Tagesschau (ARD)
+  url: https://www.tagesschau.de/infoservices/alle-meldungen-100~rss2.xml
+  spheres:
+  - regional_german
+  - global_anchor
+  language: de
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: ARD közszolgálati, OSINT-referencia, törvényileg pártatlan
+- id: de_zdf_heute
+  name: ZDF Heute
+  url: https://www.zdf.de/rss/zdf/nachrichten
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: de_ntv_politik
+  name: n-tv — Politik
+  url: https://www.n-tv.de/politik/rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: RTL csoport, gyors hírfolyam, válsághelyzet-monitorozás
+
+# --- Specializált / szakmai ---
+- id: de_handelsblatt_politik
+  name: Handelsblatt — Politik
+  url: https://feeds.cms.handelsblatt.com/politik
+  spheres:
+  - regional_german
+  - global_economy
+  language: de
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+  notes: Németország fő gazdasági napilapja
+- id: de_netzpolitik
+  name: Netzpolitik.org
+  url: https://netzpolitik.org/feed/
+  spheres:
+  - regional_german
+  - global_tech
+  language: de
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+  notes: Digitális jogok, AI-szabályozás, adatvédelem
+- id: de_cicero
+  name: Cicero
+  url: https://www.cicero.de/rss.xml
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Konzervatív-liberális intellektuális magazin
+
+# --- Külpolitika (DW = állam-finanszírozott globális szolgáltató) ---
+- id: de_dw_de
+  name: Deutsche Welle (DE)
+  url: https://rss.dw.com/rdf/rss-de-all
+  spheres:
+  - regional_german
+  - global_anchor
+  language: de
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: de_dw_en
+  name: Deutsche Welle (EN)
+  url: https://rss.dw.com/rdf/rss-en-all
+  spheres:
+  - regional_german
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+
+# --- Regionális (föderális indikátor — előrejelzi a szövetségi változásokat) ---
+- id: de_berliner_zeitung
+  name: Berliner Zeitung
+  url: https://www.berliner-zeitung.de/feed.xml
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Berlin/főváros, kormányzati negyed dinamikája
+- id: de_rheinische_post
+  name: Rheinische Post
+  url: https://rp-online.de/feed.rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Észak-Rajna-Vesztfália, ipari/energia hangulat
+- id: de_muenchner_merkur
+  name: Münchner Merkur — Politik
+  url: https://www.merkur.de/politik/rssfeed.rdf
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Bajor CSU-bázis, tartományi érdekérvényesítés
+- id: de_hamburger_abendblatt
+  name: Hamburger Abendblatt — Politik
+  url: https://www.abendblatt.de/politik/rss
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Hamburg, kikötő-logisztika, nemzetközi kereskedelmi politika
+- id: de_saechsische_zeitung
+  name: Sächsische Zeitung
+  url: https://www.saechsische.de/arc/outboundfeeds/rss/
+  spheres:
+  - regional_german
+  language: de
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Kelet-német perspektíva, populizmus-monitorozás (AfD-térnyerés)
