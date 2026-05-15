@@ -4431,3 +4431,35 @@
   category: general
   source_type: rss
   notes: Kelet-német perspektíva, populizmus-monitorozás (AfD-térnyerés)
+
+# ──────────────────────────────────────────────────────────────────────
+# UK + EU think tank-ek 2026-05-15 — a brit politikai PDF + német
+# politikai PDF kiegészítései. Csak a publikus RSS-szel élő intézmények:
+# - Institute for Government (UK kormányzati elemző) → regional_uk + global_analysis
+# - ECFR (European Council on Foreign Relations) → global_analysis
+# Chatham House (403-blokkolja a curl-t), RUSI (nincs RSS-feed), CER
+# (nincs RSS), IPS Journal (nincs RSS) — későbbi Brave-fallback körre.
+# ──────────────────────────────────────────────────────────────────────
+- id: uk_institute_for_government
+  name: Institute for Government (IfG)
+  url: https://www.instituteforgovernment.org.uk/rss
+  spheres:
+  - regional_uk
+  - global_analysis
+  language: en
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Brit államgépezet/Whitehall/Westminster legautoritatívabb elemzőközpontja, technokrata-bizonyítékalapú
+- id: eu_ecfr
+  name: European Council on Foreign Relations (ECFR)
+  url: https://ecfr.eu/feed/
+  spheres:
+  - global_analysis
+  language: en
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Páneurópai think tank, EU-külpolitikai elemzések, londoni-berlini-párizsi-varsói-római-szófiai irodákkal
