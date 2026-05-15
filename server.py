@@ -1635,6 +1635,32 @@ async def sitemap(request):
     return Response(body, media_type="application/xml; charset=utf-8")
 
 
+@mcp.custom_route("/api/stats", methods=["GET"])
+async def api_stats(request):
+    """Quick stats for the landing-page stat-row.
+
+    Returns sources_count + spheres_count (with at least 1 article in 30d) +
+    articles_24h. The dashboard JS hits this once per page-load.
+    """
+    try:
+        with get_db() as conn:
+            sources_count = conn.execute(
+                "SELECT COUNT(*) AS n FROM sources"
+            ).fetchone()["n"]
+            articles_24h = conn.execute(
+                "SELECT COUNT(*) AS n FROM articles "
+                "WHERE fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-1 day')"
+            ).fetchone()["n"]
+        spheres = list_indexable_spheres(str(DB_PATH))
+        return JSONResponse({
+            "sources": sources_count,
+            "spheres": len(spheres),
+            "articles_24h": articles_24h,
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @mcp.custom_route("/static/og-image.svg", methods=["GET"])
 async def static_og_image(request):
     """Open Graph share image (1200×630 SVG, immutable cache)."""
@@ -2014,7 +2040,7 @@ LANDING_HTML = r"""<!DOCTYPE html>
   <div class="stat-row">
     <div class="stat">📡 <strong id="stat-articles">…</strong> friss cikk</div>
     <div class="stat">🌐 <strong id="stat-spheres">…</strong> szféra</div>
-    <div class="stat">🗞 <strong id="stat-sources">315</strong> forrás</div>
+    <div class="stat">🗞 <strong id="stat-sources">…</strong> forrás</div>
   </div>
 </div>
 
@@ -2267,6 +2293,18 @@ document.getElementById('toggle-spheres').onclick = () => {
 };
 
 fetchNews('', 'Mind');
+
+// Live stats from /api/stats — keeps stat-row in sync with the YAML
+// (sources count grows as we add new feeds; spheres count grows as new
+// regional/topical sphere-IDs land in the DB).
+fetch('/api/stats')
+  .then(r => r.json())
+  .then(d => {
+    if (d.sources)  document.getElementById('stat-sources').textContent  = d.sources;
+    if (d.spheres)  document.getElementById('stat-spheres').textContent  = d.spheres;
+    if (d.articles_24h) document.getElementById('stat-articles').textContent = d.articles_24h;
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>"""
