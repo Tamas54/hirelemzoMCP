@@ -2320,7 +2320,7 @@ async def dashboard_trending(request):
 async def landing(request):
     """The original Echolot landing page, augmented with a language
     selector + a top-level tab-bar that links to the new sub-pages."""
-    page, lang = augment_landing(request, LANDING_HTML)
+    page, lang = augment_landing(request, LANDING_HTML, db_path=str(DB_PATH))
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp

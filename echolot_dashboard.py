@@ -33,6 +33,7 @@ from echolot_seo import (
     schema_org_organization_html,
     schema_org_breadcrumb_html,
 )
+from echolot_news_render import render_initial_news_html
 
 
 def _augment_strip_css() -> str:
@@ -150,10 +151,13 @@ def _augment_block_html(lang: str, active: str = "feed") -> str:
     """
 
 
-def augment_landing(request, landing_html: str) -> tuple[str, str]:
+def augment_landing(request, landing_html: str, db_path: str | None = None) -> tuple[str, str]:
     """Inject the lang-selector + tab-bar AND localize the hero, stat-row,
     sphere-bars, news-section, MCP-config buttons, MCP-tools block, and
     footer of the original LANDING_HTML.
+
+    If `db_path` is given, also pre-render the first batch of news cards
+    server-side into the news-grid div (for crawlers that don't run JS).
 
     Returns (html, resolved_lang).
     """
@@ -234,8 +238,27 @@ def augment_landing(request, landing_html: str) -> tuple[str, str]:
     # News section
     out = out.replace("<h2>Élő hírfolyam</h2>",
                       f"<h2>{html.escape(t('landing.news.title', lang))}</h2>", 1)
-    out = out.replace('<span class="spinner"></span> Hírek betöltése...',
-                      f'<span class="spinner"></span> {html.escape(t("landing.news.loading", lang))}', 1)
+
+    # Server-side initial news batch (for crawlers without JS support).
+    # Replace the loading spinner div with 30 pre-rendered news cards.
+    # The JS fetchNews() runs anyway and may overwrite the grid with
+    # filtered/fresher data — this is just the seed for indexers.
+    initial_news_html = ""
+    if db_path:
+        try:
+            initial_news_html = render_initial_news_html(db_path, limit=30)
+        except Exception:
+            initial_news_html = ""
+    if initial_news_html:
+        out = out.replace(
+            '<div class="news-loading"><span class="spinner"></span> Hírek betöltése...</div>',
+            initial_news_html,
+            1,
+        )
+    else:
+        # Just localize the loading message
+        out = out.replace('<span class="spinner"></span> Hírek betöltése...',
+                          f'<span class="spinner"></span> {html.escape(t("landing.news.loading", lang))}', 1)
 
     # MCP-config card buttons (3 buttons, all unique strings)
     out = out.replace(">Konfiguráció másolása</button>",
