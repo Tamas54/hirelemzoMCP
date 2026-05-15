@@ -5946,3 +5946,679 @@
   lean: center
   category: economy
   source_type: rss
+
+# ──────────────────────────────────────────────────────────────────────
+# RU/UA/BY politikai sajtó-bővítés 2026-05-15 — orosz/ukrán/belarusz csomag
+# (compass_artifact wf-0638a4...). Új sphere: regional_belarusian.
+# 54 új feed, plus ~30 kihagyva a P2.5 brave-fallback körre (pravda.com.ua,
+# nv.ua, hromadske, tsn — geoblock; iz.ru, istories, snob — 403/404).
+# ──────────────────────────────────────────────────────────────────────
+
+# --- A) Russian state / Kremlin-aligned ---
+- id: ru_tass
+  name: TASS (Russian native)
+  url: https://tass.ru/rss/v2.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+  notes: Állami orosz hírügynökség, ~5 perc poll
+- id: ru_ria
+  name: RIA Novosti (Russian native)
+  url: https://ria.ru/export/rss2/index.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+- id: ru_interfax
+  name: Interfax (RU)
+  url: https://www.interfax.ru/rss.asp
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Magántulajdonú, mérsékelt-kormányközeli
+- id: ru_rbc
+  name: RBC (РБК)
+  url: https://rssexport.rbc.ru/rbcnews/news/30/full.rss
+  spheres:
+  - ru_state_media
+  - regional_russian
+  - global_economy
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: economy
+  source_type: rss
+  notes: Üzleti, 2016 óta kormányközelibb
+- id: ru_rg
+  name: Rossiyskaya Gazeta
+  url: https://rg.ru/xml/index.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Hivatalos kormánylap
+- id: ru_kp
+  name: Komsomolskaya Pravda
+  url: https://www.kp.ru/rss/allsections.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Bulvár-kormánypárti, magas példányszám
+- id: ru_aif
+  name: Argumenty i Fakty (АиФ)
+  url: https://aif.ru/rss/all.php
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+- id: ru_vzglyad
+  name: Vzglyad
+  url: https://vz.ru/rss.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Élesen kormánypárti vélemény-portál
+- id: ru_lenta
+  name: Lenta.ru
+  url: https://lenta.ru/rss/news
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: 2014 óta kormányközeli (szerkesztőváltás)
+- id: ru_gazeta
+  name: Gazeta.ru
+  url: https://www.gazeta.ru/export/rss/first.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Mail.ru/VK tulajdonú, mérsékelt-kormányközeli
+- id: ru_kommersant_main
+  name: Kommersant
+  url: https://www.kommersant.ru/RSS/main.xml
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Üzleti, Uszmanov tulajdon, professzionális
+- id: ru_kommersant_politics
+  name: Kommersant — Politics
+  url: https://www.kommersant.ru/RSS/section-politics.xml
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: ru_kommersant_economics
+  name: Kommersant — Economics
+  url: https://www.kommersant.ru/RSS/section-economics.xml
+  spheres:
+  - regional_russian
+  - global_economy
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: economy
+  source_type: rss
+- id: ru_kommersant_world
+  name: Kommersant — World
+  url: https://www.kommersant.ru/RSS/section-world.xml
+  spheres:
+  - regional_russian
+  - global_anchor
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+- id: ru_mk
+  name: Moskovskij Komsomolets (МК)
+  url: https://www.mk.ru/rss/index.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+- id: ru_ng
+  name: Nezavisimaya Gazeta
+  url: https://www.ng.ru/rss/
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Konzervatív-mérsékelt, gyengén kormányközeli
+- id: ru_sputnik_globe
+  name: Sputnik Globe (EN)
+  url: https://sputnikglobe.com/export/rss2/index.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+  notes: Rossiya Segodnya, EU-ban szankciós tilalom alatt
+
+# --- B) Russian moderate (Vedomosti) ---
+- id: ru_vedomosti_news
+  name: Vedomosti — News
+  url: https://www.vedomosti.ru/rss/news
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: 2020 óta kompromittált függetlenség
+- id: ru_vedomosti_politics
+  name: Vedomosti — Politics
+  url: https://www.vedomosti.ru/rss/rubric/politics
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: ru_vedomosti_economics
+  name: Vedomosti — Economics
+  url: https://www.vedomosti.ru/rss/rubric/economics
+  spheres:
+  - regional_russian
+  - global_economy
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: economy
+  source_type: rss
+
+# --- C) Russian exile / oknyomozó (mind blokkolt RU-ban) ---
+- id: ru_meduza_news
+  name: Meduza — News only (RU)
+  url: https://meduza.io/rss/news
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Riga, hírre szűrt feed
+- id: ru_zona_media
+  name: Mediazona (RU)
+  url: https://zona.media/rss
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Bíróság, börtön, jogvédelem, háborús veszteségek (Russia 200)
+- id: ru_tvrain
+  name: TV Rain / Dozhd
+  url: https://tvrain.tv/rss/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Amszterdam, független TV-internet
+- id: ru_echo
+  name: Echo (utódprojekt)
+  url: https://echofm.online/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: A betiltott Эхо Москвы utódja, Berlin
+- id: ru_verstka
+  name: Verstka
+  url: https://verstka.media/rss
+  spheres:
+  - ru_opposition
+  - regional_russian
+  - global_investigative
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+- id: ru_holod
+  name: Holod
+  url: https://holod.media/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Long-read magazin
+- id: ru_agentstvo
+  name: Agentstvo (Agents.media)
+  url: https://www.agents.media/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+- id: ru_cherta
+  name: Cherta
+  url: https://cherta.media/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+- id: ru_proekt
+  name: Proekt.media
+  url: https://www.proekt.media/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  - global_investigative
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Nem kívánatos szervezet — oknyomozó
+- id: ru_thebell
+  name: The Bell (RU)
+  url: https://thebell.io/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  - global_economy
+  language: ru
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+  notes: Berlin, üzleti-politikai elemző hírlevél
+- id: ru_thebell_en
+  name: The Bell (EN)
+  url: https://en.thebell.io/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  - global_economy
+  language: en
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+
+# --- D) Russian foreign service ---
+- id: ru_bbc_russian
+  name: BBC Russian
+  url: https://feeds.bbci.co.uk/russian/rss.xml
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: London, BBC World Service — blokkolt RU-ban
+- id: ru_dw_ru_all
+  name: Deutsche Welle (Russian, all)
+  url: https://rss.dw.com/rdf/rss-ru-all
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: ru_dw_ru_pol
+  name: Deutsche Welle (Russian, Politik)
+  url: https://rss.dw.com/rdf/rss-ru-pol
+  spheres:
+  - ru_opposition
+  - regional_russian
+  language: ru
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: ru_euronews_ru
+  name: Euronews (Russian)
+  url: https://ru.euronews.com/rss
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+
+# --- E) Ukrán media (UNIAN, Ukrinform, Censor, NV stb.) ---
+- id: ua_unian_ukr
+  name: UNIAN (Ukrainian)
+  url: https://rss.unian.net/site/news_ukr.rss
+  spheres:
+  - regional_ukrainian
+  language: uk
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: 1+1 Media Group, Kijev, vezető magán-hírügynökség
+- id: ua_unian_eng
+  name: UNIAN (English)
+  url: https://rss.unian.net/site/news_eng.rss
+  spheres:
+  - regional_ukrainian
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: ua_ukrinform_ukr
+  name: Ukrinform (Ukrainian)
+  url: https://www.ukrinform.ua/rss/block-lastnews
+  spheres:
+  - regional_ukrainian
+  language: uk
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Állami nemzeti hírügynökség, Kijev
+- id: ua_ukrinform_eng
+  name: Ukrinform (English)
+  url: https://www.ukrinform.net/rss/block-lastnews
+  spheres:
+  - regional_ukrainian
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: ua_interfax_eng
+  name: Interfax-Ukraine (English)
+  url: https://en.interfax.com.ua/news/last.rss
+  spheres:
+  - regional_ukrainian
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: ua_censor_ukr
+  name: Censor.NET (Ukrainian)
+  url: https://censor.net/includes/news.xml
+  spheres:
+  - regional_ukrainian
+  - ua_front_osint
+  language: uk
+  trust_tier: 3
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Élesen Ukrajna-pártos
+- id: ua_24kanal
+  name: 24 Kanal
+  url: https://24tv.ua/rss/all.xml
+  spheres:
+  - regional_ukrainian
+  language: uk
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: ua_zn
+  name: ZN.ua (Zerkalo Nedeli)
+  url: https://zn.ua/rss/full.rss
+  spheres:
+  - regional_ukrainian
+  language: uk
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Heti elemző portál
+- id: ua_espreso
+  name: Espresso TV
+  url: https://espreso.tv/rss
+  spheres:
+  - regional_ukrainian
+  language: uk
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: ua_detector_media
+  name: Detector Media
+  url: https://detector.media/rss/
+  spheres:
+  - regional_ukrainian
+  - global_investigative
+  language: uk
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Médiakritika, dezinformáció-monitor
+- id: ua_kyiv_post
+  name: Kyiv Post
+  url: https://www.kyivpost.com/feed
+  spheres:
+  - regional_ukrainian
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: ua_tyzhden
+  name: Ukrainian Week (Tyzhden)
+  url: https://tyzhden.ua/feed/
+  spheres:
+  - regional_ukrainian
+  language: uk
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+
+# --- F) Belarus (új sphere: regional_belarusian) ---
+- id: by_nasha_niva
+  name: Nasha Niva
+  url: https://nashaniva.com/rss
+  spheres:
+  - regional_belarusian
+  language: be
+  trust_tier: 2
+  lean: opposition
+  category: general
+  source_type: rss
+  notes: Emigráns, fehéroroszul, "Extrémista" minősítés Belaruszban
+- id: by_belta
+  name: BelTA (állami)
+  url: https://www.belta.by/rss
+  spheres:
+  - regional_belarusian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Belarusz állami hírügynökség (Lukasenko)
+
+# --- G) Posztszovjet / Kaukázus / Balti orosz nyelvű ---
+- id: ru_jamnews
+  name: JAMnews (Caucasus)
+  url: https://jam-news.net/feed/
+  spheres:
+  - regional_russian
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Tbiliszi, Kaukázus regionális
+- id: ru_civil_ge
+  name: Civil.ge
+  url: https://civil.ge/feed
+  spheres:
+  - regional_russian
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Tbiliszi, georgiai politikai elemzés
+- id: ru_err_ru
+  name: ERR.ee (Russian)
+  url: https://rus.err.ee/rss
+  spheres:
+  - regional_russian
+  language: ru
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Észt közmédia orosz nyelvű kiadás
+
+# --- H) Specialista elemzők, geopolitika ---
+- id: ru_riddle
+  name: Riddle Russia
+  url: https://ridl.io/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  - global_analysis
+  language: en
+  trust_tier: 2
+  lean: opposition
+  category: foreign
+  source_type: rss
+  notes: Berlin, peer-review-jellegű szakértői elemzés
+- id: ru_re_russia
+  name: Re:Russia
+  url: https://re-russia.net/feed/
+  spheres:
+  - ru_opposition
+  - regional_russian
+  - global_analysis
+  language: ru
+  trust_tier: 2
+  lean: opposition
+  category: foreign
+  source_type: rss
+  notes: Kirill Rogov — exilezett akadémikus think-tank
+- id: ru_inosmi
+  name: InoSMI
+  url: https://inosmi.ru/export/rss2/index.xml
+  spheres:
+  - ru_state_media
+  - regional_russian
+  language: ru
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+  notes: Orosz állami sajtószemle a nyugati médiáról (propaganda-szelekció)
+- id: ru_globalaffairs_ru
+  name: Russia in Global Affairs (RU)
+  url: https://globalaffairs.ru/feed
+  spheres:
+  - regional_russian
+  - global_analysis
+  language: ru
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Fjodor Lukjanov — orosz külügyi establishment
+- id: ru_globalaffairs_en
+  name: Russia in Global Affairs (EN)
+  url: https://eng.globalaffairs.ru/feed
+  spheres:
+  - regional_russian
+  - global_analysis
+  language: en
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss

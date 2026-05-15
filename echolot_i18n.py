@@ -417,6 +417,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── Tab-groups: Universal geo perspectives ─────────────────────
     "group.geo.china":         {"hu": "Kína",          "en": "China",         "de": "China",        "es": "China",         "zh": "中国",     "fr": "Chine"},
     "group.geo.italy":         {"hu": "Olaszország",   "en": "Italy",         "de": "Italien",      "es": "Italia",        "zh": "意大利",   "fr": "Italie"},
+    "group.geo.belarus":       {"hu": "Fehéroroszország","en": "Belarus",       "de": "Belarus",      "es": "Bielorrusia",   "zh": "白俄罗斯", "fr": "Biélorussie"},
     "group.geo.russia":        {"hu": "Oroszország",   "en": "Russia",        "de": "Russland",     "es": "Rusia",         "zh": "俄罗斯",   "fr": "Russie"},
     "group.geo.us":            {"hu": "USA",           "en": "USA",           "de": "USA",          "es": "EE. UU.",       "zh": "美国",     "fr": "États-Unis"},
     "group.geo.uk":            {"hu": "UK",            "en": "UK",            "de": "UK",           "es": "Reino Unido",   "zh": "英国",     "fr": "Royaume-Uni"},
