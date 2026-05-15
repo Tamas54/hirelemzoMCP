@@ -219,6 +219,7 @@ def seo_head_html(
     langs: tuple[str, ...] = ("hu", "en", "de", "es", "zh", "fr"),
     default_lang: str = "hu",
     is_lang_switchable: bool = True,
+    extra_query: str = "",
 ) -> str:
     """Render the SEO <head> block (meta description, canonical, hreflang
     alternates, Open Graph, Twitter Card).
@@ -248,20 +249,22 @@ def seo_head_html(
     og_alternates = [v for k, v in locale_map.items() if k != lang and k in langs]
 
     # Build canonical URL. If lang-switchable, the canonical includes ?lang=
+    # extra_query (e.g. "&page=2") is appended to canonical + hreflang URLs
+    # so paginated pages get a self-canonical and proper alternates.
     if is_lang_switchable:
-        canonical = f"{origin}{path}?lang={lang}"
+        canonical = f"{origin}{path}?lang={lang}{extra_query}"
     else:
-        canonical = f"{origin}{path}"
+        canonical = f"{origin}{path}{extra_query}"
 
     # Build hreflang block
     hreflang_lines: list[str] = []
     if is_lang_switchable:
         for code in langs:
-            href = f"{origin}{path}?lang={code}"
+            href = f"{origin}{path}?lang={code}{extra_query}"
             hreflang_lines.append(
                 f'<link rel="alternate" hreflang="{code}" href="{_html.escape(href, quote=True)}">'
             )
-        x_default_href = f"{origin}{path}?lang={default_lang}"
+        x_default_href = f"{origin}{path}?lang={default_lang}{extra_query}"
         hreflang_lines.append(
             f'<link rel="alternate" hreflang="x-default" href="{_html.escape(x_default_href, quote=True)}">'
         )

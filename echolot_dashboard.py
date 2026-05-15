@@ -473,13 +473,15 @@ def _page_shell(
     seo_description: str | None = None,
     seo_og_title: str | None = None,
     extra_head_html: str = "",
+    seo_extra_query: str = "",
 ) -> str:
     """Wrap a body in the standard dashboard chrome (header, nav, footer).
 
     If `request` and `seo_path` are provided, inject a full SEO <head>
     block (meta description, canonical, hreflang alternates, Open Graph,
     Twitter Card). `extra_head_html` is appended verbatim (use for
-    JSON-LD BreadcrumbList etc.).
+    JSON-LD BreadcrumbList etc.). `seo_extra_query` is appended to the
+    canonical/hreflang URLs (e.g. "&page=2" for paginated views).
     """
     seo_head = ""
     if request is not None and seo_path is not None:
@@ -489,6 +491,7 @@ def _page_shell(
         seo_head = seo_head_html(
             origin=origin, lang=lang, path=seo_path,
             description=desc, og_title=og_title,
+            extra_query=seo_extra_query,
         )
     if extra_head_html:
         seo_head += "\n" + extra_head_html
@@ -651,10 +654,41 @@ def render_spheres_page(request, conn_factory) -> tuple[str, str]:
                        extra_head_html=breadcrumb), lang
 
 
+def _pagination_nav_html(lang: str, sphere_name: str, page: int, total_pages: int) -> str:
+    """Render the prev/next pagination links for the sphere-detail page."""
+    if total_pages <= 1:
+        return ""
+    base = f"/dashboard/sphere/{quote(sphere_name)}?lang={lang}"
+    prev_html = ""
+    next_html = ""
+    if page > 1:
+        href = base if page == 2 else f"{base}&page={page-1}"
+        prev_html = f'<a href="{href}" rel="prev" class="card-mono text-sm hover:text-[color:var(--primary)]">← prev</a>'
+    if page < total_pages:
+        next_html = f'<a href="{base}&page={page+1}" rel="next" class="card-mono text-sm hover:text-[color:var(--primary)]">next →</a>'
+    return f"""
+      <nav class="mt-6 flex items-center justify-between text-xs text-[color:var(--text-dim)]">
+        <div>{prev_html or '&nbsp;'}</div>
+        <div>page {page} / {total_pages}</div>
+        <div>{next_html or '&nbsp;'}</div>
+      </nav>
+    """
+
+
 def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[str, str]:
-    """Single-sphere detail: recent articles + source list."""
+    """Single-sphere detail: recent articles + source list, paginated."""
     lang = _request_lang(request)
-    # Recent articles in this sphere
+    PAGE_SIZE = 30
+    try:
+        page = max(1, int(request.query_params.get("page", "1")))
+    except Exception:
+        page = 1
+    offset = (page - 1) * PAGE_SIZE
+
+    count_sql = """
+        SELECT COUNT(*) AS n FROM articles a, json_each(a.spheres_json) je
+        WHERE je.value = ?
+    """
     art_sql = """
         SELECT a.title, a.lead, a.url, a.source_name, a.published_at,
                a.language, s.lean, s.trust_tier
@@ -662,7 +696,7 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
         JOIN sources s ON s.id = a.source_id, json_each(a.spheres_json) je
         WHERE je.value = ?
         ORDER BY a.published_at DESC
-        LIMIT 40
+        LIMIT ? OFFSET ?
     """
     src_sql = """
         SELECT s.id, s.name, s.lean, s.trust_tier, s.language,
@@ -674,8 +708,11 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
         ORDER BY n DESC
     """
     with conn_factory() as conn:
-        articles = conn.execute(art_sql, (sphere_name,)).fetchall()
+        total_articles = conn.execute(count_sql, (sphere_name,)).fetchone()["n"]
+        articles = conn.execute(art_sql, (sphere_name, PAGE_SIZE, offset)).fetchall()
         sources = conn.execute(src_sql, (sphere_name,)).fetchall()
+    total_pages = max(1, (total_articles + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = min(page, total_pages)
 
     art_html = []
     for a in articles:
@@ -726,6 +763,7 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {''.join(art_html) or '<p class="text-sm text-[color:var(--text-dim)]">'+_escape(t('msg.no_results', lang))+'</p>'}
           </div>
+          {_pagination_nav_html(lang, sphere_name, page, total_pages)}
         </section>
         <aside>
           <h3 class="text-sm uppercase tracking-wider text-[color:var(--text-dim)] mb-3">
@@ -742,10 +780,24 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
         (t("tab.spheres", lang),   f"{origin}/dashboard/spheres?lang={lang}"),
         (sphere_name,              f"{origin}/dashboard/sphere/{sphere_name}?lang={lang}"),
     ])
+    # Pagination rel link tags
+    pag_links: list[str] = []
+    if page > 1:
+        prev_q = "" if page == 2 else f"&page={page-1}"
+        pag_links.append(
+            f'<link rel="prev" href="{origin}/dashboard/sphere/{sphere_name}?lang={lang}{prev_q}">'
+        )
+    if page < total_pages:
+        pag_links.append(
+            f'<link rel="next" href="{origin}/dashboard/sphere/{sphere_name}?lang={lang}&page={page+1}">'
+        )
+    extra_head = breadcrumb + ("\n" + "\n".join(pag_links) if pag_links else "")
+    seo_extra_query = f"&page={page}" if page > 1 else ""
     return _page_shell(lang, "spheres", body, request=request,
                        seo_path=f"/dashboard/sphere/{sphere_name}",
                        seo_description=sphere_desc,
                        seo_og_title=f"Echolot — {sphere_name}",
+                       seo_extra_query=seo_extra_query,
                        extra_head_html=breadcrumb), lang
 
 
