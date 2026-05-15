@@ -6960,3 +6960,800 @@
   category: general
   source_type: rss
   notes: Liberális-demokrata önleírás, oligarchia-kritika
+
+# ──────────────────────────────────────────────────────────────────────
+# SPORT + FOCI + BULVÁR csomag 2026-05-15 (compass_artifact d20d1272...)
+# 9 új sphere: global_sport, global_football, global_motorsport,
+# global_basketball, global_americansports, global_tennis_sport,
+# global_tabloid, global_celebrity. ~80 új feed.
+# ──────────────────────────────────────────────────────────────────────
+
+# --- A) Globális sport mainstream ---
+- id: bbc_sport
+  name: BBC Sport
+  url: https://feeds.bbci.co.uk/sport/rss.xml
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: bbc_sport_football
+  name: BBC Sport — Football
+  url: https://feeds.bbci.co.uk/sport/football/rss.xml
+  spheres: [global_sport, global_football, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: bbc_sport_f1
+  name: BBC Sport — Formula 1
+  url: https://feeds.bbci.co.uk/sport/formula1/rss.xml
+  spheres: [global_sport, global_motorsport, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: bbc_sport_cricket
+  name: BBC Sport — Cricket
+  url: https://feeds.bbci.co.uk/sport/cricket/rss.xml
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: bbc_sport_tennis
+  name: BBC Sport — Tennis
+  url: https://feeds.bbci.co.uk/sport/tennis/rss.xml
+  spheres: [global_sport, global_tennis_sport, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: bbc_sport_boxing
+  name: BBC Sport — Boxing
+  url: https://feeds.bbci.co.uk/sport/boxing/rss.xml
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: bbc_sport_olympics
+  name: BBC Sport — Olympics
+  url: https://feeds.bbci.co.uk/sport/olympics/rss.xml
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: espn_top
+  name: ESPN — Top Headlines
+  url: https://www.espn.com/espn/rss/news
+  spheres: [global_sport, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: espn_soccer
+  name: ESPN — Soccer
+  url: https://www.espn.com/espn/rss/soccer/news
+  spheres: [global_sport, global_football, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: espn_nba
+  name: ESPN — NBA
+  url: https://www.espn.com/espn/rss/nba/news
+  spheres: [global_sport, global_basketball, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: espn_nfl
+  name: ESPN — NFL
+  url: https://www.espn.com/espn/rss/nfl/news
+  spheres: [global_sport, global_americansports, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: espn_mlb
+  name: ESPN — MLB
+  url: https://www.espn.com/espn/rss/mlb/news
+  spheres: [global_sport, global_americansports, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: espn_tennis
+  name: ESPN — Tennis
+  url: https://www.espn.com/espn/rss/tennis/news
+  spheres: [global_sport, global_tennis_sport, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: skysports_main
+  name: Sky Sports — Main
+  url: https://www.skysports.com/rss/12040
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: skysports_football
+  name: Sky Sports — Football
+  url: https://www.skysports.com/rss/11095
+  spheres: [global_sport, global_football, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: skysports_f1
+  name: Sky Sports — F1
+  url: https://www.skysports.com/rss/12433
+  spheres: [global_sport, global_motorsport, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: guardian_sport
+  name: The Guardian — Sport
+  url: https://www.theguardian.com/sport/rss
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: sport
+  source_type: rss
+- id: guardian_football
+  name: The Guardian — Football
+  url: https://www.theguardian.com/football/rss
+  spheres: [global_sport, global_football, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: sport
+  source_type: rss
+- id: guardian_f1
+  name: The Guardian — Formula 1
+  url: https://www.theguardian.com/sport/formulaone/rss
+  spheres: [global_sport, global_motorsport, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: sport
+  source_type: rss
+- id: cbssports
+  name: CBS Sports — Headlines
+  url: https://www.cbssports.com/rss/headlines/
+  spheres: [global_sport, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: yahoo_sports
+  name: Yahoo Sports
+  url: https://sports.yahoo.com/rss/
+  spheres: [global_sport, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+
+# --- B) Foci-specifikus (spanyol/olasz/német/francia/holland) ---
+- id: marca_portada
+  name: Marca — Portada
+  url: https://e00-marca.uecdn.es/rss/portada.xml
+  spheres: [global_football, global_sport, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+  notes: Madrid, Real Madrid közeli
+- id: marca_laliga
+  name: Marca — La Liga
+  url: https://e00-marca.uecdn.es/rss/futbol/primera-division.xml
+  spheres: [global_football, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: marca_real_madrid
+  name: Marca — Real Madrid
+  url: https://e00-marca.uecdn.es/rss/futbol/real-madrid.xml
+  spheres: [global_football, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: marca_champions
+  name: Marca — Champions League
+  url: https://e00-marca.uecdn.es/rss/futbol/champions-league.xml
+  spheres: [global_football, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: marca_baloncesto
+  name: Marca — Baloncesto
+  url: https://e00-marca.uecdn.es/rss/baloncesto.xml
+  spheres: [global_basketball, global_sport, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: marca_f1
+  name: Marca — F1
+  url: https://e00-marca.uecdn.es/rss/motor/formula1.xml
+  spheres: [global_motorsport, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: as_ultimas
+  name: AS — Últimas Noticias
+  url: https://as.com/rss/tags/ultimas_noticias.xml
+  spheres: [global_sport, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: as_futbol
+  name: AS — Fútbol
+  url: https://as.com/rss/futbol/portada.xml
+  spheres: [global_football, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: mundo_deportivo_home
+  name: Mundo Deportivo — Home
+  url: https://www.mundodeportivo.com/feed/rss/home
+  spheres: [global_sport, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+  notes: Barcelona, Barça közeli
+- id: mundo_deportivo_futbol
+  name: Mundo Deportivo — Fútbol
+  url: https://www.mundodeportivo.com/feed/rss/futbol
+  spheres: [global_football, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: gazzetta_home
+  name: La Gazzetta dello Sport — Home
+  url: https://www.gazzetta.it/rss/home.xml
+  spheres: [global_sport, global_football, regional_italian]
+  language: it
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+  notes: RCS Mediagroup, Milánó — vezető olasz sportlap
+- id: corriere_dello_sport_hp
+  name: Corriere dello Sport — Home
+  url: https://www.corrieredellosport.it/rss/Home_Page.xml
+  spheres: [global_sport, regional_italian]
+  language: it
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+  notes: Roma/Napoli orientált
+- id: corriere_dello_sport_calcio
+  name: Corriere dello Sport — Calcio
+  url: https://www.corrieredellosport.it/rss/Calcio.xml
+  spheres: [global_football, regional_italian]
+  language: it
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: tuttosport_calcio
+  name: Tuttosport — Calcio
+  url: https://www.tuttosport.com/rss/calcio.xml
+  spheres: [global_football, regional_italian]
+  language: it
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+  notes: Torino, Juventus orientált
+- id: kicker_aktuell
+  name: Kicker — Aktuell
+  url: https://newsfeed.kicker.de/news/aktuell
+  spheres: [global_sport, global_football, regional_german]
+  language: de
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+  notes: Olympia-Verlag, Nürnberg — vezető német szakmai focilap
+- id: kicker_bundesliga
+  name: Kicker — Bundesliga
+  url: https://newsfeed.kicker.de/news/bundesliga
+  spheres: [global_football, regional_german]
+  language: de
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: kicker_champions
+  name: Kicker — Champions League
+  url: https://newsfeed.kicker.de/news/champions-league
+  spheres: [global_football, regional_german]
+  language: de
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: sportschau_main
+  name: Sportschau (ARD)
+  url: https://www.sportschau.de/index~rss2.xml
+  spheres: [global_sport, regional_german]
+  language: de
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: sportschau_fussball
+  name: Sportschau — Fußball
+  url: https://www.sportschau.de/fussball/index~rss2.xml
+  spheres: [global_football, regional_german]
+  language: de
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: rmc_sport
+  name: RMC Sport (BFM)
+  url: https://rmcsport.bfmtv.com/rss/info/flux-rss/flux-toutes-les-actualites/
+  spheres: [global_sport, regional_french]
+  language: fr
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: leparisien_sport
+  name: Le Parisien — Sport
+  url: https://www.leparisien.fr/sports/rss.xml
+  spheres: [global_sport, regional_french]
+  language: fr
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: 20min_sport
+  name: 20 Minutes — Sport
+  url: https://www.20minutes.fr/feeds/rss-sport.xml
+  spheres: [global_sport, regional_french]
+  language: fr
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: football365
+  name: Football365
+  url: https://www.football365.com/feed
+  spheres: [global_football, regional_uk]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: ninetymin
+  name: 90min
+  url: https://www.90min.com/posts.rss
+  spheres: [global_football]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: talksport
+  name: TalkSPORT
+  url: https://talksport.com/feed/
+  spheres: [global_sport, regional_uk]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: thesun_football
+  name: The Sun — Football
+  url: https://www.thesun.co.uk/sport/football/feed/
+  spheres: [global_football, global_tabloid, regional_uk]
+  language: en
+  trust_tier: 4
+  lean: right
+  category: sport
+  source_type: rss
+
+# --- C) Brazil/Portugália/Holland/Argentina foci ---
+- id: ge_globo_futebol
+  name: GE / Globo Esporte — Futebol
+  url: https://ge.globo.com/dynamo/futebol/rss2.xml
+  spheres: [global_football, regional_south_american]
+  language: pt
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: folha_esporte
+  name: Folha de S.Paulo — Esporte
+  url: https://feeds.folha.uol.com.br/esporte/rss091.xml
+  spheres: [global_sport, regional_south_american]
+  language: pt
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: uol_esporte
+  name: UOL Esporte
+  url: https://rss.uol.com.br/feed/esporte.xml
+  spheres: [global_sport, regional_south_american]
+  language: pt
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: gazeta_esportiva
+  name: Gazeta Esportiva
+  url: https://www.gazetaesportiva.com/feed/
+  spheres: [global_sport, regional_south_american]
+  language: pt
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: record_pt
+  name: Record (Portugal)
+  url: https://www.record.pt/rss
+  spheres: [global_football, global_sport]
+  language: pt
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: vi_nl
+  name: Voetbal International (NL)
+  url: https://www.vi.nl/rss
+  spheres: [global_football]
+  language: nl
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: nos_tennis
+  name: NOS Sport — Tennis
+  url: http://feeds.nos.nl/nossporttennis
+  spheres: [global_tennis_sport]
+  language: nl
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: ad_sport
+  name: AD — Sport (NL)
+  url: https://www.ad.nl/sport/rss.xml
+  spheres: [global_sport]
+  language: nl
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: voetbalprimeur
+  name: VoetbalPrimeur (NL)
+  url: https://www.voetbalprimeur.nl/rss.xml
+  spheres: [global_football]
+  language: nl
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: clarin_deportes
+  name: Clarín — Deportes (Argentina)
+  url: https://www.clarin.com/rss/deportes/
+  spheres: [global_sport, regional_south_american]
+  language: es
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+
+# --- D) Motorsport / Basketball / NFL+MLB / Tennis / MMA ---
+- id: formula1_official
+  name: Formula1.com (official)
+  url: https://www.formula1.com/content/fom-website/en/latest/all.xml
+  spheres: [global_motorsport, global_sport]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: sport
+  source_type: rss
+- id: motorsport_com_f1
+  name: Motorsport.com — F1
+  url: https://www.motorsport.com/rss/f1/news/
+  spheres: [global_motorsport]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: autosport
+  name: Autosport
+  url: https://www.autosport.com/rss/feed/all
+  spheres: [global_motorsport]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: hoopshype
+  name: HoopsHype
+  url: https://hoopshype.com/feed/
+  spheres: [global_basketball, regional_us]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: mlb_official
+  name: MLB.com (official)
+  url: https://www.mlb.com/feeds/news/rss.xml
+  spheres: [global_americansports, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+- id: mma_fighting
+  name: MMA Fighting
+  url: https://www.mmafighting.com/rss/index.xml
+  spheres: [global_tennis_sport, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: sport
+  source_type: rss
+  notes: A "tennis_sport" sphere itt egyéni-sport gyűjtő (MMA, tenisz, kerékpár stb.)
+
+# --- E) UK + US Tabloid + Celebrity ---
+- id: thesun_main
+  name: The Sun — Main
+  url: https://www.thesun.co.uk/feed/
+  spheres: [global_tabloid, regional_uk]
+  language: en
+  trust_tier: 4
+  lean: right
+  category: general
+  source_type: rss
+  notes: News UK — paywall body, RSS leadekkel működik
+- id: thesun_tvshowbiz
+  name: The Sun — TV & Showbiz
+  url: https://www.thesun.co.uk/tvandshowbiz/feed/
+  spheres: [global_celebrity, global_tabloid, regional_uk]
+  language: en
+  trust_tier: 4
+  lean: right
+  category: general
+  source_type: rss
+- id: mirror_main
+  name: Daily Mirror
+  url: https://www.mirror.co.uk/?service=rss
+  spheres: [global_tabloid, regional_uk]
+  language: en
+  trust_tier: 4
+  lean: left
+  category: general
+  source_type: rss
+- id: dailystar_main
+  name: Daily Star
+  url: https://www.dailystar.co.uk/?service=rss
+  spheres: [global_tabloid, regional_uk]
+  language: en
+  trust_tier: 4
+  lean: right
+  category: general
+  source_type: rss
+- id: metro_uk_main
+  name: Metro UK
+  url: https://metro.co.uk/feed/
+  spheres: [global_tabloid, regional_uk]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: metro_uk_sport
+  name: Metro UK — Sport
+  url: https://metro.co.uk/sport/feed/
+  spheres: [global_sport, global_tabloid, regional_uk]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: sport
+  source_type: rss
+- id: express_uk_news
+  name: Daily Express — News
+  url: https://www.express.co.uk/posts/rss/1/news
+  spheres: [global_tabloid, regional_uk]
+  language: en
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+- id: nypost_main
+  name: New York Post
+  url: https://nypost.com/feed/
+  spheres: [global_tabloid, regional_us]
+  language: en
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: News Corp / Page Six anyacég
+- id: nypost_sport
+  name: New York Post — Sport
+  url: https://nypost.com/sports/feed/
+  spheres: [global_sport, global_tabloid, regional_us]
+  language: en
+  trust_tier: 3
+  lean: right
+  category: sport
+  source_type: rss
+
+# --- US celebrity gossip ---
+- id: tmz
+  name: TMZ
+  url: https://www.tmz.com/rss.xml
+  spheres: [global_celebrity, regional_us]
+  language: en
+  trust_tier: 4
+  lean: center
+  category: general
+  source_type: rss
+  notes: ~50 poszt/nap, vezető US celebrity gossip
+- id: page_six
+  name: Page Six (NYP gossip)
+  url: https://pagesix.com/feed/
+  spheres: [global_celebrity, regional_us]
+  language: en
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+- id: us_weekly
+  name: Us Weekly
+  url: https://www.usmagazine.com/feed/
+  spheres: [global_celebrity, regional_us]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: hollywood_life
+  name: Hollywood Life
+  url: https://hollywoodlife.com/feed/
+  spheres: [global_celebrity, regional_us]
+  language: en
+  trust_tier: 4
+  lean: center
+  category: general
+  source_type: rss
+- id: hollywood_reporter
+  name: The Hollywood Reporter
+  url: https://www.hollywoodreporter.com/feed/
+  spheres: [global_celebrity, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Iparági szakmai (filmstúdiók, díjszezon)
+
+# --- Európai celebrity ---
+- id: promiflash_de
+  name: Promiflash (DE)
+  url: https://www.promiflash.de/feed/
+  spheres: [global_celebrity, regional_german]
+  language: de
+  trust_tier: 4
+  lean: center
+  category: general
+  source_type: rss
+- id: paris_match
+  name: Paris Match
+  url: https://www.parismatch.com/rss.xml
+  spheres: [global_celebrity, regional_french]
+  language: fr
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: closer_fr
+  name: Closer France
+  url: https://www.closermag.fr/feed
+  spheres: [global_celebrity, regional_french]
+  language: fr
+  trust_tier: 4
+  lean: center
+  category: general
+  source_type: rss
+- id: public_fr
+  name: Public (FR)
+  url: https://www.public.fr/feed
+  spheres: [global_celebrity, regional_french]
+  language: fr
+  trust_tier: 4
+  lean: center
+  category: general
+  source_type: rss
+- id: vanity_fair_it
+  name: Vanity Fair Italia
+  url: https://www.vanityfair.it/feed/rss
+  spheres: [global_celebrity, regional_italian]
+  language: it
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: tgcom24_spettacolo
+  name: TGCom24 — Spettacolo
+  url: https://www.tgcom24.mediaset.it/rss/spettacolo.xml
+  spheres: [global_celebrity, regional_italian]
+  language: it
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: diez_minutos_es
+  name: Diez Minutos
+  url: https://www.diezminutos.es/rss/all.xml
+  spheres: [global_celebrity, regional_spanish]
+  language: es
+  trust_tier: 4
+  lean: center
+  category: general
+  source_type: rss
+- id: vanitatis_es
+  name: Vanitatis (El Confidencial)
+  url: https://vanitatis.elconfidencial.com/rss/
+  spheres: [global_celebrity, regional_spanish]
+  language: es
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss

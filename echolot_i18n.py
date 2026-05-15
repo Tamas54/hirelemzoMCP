@@ -413,6 +413,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "group.conflict":         {"hu": "Konfliktus",  "en": "Conflict",       "de": "Konflikt",    "es": "Conflicto",     "zh": "冲突", "fr": "Conflit"},
     "group.osint":            {"hu": "OSINT",       "en": "OSINT",          "de": "OSINT",       "es": "OSINT",         "zh": "公开情报", "fr": "OSINT"},
     "group.entertainment":    {"hu": "Szórakoztató","en": "Entertainment",  "de": "Unterhaltung","es": "Entretenimiento","zh": "娱乐", "fr": "Divertissement"},
+    "group.sport":            {"hu": "Sport",       "en": "Sport",          "de": "Sport",       "es": "Deportes",      "zh": "体育", "fr": "Sport"},
+    "group.football":         {"hu": "Foci",        "en": "Football",       "de": "Fußball",     "es": "Fútbol",        "zh": "足球", "fr": "Football"},
+    "group.tabloid":          {"hu": "Bulvár",      "en": "Tabloid",        "de": "Boulevard",   "es": "Prensa rosa",   "zh": "八卦", "fr": "Tabloïd"},
     "group.telegram":         {"hu": "Telegram",    "en": "Telegram",       "de": "Telegram",    "es": "Telegram",      "zh": "Telegram", "fr": "Telegram"},
     # ── Tab-groups: Universal geo perspectives ─────────────────────
     "group.geo.china":         {"hu": "Kína",          "en": "China",         "de": "China",        "es": "China",         "zh": "中国",     "fr": "Chine"},

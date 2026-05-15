@@ -67,6 +67,9 @@ TOPICAL_GROUPS: list[tuple[str, str, str]] = [
     ("group.conflict",      "global_conflict,ua_front_osint", ""),
     ("group.osint",         "global_osint,global_investigative", ""),
     ("group.entertainment", "global_entertainment,asia_entertainment", ""),
+    ("group.sport",         "global_sport,global_football,global_motorsport,global_basketball,global_americansports,global_tennis_sport", ""),
+    ("group.football",      "global_football", ""),
+    ("group.tabloid",       "global_tabloid,global_celebrity", ""),
     ("group.telegram",      "", "source_type=telegram"),
 ]
 
