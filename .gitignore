@@ -10,3 +10,11 @@ poc_extracted/
 files(*).zip
 .DS_Store
 CLAUDE.md
+
+# Local-only planning artifacts — never publish
+devlog*.md
+plan*.md
+todo_*.md
+thoughts*.md
+*_handover.md
+*_snapshot.md
