@@ -798,7 +798,7 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
                        seo_description=sphere_desc,
                        seo_og_title=f"Echolot — {sphere_name}",
                        seo_extra_query=seo_extra_query,
-                       extra_head_html=breadcrumb), lang
+                       extra_head_html=extra_head), lang
 
 
 def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
