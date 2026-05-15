@@ -118,6 +118,11 @@ from echolot_ai_discovery import (
     well_known_mcp_json_string,
     openapi_spec_string,
 )
+from echolot_content_neg import (
+    prefers_format,
+    render_sphere_detail_markdown,
+    render_spheres_listing_markdown,
+)
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -2284,6 +2289,24 @@ async def dashboard_divergence(request):
 
 @mcp.custom_route("/dashboard/spheres", methods=["GET"])
 async def dashboard_spheres(request):
+    fmt = prefers_format(request)
+    if fmt == "markdown":
+        # Markdown listing for AI agents (Accept: text/markdown)
+        with get_db() as conn:
+            rows = conn.execute("""
+                SELECT je.value AS sphere,
+                       COUNT(DISTINCT a.article_id) AS article_count,
+                       MAX(a.published_at) AS latest_at,
+                       COUNT(DISTINCT a.source_id) AS source_count
+                FROM articles a, json_each(a.spheres_json) je
+                GROUP BY je.value
+                ORDER BY article_count DESC
+            """).fetchall()
+        body = render_spheres_listing_markdown(public_origin(request), rows)
+        return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+    if fmt == "json":
+        # 302 to the JSON endpoint that already covers this
+        return RedirectResponse(url="/api/spheres", status_code=302)
     page, lang = render_spheres_page(request, get_db)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
@@ -2293,6 +2316,49 @@ async def dashboard_spheres(request):
 @mcp.custom_route("/dashboard/sphere/{name}", methods=["GET"])
 async def dashboard_sphere_detail(request):
     name = request.path_params.get("name", "")
+    fmt = prefers_format(request)
+    if fmt == "markdown":
+        # Markdown detail for AI agents
+        try:
+            page_n = max(1, int(request.query_params.get("page", "1")))
+        except Exception:
+            page_n = 1
+        PAGE = 30
+        offset = (page_n - 1) * PAGE
+        with get_db() as conn:
+            total = conn.execute(
+                "SELECT COUNT(*) AS n FROM articles a, json_each(a.spheres_json) je WHERE je.value = ?",
+                (name,),
+            ).fetchone()["n"]
+            articles = conn.execute("""
+                SELECT a.title, a.url, a.source_name, a.published_at,
+                       a.language, s.lean, s.trust_tier
+                FROM articles a JOIN sources s ON s.id = a.source_id, json_each(a.spheres_json) je
+                WHERE je.value = ?
+                ORDER BY a.published_at DESC
+                LIMIT ? OFFSET ?
+            """, (name, PAGE, offset)).fetchall()
+            sources = conn.execute("""
+                SELECT s.name, s.lean, s.trust_tier, s.language,
+                       COUNT(a.article_id) AS n
+                FROM sources s, json_each(s.spheres_json) je
+                LEFT JOIN articles a ON a.source_id = s.id
+                WHERE je.value = ?
+                GROUP BY s.id ORDER BY n DESC
+            """, (name,)).fetchall()
+        total_pages = max(1, (total + PAGE - 1) // PAGE)
+        body = render_sphere_detail_markdown(
+            public_origin(request), name,
+            articles, sources, page_n, total_pages, total,
+        )
+        return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+    if fmt == "json":
+        # 302 to the JSON-backed REST endpoint
+        page_q = request.query_params.get("page", "1")
+        return RedirectResponse(
+            url=f"/api/news?spheres={name}&limit=80&page={page_q}",
+            status_code=302,
+        )
     page, lang = render_sphere_detail_page(request, name, get_db)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
