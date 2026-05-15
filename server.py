@@ -38,7 +38,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from echolot_health import compute_health
 from echolot_diversity import diversify
@@ -103,6 +103,12 @@ from echolot_dashboard import (
     render_sphere_detail_page,
     render_health_page,
     render_trending_page,
+)
+from echolot_seo import (
+    public_origin,
+    robots_txt,
+    list_indexable_spheres,
+    build_sitemap_xml,
 )
 
 logging.basicConfig(level=logging.INFO,
@@ -1555,6 +1561,22 @@ async def health(request):
         return JSONResponse({"status": "ok", "articles": n, "newest": last})
     except Exception as e:
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
+
+
+@mcp.custom_route("/robots.txt", methods=["GET"])
+async def robots(request):
+    """robots.txt — allow crawlers, point to sitemap, disallow MCP+API endpoints."""
+    body = robots_txt(public_origin(request))
+    return PlainTextResponse(body, media_type="text/plain; charset=utf-8")
+
+
+@mcp.custom_route("/sitemap.xml", methods=["GET"])
+async def sitemap(request):
+    """Dynamic sitemap.xml — landing × 6 lang + dashboard pages + active spheres."""
+    origin = public_origin(request)
+    spheres = list_indexable_spheres(str(DB_PATH))
+    body = build_sitemap_xml(origin, spheres)
+    return Response(body, media_type="application/xml; charset=utf-8")
 
 
 @mcp.custom_route("/api/news", methods=["GET"])
