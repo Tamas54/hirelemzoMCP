@@ -245,7 +245,8 @@ def seo_head_html(
     # OG locale uses xx_XX style (en→en_US, hu→hu_HU, de→de_DE, etc.)
     locale_map = {"hu": "hu_HU", "en": "en_US", "de": "de_DE",
                   "es": "es_ES", "zh": "zh_CN", "fr": "fr_FR",
-                  "pl": "pl_PL", "ru": "ru_RU", "uk": "uk_UA"}
+                  "pl": "pl_PL", "ru": "ru_RU", "uk": "uk_UA",
+                  "it": "it_IT"}
     og_locale = locale_map.get(lang, "hu_HU")
     og_alternates = [v for k, v in locale_map.items() if k != lang and k in langs]
 

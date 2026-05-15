@@ -64,6 +64,9 @@ DOMESTIC_GROUPS_BY_LANG: dict[str, list[tuple[str, str, str]]] = {
     "uk": [
         ("group.geo.ukraine",      "regional_ukrainian,ua_front_osint", ""),
     ],
+    "it": [
+        ("group.geo.italy",        "regional_italian", ""),
+    ],
 }
 
 # TOPICAL block — universal, only labels translate.
@@ -93,7 +96,7 @@ TOPICAL_GROUPS: list[tuple[str, str, str]] = [
 # domestic block).
 GEO_GROUPS: list[dict] = [
     {"label_key": "group.geo.china",         "spheres": _CN_ALL, "extra": "", "lang_owners": ("zh",)},
-    {"label_key": "group.geo.italy",         "spheres": "regional_italian", "extra": "", "lang_owners": ()},
+    {"label_key": "group.geo.italy",         "spheres": "regional_italian", "extra": "", "lang_owners": ("it",)},
     {"label_key": "group.geo.russia",        "spheres": "regional_russian,ru_state_media,ru_opposition,ru_milblog_pro", "extra": "", "lang_owners": ("ru",)},
     {"label_key": "group.geo.belarus",       "spheres": "regional_belarusian", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.poland",        "spheres": "regional_polish", "extra": "", "lang_owners": ("pl",)},
