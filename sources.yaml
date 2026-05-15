@@ -5154,3 +5154,175 @@
   category: foreign
   source_type: rss
   notes: Havi geopolitikai elemző — digitális kapitalizmus, nemzetközi jog, népirtási vádak
+
+# ──────────────────────────────────────────────────────────────────────
+# CN politikai sajtó-bővítés 2026-05-15 — a "Kínai Politikai RSS Csatornák"
+# elemzés alapján. A regional_chinese-ben már 19 forrás volt (Xinhua, CGTN,
+# China Daily, SCMP, Caixin CN, Guancha, Sinocism, ChinaTalk stb.). Most
+# tematikus kibővítés a fő állami médiákon (Xinhua, China Daily, CGTN).
+# Caixin Global EN — paywall mögött, RSS 403 (P2.5 brave-fallback körre).
+# ──────────────────────────────────────────────────────────────────────
+
+# --- Xinhua tematikus (a meglévő xinhua_world mellé) ---
+- id: xinhua_china
+  name: Xinhua — China
+  url: http://www.xinhuanet.com/english/rss/chinarss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+  notes: Belföldi politika, jogszabályi változások, pártkongresszusok — KKP hivatalos csatornája
+- id: xinhua_business
+  name: Xinhua — Business
+  url: http://www.xinhuanet.com/english/rss/businessrss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  - global_economy
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: economy
+  source_type: rss
+  notes: Makrogazdaság, kereskedelmi politika, piaci szabályozás
+- id: xinhua_indepth
+  name: Xinhua — In-Depth
+  url: http://www.xinhuanet.com/english/rss/indepthrss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+  notes: Mélyelemzések kormányzati stratégiákról és társadalmi ügyekről
+- id: xinhua_culture
+  name: Xinhua — Culture & Edu
+  url: http://www.xinhuanet.com/english/rss/culturerss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Oktatáspolitika, kulturális diplomácia (soft power)
+
+# --- China Daily tematikus (a meglévő china_daily_world mellé) ---
+- id: china_daily_china
+  name: China Daily — China News
+  url: https://www.chinadaily.com.cn/rss/china_rss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+- id: china_daily_opinion
+  name: China Daily — Opinion
+  url: https://www.chinadaily.com.cn/rss/opinion_rss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Szerkesztőségi cikkek — hivatalos kínai álláspont
+- id: china_daily_bizchina
+  name: China Daily — Bizchina
+  url: https://www.chinadaily.com.cn/rss/bizchina_rss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  - global_economy
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: economy
+  source_type: rss
+  notes: Gazdasági reformok, befektetések, kereskedelmi háborúk
+- id: china_daily_hk
+  name: China Daily — HK Edition
+  url: https://www.chinadaily.com.cn/rss/hk_rss.xml
+  spheres:
+  - cn_state
+  - cn_hk
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+  notes: Hongkongi Különleges Közigazgatási Terület — Peking-perspektíva
+- id: china_daily_lifestyle
+  name: China Daily — Lifestyle
+  url: https://www.chinadaily.com.cn/rss/lifestyle_rss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+
+# --- CGTN tematikus (a meglévő cgtn world mellé) ---
+- id: cgtn_china
+  name: CGTN — China
+  url: https://www.cgtn.com/subscribe/rss/section/china.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: foreign
+  source_type: rss
+- id: cgtn_business
+  name: CGTN — Business
+  url: https://www.cgtn.com/subscribe/rss/section/business.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  - global_economy
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: economy
+  source_type: rss
+- id: cgtn_politics
+  name: CGTN — Politics
+  url: https://www.cgtn.com/subscribe/rss/section/politics.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: general
+  source_type: rss
+  notes: Diplomáciai agenda, exkluzív riportok — "telling China's story well"
+
+# --- Sixth Tone (puha hírek, társadalmi dinamika) ---
+- id: sixth_tone
+  name: Sixth Tone
+  url: https://www.sixthtone.com/rss
+  spheres:
+  - regional_chinese
+  - cn_diaspora_analysis
+  language: en
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Hétköznapi Kína, társadalmi feszültségek, kisebbségi jogok, kulturális átalakulás — "puha" hírek mint korai jelzők
