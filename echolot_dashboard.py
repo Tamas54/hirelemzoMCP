@@ -142,8 +142,10 @@ def _augment_block_html(lang: str, active: str = "feed") -> str:
 
 
 def augment_landing(request, landing_html: str) -> tuple[str, str]:
-    """Inject the lang-selector + tab-bar into the original LANDING_HTML
-    with two surgical edits (no structural change).
+    """Inject the lang-selector + tab-bar AND localize the hero, stat-row,
+    sphere-bars, news-section, MCP-config buttons, MCP-tools block, and
+    footer of the original LANDING_HTML.
+
     Returns (html, resolved_lang).
     """
     lang = _request_lang(request)
@@ -152,6 +154,88 @@ def augment_landing(request, landing_html: str) -> tuple[str, str]:
     out = landing_html.replace("</style>", css + "\n</style>", 1)
     out = out.replace("<body>", "<body>\n" + block, 1)
     out = out.replace('<html lang="hu">', f'<html lang="{lang}">', 1)
+
+    # ── Localize the static landing strings (Hungarian originals → t(lang)) ──
+    hero_title = t("landing.hero_title", lang)
+    out = out.replace(
+        "<title>Echolot — Globális narratíva-térkép</title>",
+        f"<title>Echolot — {html.escape(hero_title)}</title>",
+        1,
+    )
+    out = out.replace(
+        "<h1>Globális narratíva-térkép</h1>",
+        f"<h1>{html.escape(hero_title)}</h1>",
+        1,
+    )
+
+    # Hero subtitle: replace the entire 5-line <p class="sub">…</p> block
+    hero_sub_old = (
+        '<p class="sub">315 forrás 63 információs szférából — magyar sajtó, globális anchor lapok,\n'
+        '     kínai állami média, izraeli bal/jobb, iráni rezsim/ellenzék, ukrán front-OSINT,\n'
+        '     orosz milblog/ellenzék, japán/koreai/indiai/török/arab/dél-amerikai sajtó, US partisan szubsztakok,\n'
+        '     AI / climate / health / OSINT topikális csomagok, Telegram-csatornák.<br>\n'
+        '     Eredeti nyelven — az olvasó AI minden nyelvet ért.</p>'
+    )
+    hero_sub_new = (
+        f'<p class="sub">{html.escape(t("landing.hero_description", lang))}<br>\n'
+        f'     {html.escape(t("landing.hero_native_note", lang))}</p>'
+    )
+    out = out.replace(hero_sub_old, hero_sub_new, 1)
+
+    # Stat row labels (suffix-text after the <strong>…</strong>)
+    out = out.replace("</strong> friss cikk</div>",
+                      f"</strong> {html.escape(t('landing.stat.fresh_articles', lang))}</div>", 1)
+    out = out.replace("</strong> szféra</div>",
+                      f"</strong> {html.escape(t('landing.stat.spheres', lang))}</div>", 1)
+    out = out.replace("</strong> forrás</div>",
+                      f"</strong> {html.escape(t('landing.stat.sources', lang))}</div>", 1)
+
+    # Sphere-bar labels + "Mind" button + toggle
+    out = out.replace('<span class="label">téma</span>',
+                      f'<span class="label">{html.escape(t("landing.bar.theme", lang))}</span>', 1)
+    out = out.replace('<span class="label">szféra</span>',
+                      f'<span class="label">{html.escape(t("landing.stat.spheres", lang))}</span>', 1)
+    out = out.replace('data-sphere="">Mind</button>',
+                      f'data-sphere="">{html.escape(t("landing.bar.all", lang))}</button>', 1)
+    out = out.replace('▼ részletes szféra-lista (63)</button>',
+                      f'{html.escape(t("landing.bar.toggle_detailed", lang))}</button>', 1)
+
+    # News section
+    out = out.replace("<h2>Élő hírfolyam</h2>",
+                      f"<h2>{html.escape(t('landing.news.title', lang))}</h2>", 1)
+    out = out.replace('<span class="spinner"></span> Hírek betöltése...',
+                      f'<span class="spinner"></span> {html.escape(t("landing.news.loading", lang))}', 1)
+
+    # MCP-config card buttons (3 buttons, all unique strings)
+    out = out.replace(">Konfiguráció másolása</button>",
+                      f">{html.escape(t('landing.config.copy_button', lang))}</button>", 1)
+    # The two "URL másolása" buttons are identical strings — replace_all not used
+    # (each call replaces only first occurrence), so chain two .replace calls.
+    out = out.replace(">URL másolása</button>",
+                      f">{html.escape(t('landing.config.copy_url_button', lang))}</button>", 2)
+
+    # JS "Másolva!" ack message inside the script
+    out = out.replace("btn.textContent = 'Másolva!';",
+                      f"btn.textContent = '{html.escape(t('landing.config.copied_ack', lang))}';", 1)
+
+    # MCP tools block (h2 + intro + col headers + footer)
+    out = out.replace("<h2>MCP eszközök</h2>",
+                      f"<h2>{html.escape(t('landing.tools.title', lang))}</h2>", 1)
+    out = out.replace(
+        "Klasszikus napi/heti hírlekérés, FTS-keresés és trending — plus a payoff: a\n"
+        "    <code>narrative_divergence</code>, ami megmondja, ugyanarról a témáról mit ír a kínai\n"
+        "    állami sajtó, az iráni ellenzék, az ukrán front, az amerikai MAGA-szubsztak — egymás mellett.",
+        t("landing.tools.intro", lang),
+        1,
+    )
+    out = out.replace("<tr><th>Eszköz</th><th>Leírás</th></tr>",
+                      f"<tr><th>{html.escape(t('landing.tools.col_tool', lang))}</th>"
+                      f"<th>{html.escape(t('landing.tools.col_desc', lang))}</th></tr>", 1)
+
+    # Footer tagline
+    out = out.replace("Echolot · globális hírelemző MCP",
+                      f"Echolot · {html.escape(t('landing.footer.tagline', lang))}", 1)
+
     return out, lang
 
 
