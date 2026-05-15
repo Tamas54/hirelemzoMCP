@@ -10,7 +10,13 @@ MCP tools:
   - get_sources            Available sources, grouped by sphere/category
   - get_spheres            Sphere taxonomy + per-sphere coverage stats
   - narrative_divergence   "What does each sphere say about topic X?" — Echolot payoff
-  - get_scrape_status      Scraper health, last run, DB stats
+  - echolot_health         Sphere- or pipeline-level health (level=sphere|pipeline)
+  - echolot_velocity       Per-sphere publication velocity / cadence stats
+  - entity_search          Find articles by named entities (people, places, orgs)
+  - external_trends        Wikipedia / YouTube / Google News trends (source=wiki|youtube|google)
+  - search_web             Web search across the open internet
+  - search_social          Social-platform search (Reddit, X, etc.)
+  - scrape_url             Scrape an arbitrary URL on demand
 
 REST routes (for landing page):
   - /              landing page
@@ -685,25 +691,28 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
 
 @mcp.tool()
 def echolot_health(
+    level: str = "sphere",
     green_max_minutes: int = 120,
     yellow_max_minutes: int = 1440,
     top_n: int = 10,
 ) -> str:
-    """Sphere-by-sphere health check — which spheres are alive, slowing, or dead.
-
-    Use this to spot dead RSS feeds, dying sources, or broken sphere coverage.
+    """Health check — sphere-level coverage OR pipeline-level scraper status.
 
     Args:
-        green_max_minutes: latest article newer than this -> green (default 120 = 2h)
-        yellow_max_minutes: latest article newer than this -> yellow (default 1440 = 24h)
-        top_n: how many top-active and slowest sources to list (default 10)
+        level: 'sphere' (default) — per-sphere green/yellow/red coverage,
+               which RSS feeds are alive/dying/dead.
+               'pipeline' — scraper run-log + DB stats + recent failures.
+        green_max_minutes: (sphere) latest article newer than this -> green (default 120 = 2h)
+        yellow_max_minutes: (sphere) latest article newer than this -> yellow (default 1440 = 24h)
+        top_n: (sphere) how many top-active and slowest sources to list (default 10)
 
-    Returns JSON with:
-        summary: {green, yellow, red, total}
-        spheres: per-sphere status, article counts (24h, 7d), latest article age
-        top_active_sources_24h: most prolific sources in the last 24h
-        slowest_sources: sources with oldest/no recent articles (candidates for fixing)
+    Returns JSON:
+        level='sphere': summary{green,yellow,red,total}, spheres[],
+                        top_active_sources_24h[], slowest_sources[]
+        level='pipeline': database_stats, last_scrape, recent_failures[]
     """
+    if (level or "").strip().lower() == "pipeline":
+        return _scrape_status_impl()
     report = compute_health(
         DB_PATH,
         green_max_minutes=green_max_minutes,
@@ -867,8 +876,7 @@ def entity_search(
     }, ensure_ascii=False, default=str)
 
 
-@mcp.tool()
-async def wiki_trends(
+async def _wiki_trends_impl(
     topic: str = "",
     days: int = 365,
     limit: int = 15,
@@ -1047,8 +1055,7 @@ async def wiki_trends(
     return json.dumps(out, ensure_ascii=False, default=str)
 
 
-@mcp.tool()
-async def youtube_trends(
+async def _youtube_trends_impl(
     region: str = "HU",
     count: int = 20,
     category: str = "all",
@@ -1110,8 +1117,7 @@ async def youtube_trends(
     }, ensure_ascii=False, default=str)
 
 
-@mcp.tool()
-def google_trends(
+def _google_trends_impl(
     geo: str = "HU",
     limit: int = 15,
     super_trends: bool = False,
@@ -1173,6 +1179,82 @@ def google_trends(
             out["results"] = []
 
     return json.dumps(out, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+async def external_trends(
+    source: str,
+    geo: str = "",
+    limit: int = 15,
+    topic: str = "",
+    days: int = 365,
+    mode: str = "auto",
+    method: str = "pearson",
+    threshold: float = 0.1,
+    include_predictive: bool = False,
+    categories: list[str] | None = None,
+    category: str = "all",
+    super_trends: bool = False,
+    super_geos: list[str] | None = None,
+    super_min_overlap: int = 2,
+) -> str:
+    """Trending signals from external (non-corpus) sources: Wikipedia,
+    YouTube, or Google News. One unified entry-point — pick `source`.
+
+    SOURCES
+      - source="wiki" (Wikipedia pageviews / correlations / movers /
+                       predictive / markov / cascade — see `mode`)
+      - source="youtube" (Data API v3 most-popular videos per region)
+      - source="google" (Google News RSS top stories per geo, optional
+                         super-trends overlap)
+
+    COMMON ARGS
+      geo: country/region code. wiki→`geo_wiki` (e.g. 'en','hu','de'),
+           youtube→`region` (e.g. 'HU','US'), google→`geo` (e.g. 'HU','US').
+           Default '' resolves per-source ('en' for wiki, 'HU' for yt+google).
+      limit: max results (per-source clamped: wiki 1-100, youtube 1-50,
+             google 1-30). Default 15.
+
+    WIKI ARGS
+      topic: search term (required for correlations/predictive/markov/cascade)
+      days: history window 30-3650 (default 365)
+      mode: 'auto'|'pageviews'|'correlations'|'movers'|'predictive'|
+            'markov'|'cascade'
+      method, threshold, include_predictive, categories: see wiki engine
+
+    YOUTUBE ARGS
+      category: 'all'|'news'|'tech'|'gaming'|'music'|'sports'|'edu'|
+                'comedy'|'movies'
+
+    GOOGLE ARGS
+      super_trends: cross-country overlap detection
+      super_geos: list of geos for super-trends (default ['HU','US','GB','DE','FR'])
+      super_min_overlap: min country overlap (default 2)
+    """
+    src = (source or "").strip().lower()
+    if src in ("wiki", "wikipedia"):
+        return await _wiki_trends_impl(
+            topic=topic, days=days, limit=limit, mode=mode,
+            geo_wiki=(geo or "en"),
+            include_predictive=include_predictive,
+            method=method, threshold=threshold,
+            categories=categories,
+        )
+    if src in ("youtube", "yt"):
+        return await _youtube_trends_impl(
+            region=(geo or "HU"), count=limit, category=category,
+        )
+    if src in ("google", "gnews", "google_news"):
+        return _google_trends_impl(
+            geo=(geo or "HU"), limit=limit,
+            super_trends=super_trends,
+            super_geos=super_geos,
+            super_min_overlap=super_min_overlap,
+        )
+    return json.dumps({
+        "error": f"Unknown source {source!r}",
+        "available": ["wiki", "youtube", "google"],
+    }, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -1429,9 +1511,9 @@ def scrape_url(url: str, robust: bool = False, max_chars: int = 8000) -> str:
     }, ensure_ascii=False, default=str)
 
 
-@mcp.tool()
-def get_scrape_status() -> str:
-    """Scraper health — last run + DB stats. Use to verify the pipeline is alive."""
+def _scrape_status_impl() -> str:
+    """Scraper health — last run + DB stats. Internal impl, surfaced via
+    echolot_health(level='pipeline')."""
     with get_db() as conn:
         last = conn.execute("SELECT * FROM scrape_log ORDER BY started_at DESC LIMIT 1").fetchone()
         stats = conn.execute("""
@@ -1923,7 +2005,6 @@ LANDING_HTML = r"""<!DOCTYPE html>
     <tr><td>narrative_divergence</td><td><strong>★ payoff:</strong> mit mond minden szféra ugyanarról a témáról</td></tr>
     <tr><td>get_spheres</td><td>Szféra-taxonómia + cikkszámok</td></tr>
     <tr><td>get_sources</td><td>Elérhető hírforrások listája</td></tr>
-    <tr><td>get_scrape_status</td><td>Scraper állapot, utolsó futás, hibák</td></tr>
   </table>
 </div>
 
