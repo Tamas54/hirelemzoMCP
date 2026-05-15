@@ -111,6 +111,12 @@ from echolot_seo import (
     build_sitemap_xml,
     og_image_svg,
 )
+from echolot_ai_discovery import (
+    robots_txt_full,
+    build_llms_txt,
+    build_llms_full_txt,
+    well_known_mcp_json_string,
+)
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -1566,9 +1572,40 @@ async def health(request):
 
 @mcp.custom_route("/robots.txt", methods=["GET"])
 async def robots(request):
-    """robots.txt — allow crawlers, point to sitemap, disallow MCP+API endpoints."""
-    body = robots_txt(public_origin(request))
+    """robots.txt — allow all crawlers + explicit AI-bot welcome blocks
+    (GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended, etc.)
+    + sitemap link + llms.txt pointer."""
+    body = robots_txt_full(public_origin(request))
     return PlainTextResponse(body, media_type="text/plain; charset=utf-8")
+
+
+@mcp.custom_route("/llms.txt", methods=["GET"])
+async def llms_txt(request):
+    """LLM-readable site overview (https://llmstxt.org/ format).
+    The first thing AI agents should read on discovering the site."""
+    body = build_llms_txt(public_origin(request))
+    return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+
+
+@mcp.custom_route("/llms-full.txt", methods=["GET"])
+async def llms_full_txt(request):
+    """Long-form LLM catalog: full sphere taxonomy + MCP tool table +
+    every dashboard URL. Usable as single-shot context for an agent."""
+    spheres = list_indexable_spheres(str(DB_PATH))
+    body = build_llms_full_txt(public_origin(request), spheres)
+    return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+
+
+@mcp.custom_route("/.well-known/mcp.json", methods=["GET"])
+async def well_known_mcp(request):
+    """MCP server discovery descriptor — for agent runtimes that probe
+    well-known paths to find MCP servers."""
+    body = well_known_mcp_json_string(public_origin(request))
+    return Response(
+        body,
+        media_type="application/json; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @mcp.custom_route("/sitemap.xml", methods=["GET"])
