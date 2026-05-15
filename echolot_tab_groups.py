@@ -52,6 +52,18 @@ DOMESTIC_GROUPS_BY_LANG: dict[str, list[tuple[str, str, str]]] = {
     "fr": [
         ("group.fr.france",        "regional_french", ""),
     ],
+    "pl": [
+        ("group.geo.poland",       "regional_polish", ""),
+        ("group.geo.v4",           "regional_v4", ""),
+    ],
+    "ru": [
+        ("group.geo.russia",       "regional_russian", ""),
+        # Külön sub-csoportok az orosz user számára (állami / oknyomozó / militari):
+        # használjuk a meglévő ru_state_media + ru_opposition + ru_milblog_pro sphere-eket
+    ],
+    "uk": [
+        ("group.geo.ukraine",      "regional_ukrainian,ua_front_osint", ""),
+    ],
 }
 
 # TOPICAL block — universal, only labels translate.
@@ -80,9 +92,9 @@ TOPICAL_GROUPS: list[tuple[str, str, str]] = [
 GEO_GROUPS: list[dict] = [
     {"label_key": "group.geo.china",         "spheres": _CN_ALL, "extra": "", "lang_owners": ("zh",)},
     {"label_key": "group.geo.italy",         "spheres": "regional_italian", "extra": "", "lang_owners": ()},
-    {"label_key": "group.geo.russia",        "spheres": "regional_russian,ru_state_media,ru_opposition,ru_milblog_pro", "extra": "", "lang_owners": ()},
+    {"label_key": "group.geo.russia",        "spheres": "regional_russian,ru_state_media,ru_opposition,ru_milblog_pro", "extra": "", "lang_owners": ("ru",)},
     {"label_key": "group.geo.belarus",       "spheres": "regional_belarusian", "extra": "", "lang_owners": ()},
-    {"label_key": "group.geo.poland",        "spheres": "regional_polish", "extra": "", "lang_owners": ()},
+    {"label_key": "group.geo.poland",        "spheres": "regional_polish", "extra": "", "lang_owners": ("pl",)},
     {"label_key": "group.geo.czechia",       "spheres": "regional_czech", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.us",            "spheres": "regional_us,us_maga_blog,us_maga_substack,us_liberal_press,us_liberal_substack", "extra": "", "lang_owners": ("en",)},
     {"label_key": "group.geo.uk",            "spheres": "regional_uk", "extra": "", "lang_owners": ("en",)},
@@ -97,7 +109,7 @@ GEO_GROUPS: list[dict] = [
     {"label_key": "group.geo.v4",            "spheres": "regional_v4", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.israel",        "spheres": "regional_israeli,israel_press_left,israel_press_center,israel_press_right", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.iran",          "spheres": "regional_iranian,iran_regime,iran_opposition", "extra": "", "lang_owners": ()},
-    {"label_key": "group.geo.ukraine",       "spheres": "regional_ukrainian,ua_front_osint", "extra": "", "lang_owners": ()},
+    {"label_key": "group.geo.ukraine",       "spheres": "regional_ukrainian,ua_front_osint", "extra": "", "lang_owners": ("uk",)},
     {"label_key": "group.geo.turkey",        "spheres": "regional_turkish", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.arab_world",    "spheres": "regional_arabic", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.africa",        "spheres": "regional_african", "extra": "", "lang_owners": ()},
