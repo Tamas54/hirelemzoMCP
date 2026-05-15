@@ -2472,8 +2472,21 @@ async def dashboard_trending(request):
 
 @mcp.custom_route("/", methods=["GET"])
 async def landing(request):
-    """The original Echolot landing page, augmented with a language
-    selector + a top-level tab-bar that links to the new sub-pages."""
+    """New Ground News-style landing — Top Stories + Local Trending +
+    Blindspot + Entity-trending chip-row. The classic augmented
+    LANDING_HTML lives at /landing-classic; the raw original at /landing-legacy."""
+    from echolot_landing_v2 import render_landing_v2
+    page, lang = render_landing_v2(request, str(DB_PATH))
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/landing-classic", methods=["GET"])
+async def landing_classic(request):
+    """The previous main landing page (LANDING_HTML augmented with
+    i18n hero + tab-bar + lang-selector + initial news batch). Now
+    accessible at /landing-classic since / serves the new v2 layout."""
     page, lang = augment_landing(request, LANDING_HTML, db_path=str(DB_PATH))
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
@@ -2482,7 +2495,7 @@ async def landing(request):
 
 @mcp.custom_route("/landing-legacy", methods=["GET"])
 async def landing_legacy(request):
-    """The original landing page without any augmentation — for reference."""
+    """The raw original LANDING_HTML without any augmentation — for reference."""
     return HTMLResponse(LANDING_HTML)
 
 
