@@ -109,6 +109,7 @@ from echolot_seo import (
     robots_txt,
     list_indexable_spheres,
     build_sitemap_xml,
+    og_image_svg,
 )
 
 logging.basicConfig(level=logging.INFO,
@@ -1577,6 +1578,16 @@ async def sitemap(request):
     spheres = list_indexable_spheres(str(DB_PATH))
     body = build_sitemap_xml(origin, spheres)
     return Response(body, media_type="application/xml; charset=utf-8")
+
+
+@mcp.custom_route("/static/og-image.svg", methods=["GET"])
+async def static_og_image(request):
+    """Open Graph share image (1200×630 SVG, immutable cache)."""
+    return Response(
+        og_image_svg(),
+        media_type="image/svg+xml; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=86400, immutable"},
+    )
 
 
 @mcp.custom_route("/api/news", methods=["GET"])

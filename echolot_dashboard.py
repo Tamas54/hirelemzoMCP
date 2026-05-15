@@ -26,6 +26,7 @@ from echolot_i18n import (
     t,
 )
 from echolot_tab_groups import build_tab_groups
+from echolot_seo import public_origin, seo_head_html
 
 
 def _augment_strip_css() -> str:
@@ -156,6 +157,20 @@ def augment_landing(request, landing_html: str) -> tuple[str, str]:
     out = landing_html.replace("</style>", css + "\n</style>", 1)
     out = out.replace("<body>", "<body>\n" + block, 1)
     out = out.replace('<html lang="hu">', f'<html lang="{lang}">', 1)
+
+    # SEO head block (meta description + canonical + hreflang × 6 + OG + Twitter)
+    seo_head = seo_head_html(
+        origin=public_origin(request), lang=lang, path="/",
+        description=t("seo.site.description", lang),
+        og_title=f"Echolot — {t('landing.hero_title', lang)}",
+    )
+    # Inject after the <title>…</title> line
+    out = re.sub(
+        r"(<title>[^<]*</title>)",
+        lambda m: m.group(1) + "\n" + seo_head,
+        out,
+        count=1,
+    )
 
     # ── Localize the static landing strings (Hungarian originals → t(lang)) ──
     hero_title = t("landing.hero_title", lang)
@@ -412,14 +427,37 @@ _BASE_STYLES = """
 """
 
 
-def _page_shell(lang: str, active_tab: str, body_html: str) -> str:
-    """Wrap a body in the standard dashboard chrome (header, nav, footer)."""
+def _page_shell(
+    lang: str,
+    active_tab: str,
+    body_html: str,
+    request=None,
+    seo_path: str | None = None,
+    seo_description: str | None = None,
+    seo_og_title: str | None = None,
+) -> str:
+    """Wrap a body in the standard dashboard chrome (header, nav, footer).
+
+    If `request` and `seo_path` are provided, inject a full SEO <head>
+    block (meta description, canonical, hreflang alternates, Open Graph,
+    Twitter Card).
+    """
+    seo_head = ""
+    if request is not None and seo_path is not None:
+        origin = public_origin(request)
+        desc = seo_description or t("seo.site.description", lang)
+        og_title = seo_og_title or f"Echolot — {t('site.title', lang)}"
+        seo_head = seo_head_html(
+            origin=origin, lang=lang, path=seo_path,
+            description=desc, og_title=og_title,
+        )
     return f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{_escape(t('site.title', lang))}</title>
+  {seo_head}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -517,7 +555,8 @@ def render_dashboard(request) -> tuple[str, str]:
 
     {results_block}
     """
-    return _page_shell(lang, "divergence", body), lang
+    return _page_shell(lang, "divergence", body, request=request,
+                       seo_path="/dashboard"), lang
 
 
 def render_spheres_page(request, conn_factory) -> tuple[str, str]:
@@ -560,7 +599,9 @@ def render_spheres_page(request, conn_factory) -> tuple[str, str]:
         {''.join(cards)}
       </div>
     """
-    return _page_shell(lang, "spheres", body), lang
+    return _page_shell(lang, "spheres", body, request=request,
+                       seo_path="/dashboard/spheres",
+                       seo_description=t("seo.page.spheres.description", lang)), lang
 
 
 def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[str, str]:
@@ -647,7 +688,11 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
         </aside>
       </div>
     """
-    return _page_shell(lang, "spheres", body), lang
+    sphere_desc = t("seo.page.sphere_detail.description_tpl", lang).replace("{sphere}", sphere_name)
+    return _page_shell(lang, "spheres", body, request=request,
+                       seo_path=f"/dashboard/sphere/{sphere_name}",
+                       seo_description=sphere_desc,
+                       seo_og_title=f"Echolot — {sphere_name}"), lang
 
 
 def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
@@ -657,7 +702,9 @@ def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
         report = compute_health_fn(db_path, top_n=10)
     except Exception as exc:
         body = f'<p class="text-red-400">Error: {_escape(str(exc))}</p>'
-        return _page_shell(lang, "health", body), lang
+        return _page_shell(lang, "health", body, request=request,
+                           seo_path="/dashboard/health",
+                           seo_description=t("seo.page.health.description", lang)), lang
     summary = report.get("summary", {})
     cards = []
     for s in report.get("spheres", []):
@@ -698,7 +745,9 @@ def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
         {''.join(cards)}
       </div>
     """
-    return _page_shell(lang, "health", body), lang
+    return _page_shell(lang, "health", body, request=request,
+                       seo_path="/dashboard/health",
+                       seo_description=t("seo.page.health.description", lang)), lang
 
 
 def render_trending_page(request, compute_velocity_fn, db_path,
@@ -722,7 +771,9 @@ def render_trending_page(request, compute_velocity_fn, db_path,
         report = compute_velocity_fn(db_path, window_hours=6, baseline_offset_hours=24, limit=30)
     except Exception as exc:
         body = f'<p class="text-red-400">Error: {_escape(str(exc))}</p>'
-        return _page_shell(lang, "trending", body), lang
+        return _page_shell(lang, "trending", body, request=request,
+                           seo_path="/dashboard/trending",
+                           seo_description=t("seo.page.trending.description", lang)), lang
     rows = []
     for s in report.get("spheres", []):
         status = s.get("status", "normal")
@@ -917,7 +968,9 @@ def render_trending_page(request, compute_velocity_fn, db_path,
       {youtube_panel}
       {wiki_panel}
     """
-    return _page_shell(lang, "trending", body), lang
+    return _page_shell(lang, "trending", body, request=request,
+                       seo_path="/dashboard/trending",
+                       seo_description=t("seo.page.trending.description", lang)), lang
 
 
 def render_divergence_partial(request, conn_factory) -> str:
