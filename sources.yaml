@@ -3951,3 +3951,192 @@
   source_type: telegram
   notes: Semyon Pegov — frontline embed correspondent
   telegram_channel: wargonzo
+
+# ──────────────────────────────────────────────────────────────────────
+# UK politikai sajtó-bővítés 2026-05-15 — a "Brit Politikai RSS Csatornák"
+# elemzés alapján. Telegraph + Spectator kihagyva: Telegraph 403-zal blokkol
+# minden direkt RSS fetchet (Brave-fallback később), Spectator-nak nincs
+# publikus RSS-feedje a fő szerverükön.
+# ──────────────────────────────────────────────────────────────────────
+
+# --- The Guardian — kibővítés (a meglévő uk-news/world/technology mellé) ---
+- id: uk_guardian_economy
+  name: The Guardian — Economy
+  url: https://www.theguardian.com/politics/economy/rss
+  spheres:
+  - regional_uk
+  - global_economy
+  language: en
+  trust_tier: 2
+  lean: left
+  category: economy
+  source_type: rss
+- id: uk_guardian_culture
+  name: The Guardian — Culture
+  url: https://www.theguardian.com/uk/culture/rss
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: uk_guardian_science
+  name: The Guardian — Science
+  url: https://feeds.theguardian.com/theguardian/science/rss
+  spheres:
+  - regional_uk
+  - global_science
+  language: en
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+
+# --- The Independent (centrista, digital-first) ---
+- id: uk_independent_uk
+  name: The Independent — UK
+  url: https://www.independent.co.uk/news/uk/rss
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: uk_independent_world
+  name: The Independent — World
+  url: https://www.independent.co.uk/news/world/rss
+  spheres:
+  - regional_uk
+  - global_anchor
+  language: en
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: uk_independent_science
+  name: The Independent — Science
+  url: https://www.independent.co.uk/news/science/rss
+  spheres:
+  - regional_uk
+  - global_science
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: uk_independent_environment
+  name: The Independent — Environment
+  url: https://www.independent.co.uk/environment/rss
+  spheres:
+  - regional_uk
+  - global_climate
+  language: en
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: uk_independent_education
+  name: The Independent — Education
+  url: https://www.independent.co.uk/news/education/rss
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+
+# --- BBC News (közszolgálati, OSINT reference-point) ---
+- id: uk_bbc_uk
+  name: BBC News — UK
+  url: https://feeds.bbci.co.uk/news/uk/rss.xml
+  spheres:
+  - regional_uk
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: uk_bbc_politics
+  name: BBC News — UK Politics
+  url: https://feeds.bbci.co.uk/news/politics/rss.xml
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: uk_bbc_world
+  name: BBC News — World
+  url: https://feeds.bbci.co.uk/news/world/rss.xml
+  spheres:
+  - regional_uk
+  - global_anchor
+  language: en
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: uk_bbc_scotland
+  name: BBC News — Scotland
+  url: https://feeds.bbci.co.uk/news/scotland/rss.xml
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: uk_bbc_business
+  name: BBC News — Business
+  url: https://feeds.bbci.co.uk/news/business/rss.xml
+  spheres:
+  - regional_uk
+  - global_economy
+  language: en
+  trust_tier: 1
+  lean: center
+  category: economy
+  source_type: rss
+- id: uk_bbc_science
+  name: BBC News — Science & Environment
+  url: https://feeds.bbci.co.uk/news/science_and_environment/rss.xml
+  spheres:
+  - regional_uk
+  - global_science
+  - global_climate
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+
+# --- New Statesman (progresszív balközép, Labour-orientált) ---
+- id: uk_new_statesman
+  name: New Statesman
+  url: https://www.newstatesman.com/feed
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: 1913 óta a Munkáspárt intellektuális hátországa — esszé-formátum, hosszú ideológiai elemzések
+
+# --- spiked Online (libertariánus jobboldal, kontroverziális) ---
+- id: uk_spiked_online
+  name: spiked Online
+  url: https://www.spiked-online.com/feed/
+  spheres:
+  - regional_uk
+  language: en
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: Brexit-after libertariánus magazin — politikailag kontroverziális, használat előtt értelmezni
