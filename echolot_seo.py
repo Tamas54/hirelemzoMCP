@@ -11,10 +11,14 @@ Provides:
   - seo_head_html(origin, lang, path, langs, og_title, og_description, og_image_url)
       — full <meta> + <link rel=canonical> + <link rel=alternate hreflang>
         + Open Graph + Twitter Card block to inject into the page <head>
+  - schema_org_website_html(origin, lang) — JSON-LD <script> for WebSite
+  - schema_org_organization_html(origin) — JSON-LD <script> for Organization
+  - schema_org_breadcrumb_html(items) — JSON-LD <script> for BreadcrumbList
 """
 from __future__ import annotations
 
 import html as _html
+import json
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -291,3 +295,71 @@ def seo_head_html(
         f'<meta name="twitter:image" content="{og_image_e}">',
     ])
     return "\n".join(parts) + "\n"
+
+
+# ── Schema.org JSON-LD ────────────────────────────────────────────────
+
+def _ld_script(payload: dict) -> str:
+    """Wrap a JSON-LD payload in a <script type="application/ld+json"> tag.
+
+    The </ in JSON strings (e.g. "</script>") must be escaped to prevent
+    early script-tag termination — </ → \\u003c/.
+    """
+    body = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+    return f'<script type="application/ld+json">{body}</script>'
+
+
+def schema_org_website_html(origin: str, lang: str = "en") -> str:
+    """JSON-LD <script> for the WebSite schema with a SearchAction
+    (lets Google show a search box in SERP for the brand)."""
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Echolot",
+        "alternateName": "Echolot — Global narrative map",
+        "url": origin,
+        "inLanguage": lang,
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": f"{origin}/dashboard?query={{search_term_string}}&lang={lang}",
+            },
+            "query-input": "required name=search_term_string",
+        },
+    }
+    return _ld_script(payload)
+
+
+def schema_org_organization_html(origin: str) -> str:
+    """JSON-LD <script> for the Makronóm Intézet Organization schema."""
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Makronóm Intézet",
+        "url": "https://makronom.hu",
+        "logo": f"{origin}/static/og-image.svg",
+        "sameAs": [
+            "https://github.com/Tamas54/hirelemzoMCP",
+        ],
+    }
+    return _ld_script(payload)
+
+
+def schema_org_breadcrumb_html(items: list[tuple[str, str]]) -> str:
+    """JSON-LD <script> for a BreadcrumbList.
+
+    Args:
+        items: list of (name, absolute_url) tuples in order, e.g.
+               [("Home", "https://…/"), ("Spheres", "https://…/dashboard/spheres"),
+                ("hu_press", "https://…/dashboard/sphere/hu_press")]
+    """
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": name, "item": url}
+            for i, (name, url) in enumerate(items)
+        ],
+    }
+    return _ld_script(payload)

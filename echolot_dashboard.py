@@ -26,7 +26,13 @@ from echolot_i18n import (
     t,
 )
 from echolot_tab_groups import build_tab_groups
-from echolot_seo import public_origin, seo_head_html
+from echolot_seo import (
+    public_origin,
+    seo_head_html,
+    schema_org_website_html,
+    schema_org_organization_html,
+    schema_org_breadcrumb_html,
+)
 
 
 def _augment_strip_css() -> str:
@@ -159,10 +165,18 @@ def augment_landing(request, landing_html: str) -> tuple[str, str]:
     out = out.replace('<html lang="hu">', f'<html lang="{lang}">', 1)
 
     # SEO head block (meta description + canonical + hreflang × 6 + OG + Twitter)
+    origin = public_origin(request)
     seo_head = seo_head_html(
-        origin=public_origin(request), lang=lang, path="/",
+        origin=origin, lang=lang, path="/",
         description=t("seo.site.description", lang),
         og_title=f"Echolot — {t('landing.hero_title', lang)}",
+    )
+    # Schema.org JSON-LD: WebSite + Organization (landing page only)
+    seo_head += (
+        schema_org_website_html(origin, lang)
+        + "\n"
+        + schema_org_organization_html(origin)
+        + "\n"
     )
     # Inject after the <title>…</title> line
     out = re.sub(
@@ -435,12 +449,14 @@ def _page_shell(
     seo_path: str | None = None,
     seo_description: str | None = None,
     seo_og_title: str | None = None,
+    extra_head_html: str = "",
 ) -> str:
     """Wrap a body in the standard dashboard chrome (header, nav, footer).
 
     If `request` and `seo_path` are provided, inject a full SEO <head>
     block (meta description, canonical, hreflang alternates, Open Graph,
-    Twitter Card).
+    Twitter Card). `extra_head_html` is appended verbatim (use for
+    JSON-LD BreadcrumbList etc.).
     """
     seo_head = ""
     if request is not None and seo_path is not None:
@@ -451,6 +467,8 @@ def _page_shell(
             origin=origin, lang=lang, path=seo_path,
             description=desc, og_title=og_title,
         )
+    if extra_head_html:
+        seo_head += "\n" + extra_head_html
     return f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
@@ -599,9 +617,15 @@ def render_spheres_page(request, conn_factory) -> tuple[str, str]:
         {''.join(cards)}
       </div>
     """
+    origin = public_origin(request)
+    breadcrumb = schema_org_breadcrumb_html([
+        ("Home",                   f"{origin}/?lang={lang}"),
+        (t("tab.spheres", lang),   f"{origin}/dashboard/spheres?lang={lang}"),
+    ])
     return _page_shell(lang, "spheres", body, request=request,
                        seo_path="/dashboard/spheres",
-                       seo_description=t("seo.page.spheres.description", lang)), lang
+                       seo_description=t("seo.page.spheres.description", lang),
+                       extra_head_html=breadcrumb), lang
 
 
 def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[str, str]:
@@ -689,10 +713,17 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
       </div>
     """
     sphere_desc = t("seo.page.sphere_detail.description_tpl", lang).replace("{sphere}", sphere_name)
+    origin = public_origin(request)
+    breadcrumb = schema_org_breadcrumb_html([
+        ("Home",                   f"{origin}/?lang={lang}"),
+        (t("tab.spheres", lang),   f"{origin}/dashboard/spheres?lang={lang}"),
+        (sphere_name,              f"{origin}/dashboard/sphere/{sphere_name}?lang={lang}"),
+    ])
     return _page_shell(lang, "spheres", body, request=request,
                        seo_path=f"/dashboard/sphere/{sphere_name}",
                        seo_description=sphere_desc,
-                       seo_og_title=f"Echolot — {sphere_name}"), lang
+                       seo_og_title=f"Echolot — {sphere_name}",
+                       extra_head_html=breadcrumb), lang
 
 
 def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
