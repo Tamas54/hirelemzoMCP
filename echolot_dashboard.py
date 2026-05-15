@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from urllib.parse import quote
 
 from echolot_i18n import (
@@ -24,6 +25,7 @@ from echolot_i18n import (
     resolve_lang,
     t,
 )
+from echolot_tab_groups import build_tab_groups
 
 
 def _augment_strip_css() -> str:
@@ -235,6 +237,25 @@ def augment_landing(request, landing_html: str) -> tuple[str, str]:
     # Footer tagline
     out = out.replace("Echolot · globális hírelemző MCP",
                       f"Echolot · {html.escape(t('landing.footer.tagline', lang))}", 1)
+
+    # ── Replace the hard-coded TAB_GROUPS JS array with a server-rendered,
+    #    language-aware version (lang-specific Domestic block + universal
+    #    Topical + Geo perspectives minus reader's own geo). ──
+    groups_data = build_tab_groups(lang)
+    js_items = []
+    for g in groups_data:
+        item = {"label": t(g["label_key"], lang), "spheres": g["spheres"]}
+        if g.get("extra"):
+            item["extra"] = g["extra"]
+        js_items.append(item)
+    new_tab_groups_js = "const TAB_GROUPS = " + json.dumps(js_items, ensure_ascii=False) + ";"
+    out = re.sub(
+        r"const TAB_GROUPS = \[.*?\];",
+        lambda m: new_tab_groups_js,
+        out,
+        count=1,
+        flags=re.DOTALL,
+    )
 
     return out, lang
 
