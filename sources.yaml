@@ -4785,3 +4785,372 @@
   category: general
   source_type: rss
   notes: Hivatalos közigazgatási portál, törvényhozási folyamat-tracking, napi összefoglalók
+
+# ──────────────────────────────────────────────────────────────────────
+# ES politikai sajtó-bővítés 2026-05-15 — a "Spanyol Politikai RSS Csatornák"
+# elemzés alapján. La Razón, Cadena SER, COPE, Publico, InfoLibre kihagyva
+# (nincs publikus RSS — P2.5 brave-fallback körre).
+# ──────────────────────────────────────────────────────────────────────
+
+# --- El País tematikus csomag (a meglévő portada.xml mellé) ---
+- id: es_elpais_portada
+  name: El País — Portada
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: es_elpais_espana
+  name: El País — España
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/espana/portada
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: es_elpais_internacional
+  name: El País — Internacional
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada
+  spheres:
+  - regional_spanish
+  - global_anchor
+  language: es
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+- id: es_elpais_economia
+  name: El País — Economía
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada
+  spheres:
+  - regional_spanish
+  - global_economy
+  language: es
+  trust_tier: 2
+  lean: left
+  category: economy
+  source_type: rss
+- id: es_elpais_opinion
+  name: El País — Opinión
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/opinion/portada
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: es_elpais_planeta_futuro
+  name: El País — Planeta Futuro
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/planeta-futuro/portada
+  spheres:
+  - regional_spanish
+  - global_climate
+  language: es
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Globális fejlődés, segélyezés — szoros kötés a spanyol külügyminisztérium prioritásaihoz
+
+# --- El País Latin-Amerika regionális (3 új) ---
+- id: es_elpais_mexico
+  name: El País — México
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/mexico/portada
+  spheres:
+  - regional_spanish
+  - regional_south_american
+  language: es
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Mexikói belpolitika és biztonságpolitika — spanyol perspektíva
+- id: es_elpais_argentina
+  name: El País — Argentina
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/argentina/portada
+  spheres:
+  - regional_spanish
+  - regional_south_american
+  language: es
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+- id: es_elpais_chile
+  name: El País — Chile
+  url: https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/chile/portada
+  spheres:
+  - regional_spanish
+  - regional_south_american
+  language: es
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+
+# --- La Vanguardia (Barcelona, katalán-fókusz, mérsékelt) ---
+- id: es_lavanguardia_home
+  name: La Vanguardia — Home
+  url: https://www.lavanguardia.com/rss/home.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: es_lavanguardia_politica
+  name: La Vanguardia — Política
+  url: https://www.lavanguardia.com/rss/politica.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Madrid—Generalitat tengely, katalán-spanyol dinamika
+- id: es_lavanguardia_internacional
+  name: La Vanguardia — Internacional
+  url: https://www.lavanguardia.com/rss/internacional.xml
+  spheres:
+  - regional_spanish
+  - global_anchor
+  language: es
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: es_lavanguardia_economia
+  name: La Vanguardia — Economía
+  url: https://www.lavanguardia.com/rss/economia.xml
+  spheres:
+  - regional_spanish
+  - global_economy
+  language: es
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+- id: es_lavanguardia_opinion
+  name: La Vanguardia — Opinión
+  url: https://www.lavanguardia.com/rss/opinion.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+
+# --- El Confidencial (digitális natív, oknyomozó, gazdaság-fókusz) ---
+- id: es_elconfidencial_espana
+  name: El Confidencial — España
+  url: https://rss.elconfidencial.com/espana/
+  spheres:
+  - regional_spanish
+  - global_investigative
+  language: es
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Oknyomozó, kormánykritika, "El Confidente" politikai kulisszák
+- id: es_elconfidencial_mundo
+  name: El Confidencial — Mundo
+  url: https://rss.elconfidencial.com/mundo/
+  spheres:
+  - regional_spanish
+  - global_anchor
+  language: es
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+- id: es_elconfidencial_economia
+  name: El Confidencial — Economía
+  url: https://rss.elconfidencial.com/economia/
+  spheres:
+  - regional_spanish
+  - global_economy
+  language: es
+  trust_tier: 2
+  lean: right
+  category: economy
+  source_type: rss
+- id: es_elconfidencial_mercados
+  name: El Confidencial — Mercados (Cotizalia)
+  url: https://rss.elconfidencial.com/mercados/
+  spheres:
+  - regional_spanish
+  - global_economy
+  language: es
+  trust_tier: 2
+  lean: right
+  category: economy
+  source_type: rss
+
+# --- ABC (konzervatív, monarchista, intézményi stabilitás) ---
+- id: es_abc_portada
+  name: ABC — Portada
+  url: https://www.abc.es/rss/feeds/abcPortada.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: es_abc_espana
+  name: ABC — España
+  url: https://www.abc.es/rss/feeds/abc_EspanaEspana.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: es_abc_politica
+  name: ABC — Política
+  url: https://www.abc.es/rss/feeds/abc_Politica.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: es_abc_internacional
+  name: ABC — Internacional
+  url: https://www.abc.es/rss/feeds/abc_Internacional.xml
+  spheres:
+  - regional_spanish
+  - global_anchor
+  language: es
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+- id: es_abc_economia
+  name: ABC — Economía
+  url: https://www.abc.es/rss/feeds/abc_Economia.xml
+  spheres:
+  - regional_spanish
+  - global_economy
+  language: es
+  trust_tier: 2
+  lean: right
+  category: economy
+  source_type: rss
+- id: es_abc_opinion
+  name: ABC — Opinión
+  url: https://www.abc.es/rss/feeds/abc_Opinion.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: es_abc_podcast_news
+  name: ABC — Las Noticias (podcast)
+  url: https://static.abc.es/podcast/feed/narrative-news/rss.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Napi podcast-összefoglaló (Koldo-ügy, Casa Real, gazdasági intézkedések)
+
+# --- elDiario.es (progresszív, Ignacio Escolar) ---
+- id: es_eldiario
+  name: elDiario.es
+  url: https://www.eldiario.es/rss/
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Progresszív, független, közösségi finanszírozású — társadalmi igazságosság
+
+# --- 20minutos (ingyenes, populáris) ---
+- id: es_20minutos_nacional
+  name: 20minutos — Nacional
+  url: https://www.20minutos.es/rss/nacional/
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+- id: es_20minutos_internacional
+  name: 20minutos — Internacional
+  url: https://www.20minutos.es/rss/internacional/
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+
+# --- RTVE (közszolgálati, állami tájékoztatás) ---
+- id: es_rtve_noticias
+  name: RTVE — Noticias
+  url: https://www.rtve.es/rss/temas_noticias.xml
+  spheres:
+  - regional_spanish
+  - global_anchor
+  language: es
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Radio y Televisión Española, közszolgálati hivatalos tájékoztatás
+- id: es_rtve_politica
+  name: RTVE — Política
+  url: https://www.rtve.es/rss/temas_politica.xml
+  spheres:
+  - regional_spanish
+  language: es
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: es_rtve_economia
+  name: RTVE — Economía
+  url: https://www.rtve.es/rss/temas_economia.xml
+  spheres:
+  - regional_spanish
+  - global_economy
+  language: es
+  trust_tier: 1
+  lean: center
+  category: economy
+  source_type: rss
+
+# --- Le Monde diplomatique en español (havi, mély geopolitika) ---
+- id: es_mondiplo
+  name: Le Monde diplomatique en español
+  url: https://mondiplo.com/spip.php?page=backend
+  spheres:
+  - regional_spanish
+  - global_analysis
+  language: es
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Havi geopolitikai elemző — digitális kapitalizmus, nemzetközi jog, népirtási vádak
