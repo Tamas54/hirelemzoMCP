@@ -33,6 +33,10 @@ from echolot_seo import (
     schema_org_organization_html,
     schema_org_breadcrumb_html,
 )
+from echolot_ai_discovery import (
+    schema_org_dataset_html,
+    schema_org_data_catalog_html,
+)
 from echolot_news_render import render_initial_news_html
 
 
@@ -175,13 +179,22 @@ def augment_landing(request, landing_html: str, db_path: str | None = None) -> t
         description=t("seo.site.description", lang),
         og_title=f"Echolot — {t('landing.hero_title', lang)}",
     )
-    # Schema.org JSON-LD: WebSite + Organization (landing page only)
+    # Schema.org JSON-LD: WebSite + Organization + DataCatalog
+    # (landing page is the catalog root; per-sphere pages have Dataset)
     seo_head += (
         schema_org_website_html(origin, lang)
         + "\n"
         + schema_org_organization_html(origin)
         + "\n"
     )
+    if db_path:
+        try:
+            from echolot_seo import list_indexable_spheres
+            sphere_ids = list_indexable_spheres(db_path)
+            if sphere_ids:
+                seo_head += schema_org_data_catalog_html(origin, sphere_ids) + "\n"
+        except Exception:
+            pass
     # Inject after the <title>…</title> line
     out = re.sub(
         r"(<title>[^<]*</title>)",
@@ -780,6 +793,15 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
         (t("tab.spheres", lang),   f"{origin}/dashboard/spheres?lang={lang}"),
         (sphere_name,              f"{origin}/dashboard/sphere/{sphere_name}?lang={lang}"),
     ])
+    # Schema.org Dataset — tells AI agents this page IS a dataset, with
+    # JSON / HTML / Markdown distributions enumerated
+    latest_at = articles[0]["published_at"] if articles else None
+    dataset_ld = schema_org_dataset_html(
+        origin, sphere_name,
+        article_count=total_articles,
+        source_count=len(sources),
+        latest_at=latest_at,
+    )
     # Pagination rel link tags
     pag_links: list[str] = []
     if page > 1:
@@ -791,7 +813,7 @@ def render_sphere_detail_page(request, sphere_name: str, conn_factory) -> tuple[
         pag_links.append(
             f'<link rel="next" href="{origin}/dashboard/sphere/{sphere_name}?lang={lang}&page={page+1}">'
         )
-    extra_head = breadcrumb + ("\n" + "\n".join(pag_links) if pag_links else "")
+    extra_head = breadcrumb + "\n" + dataset_ld + ("\n" + "\n".join(pag_links) if pag_links else "")
     seo_extra_query = f"&page={page}" if page > 1 else ""
     return _page_shell(lang, "spheres", body, request=request,
                        seo_path=f"/dashboard/sphere/{sphere_name}",

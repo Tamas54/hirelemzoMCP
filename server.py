@@ -116,6 +116,7 @@ from echolot_ai_discovery import (
     build_llms_txt,
     build_llms_full_txt,
     well_known_mcp_json_string,
+    openapi_spec_string,
 )
 
 logging.basicConfig(level=logging.INFO,
@@ -1601,6 +1602,18 @@ async def well_known_mcp(request):
     """MCP server discovery descriptor — for agent runtimes that probe
     well-known paths to find MCP servers."""
     body = well_known_mcp_json_string(public_origin(request))
+    return Response(
+        body,
+        media_type="application/json; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@mcp.custom_route("/openapi.json", methods=["GET"])
+async def openapi_spec(request):
+    """OpenAPI 3.0.3 spec for the public REST endpoints — for AI agents
+    that prefer a typed REST surface over MCP."""
+    body = openapi_spec_string(public_origin(request))
     return Response(
         body,
         media_type="application/json; charset=utf-8",

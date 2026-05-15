@@ -363,3 +363,268 @@ def build_well_known_mcp_json(origin: str) -> dict:
 def well_known_mcp_json_string(origin: str) -> str:
     """Serialize the MCP discovery descriptor to a pretty JSON string."""
     return json.dumps(build_well_known_mcp_json(origin), ensure_ascii=False, indent=2) + "\n"
+
+
+# ── OpenAPI 3 schema for the REST API ─────────────────────────────────
+
+def build_openapi_spec(origin: str) -> dict:
+    """Generate an OpenAPI 3.0.3 spec for the public REST endpoints.
+
+    Covers /api/news, /api/spheres, /api/search, /api/narrative_divergence.
+    AI agents that can't speak MCP (or want a sanity-check schema before
+    binding tool wrappers) read this from /openapi.json.
+    """
+    return {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Echolot REST API",
+            "version": "1.0.0",
+            "description": (
+                "Public read-only REST endpoints for Echolot's multi-perspective "
+                "news intelligence corpus. **For ongoing programmatic work, "
+                "agents should prefer the MCP server at " + origin + "/mcp** "
+                "— typed schemas, structured tool composition, the "
+                "`narrative_divergence` payoff tool. This REST surface is for "
+                "casual crawls and one-off queries."
+            ),
+            "contact": {"name": "Makronóm Intézet", "url": "https://makronom.hu"},
+            "license": {"name": "Open access (read-only)"},
+        },
+        "servers": [{"url": origin, "description": "Production"}],
+        "externalDocs": {
+            "description": "AI agent overview (llms.txt)",
+            "url": f"{origin}/llms.txt",
+        },
+        "paths": {
+            "/api/news": {
+                "get": {
+                    "summary": "Latest news articles, filterable",
+                    "operationId": "getNews",
+                    "parameters": [
+                        {"name": "spheres",  "in": "query", "description": "Comma-separated sphere ids (OR semantics)", "schema": {"type": "string"}},
+                        {"name": "sphere",   "in": "query", "description": "Single sphere id (alias for spheres)",      "schema": {"type": "string"}},
+                        {"name": "language", "in": "query", "description": "ISO 639-1 language code",                    "schema": {"type": "string"}},
+                        {"name": "source_type", "in": "query", "description": "rss | telegram",                          "schema": {"type": "string", "enum": ["rss", "telegram"]}},
+                        {"name": "days",     "in": "query", "description": "Lookback window 1..21 (default 7)",         "schema": {"type": "integer", "minimum": 1, "maximum": 21, "default": 7}},
+                        {"name": "limit",    "in": "query", "description": "Max articles 1..100 (default 60)",          "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 60}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Filtered article list",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewsResponse"}}},
+                        },
+                    },
+                },
+            },
+            "/api/spheres": {
+                "get": {
+                    "summary": "All spheres with article counts",
+                    "operationId": "getSpheres",
+                    "responses": {
+                        "200": {
+                            "description": "List of [sphere_id, article_count] tuples",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SpheresResponse"}}},
+                        },
+                    },
+                },
+            },
+            "/api/search": {
+                "get": {
+                    "summary": "Full-text search across the corpus (FTS5)",
+                    "operationId": "searchNews",
+                    "parameters": [
+                        {"name": "q",       "in": "query", "required": True, "description": "Search query", "schema": {"type": "string", "minLength": 3}},
+                        {"name": "days",    "in": "query", "description": "Lookback window 1..21 (default 7)", "schema": {"type": "integer", "minimum": 1, "maximum": 21, "default": 7}},
+                        {"name": "limit",   "in": "query", "description": "Max results 1..50 (default 20)",   "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20}},
+                        {"name": "sphere",  "in": "query", "description": "Optional sphere filter", "schema": {"type": "string"}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Search results",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewsResponse"}}},
+                        },
+                    },
+                },
+            },
+            "/api/narrative_divergence": {
+                "get": {
+                    "summary": "Multi-sphere narrative divergence — what each sphere says about a topic",
+                    "operationId": "narrativeDivergence",
+                    "parameters": [
+                        {"name": "query",  "in": "query", "required": True, "description": "Topic to compare across spheres", "schema": {"type": "string"}},
+                        {"name": "days",   "in": "query", "description": "Lookback window 1..14 (default 3)", "schema": {"type": "integer", "minimum": 1, "maximum": 14, "default": 3}},
+                        {"name": "per_sphere_limit", "in": "query", "description": "Max articles per sphere", "schema": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Articles grouped by sphere",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DivergenceResponse"}}},
+                        },
+                    },
+                },
+            },
+            "/sitemap.xml":      {"get": {"summary": "Sitemap (XML)", "responses": {"200": {"description": "OK"}}}},
+            "/robots.txt":       {"get": {"summary": "robots.txt with explicit AI-bot allow", "responses": {"200": {"description": "OK"}}}},
+            "/llms.txt":         {"get": {"summary": "Short LLM-readable site overview", "responses": {"200": {"description": "OK"}}}},
+            "/llms-full.txt":    {"get": {"summary": "Full LLM catalog (sphere taxonomy + tools + URLs)", "responses": {"200": {"description": "OK"}}}},
+            "/.well-known/mcp.json": {"get": {"summary": "MCP server discovery descriptor", "responses": {"200": {"description": "OK"}}}},
+        },
+        "components": {
+            "schemas": {
+                "Article": {
+                    "type": "object",
+                    "properties": {
+                        "title":        {"type": "string"},
+                        "url":          {"type": "string", "format": "uri"},
+                        "source_name":  {"type": "string"},
+                        "category":     {"type": "string"},
+                        "language":     {"type": "string", "description": "ISO 639-1"},
+                        "published_at": {"type": "string", "format": "date-time"},
+                        "spheres":      {"type": "array", "items": {"type": "string"}},
+                        "source_type":  {"type": "string", "enum": ["rss", "telegram"]},
+                    },
+                    "required": ["title", "url", "source_name"],
+                },
+                "NewsResponse": {
+                    "type": "object",
+                    "properties": {
+                        "count":    {"type": "integer"},
+                        "articles": {"type": "array", "items": {"$ref": "#/components/schemas/Article"}},
+                    },
+                },
+                "SpheresResponse": {
+                    "type": "object",
+                    "properties": {
+                        "spheres": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": [{"type": "string"}, {"type": "integer"}],
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [sphere_id, article_count] tuples",
+                        },
+                    },
+                },
+                "DivergenceResponse": {
+                    "type": "object",
+                    "properties": {
+                        "query":      {"type": "string"},
+                        "by_sphere":  {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {"$ref": "#/components/schemas/Article"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+
+def openapi_spec_string(origin: str) -> str:
+    """Serialize the OpenAPI spec to a pretty JSON string."""
+    return json.dumps(build_openapi_spec(origin), ensure_ascii=False, indent=2) + "\n"
+
+
+# ── Schema.org Dataset / DataCatalog JSON-LD ──────────────────────────
+
+def _ld_script_dict(payload: dict) -> str:
+    """Same </ escape as echolot_seo._ld_script (kept local to avoid
+    cross-module call indirection)."""
+    body = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+    return f'<script type="application/ld+json">{body}</script>'
+
+
+def schema_org_dataset_html(
+    origin: str,
+    sphere_id: str,
+    article_count: int = 0,
+    source_count: int = 0,
+    latest_at: str | None = None,
+) -> str:
+    """JSON-LD Dataset for one sphere — emitted on /dashboard/sphere/<name>.
+
+    Lets agents understand the page is a Dataset (not just an HTML feed):
+    the `distribution` block points at /api/news for JSON access.
+    """
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "Dataset",
+        "@id": f"{origin}/dashboard/sphere/{sphere_id}#dataset",
+        "name": f"Echolot · {sphere_id}",
+        "alternateName": f"{sphere_id} sphere news feed",
+        "description": (
+            f"Aggregated news articles from the {sphere_id} sphere — "
+            f"{source_count} sources, {article_count} articles indexed. "
+            f"Part of the Echolot multi-perspective news intelligence corpus."
+        ),
+        "keywords": ["news", "intelligence", "narrative", sphere_id],
+        "url": f"{origin}/dashboard/sphere/{sphere_id}",
+        "isAccessibleForFree": True,
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "creator": {
+            "@type": "Organization",
+            "name": "Makronóm Intézet",
+            "url": "https://makronom.hu",
+        },
+        "isPartOf": {"@id": f"{origin}/#dataset-catalog"},
+        "distribution": [
+            {
+                "@type": "DataDownload",
+                "encodingFormat": "application/json",
+                "contentUrl": f"{origin}/api/news?spheres={sphere_id}&limit=80",
+            },
+            {
+                "@type": "DataDownload",
+                "encodingFormat": "text/html",
+                "contentUrl": f"{origin}/dashboard/sphere/{sphere_id}",
+            },
+            {
+                "@type": "DataDownload",
+                "encodingFormat": "text/markdown",
+                "contentUrl": f"{origin}/dashboard/sphere/{sphere_id}",
+                "description": "Send Accept: text/markdown to receive markdown",
+            },
+        ],
+    }
+    if latest_at:
+        payload["dateModified"] = latest_at
+    return _ld_script_dict(payload)
+
+
+def schema_org_data_catalog_html(origin: str, spheres: list[str]) -> str:
+    """JSON-LD DataCatalog on the landing page — collects all spheres
+    as Dataset references. Each sphere gets a stub Dataset entry; full
+    Dataset metadata lives on the per-sphere page."""
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "DataCatalog",
+        "@id": f"{origin}/#dataset-catalog",
+        "name": "Echolot Dataset Catalog",
+        "description": (
+            "63 information-sphere datasets aggregating 315 news sources "
+            "across 8 languages. Each sphere groups sources by editorial "
+            "perspective, regional alignment, or regime affiliation."
+        ),
+        "url": origin,
+        "publisher": {
+            "@type": "Organization",
+            "name": "Makronóm Intézet",
+            "url": "https://makronom.hu",
+        },
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "dataset": [
+            {
+                "@type": "Dataset",
+                "@id": f"{origin}/dashboard/sphere/{s}#dataset",
+                "name": f"Echolot · {s}",
+                "url": f"{origin}/dashboard/sphere/{s}",
+            }
+            for s in spheres
+        ],
+    }
+    return _ld_script_dict(payload)
