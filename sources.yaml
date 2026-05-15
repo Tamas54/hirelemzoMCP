@@ -5326,3 +5326,623 @@
   category: general
   source_type: rss
   notes: Hétköznapi Kína, társadalmi feszültségek, kisebbségi jogok, kulturális átalakulás — "puha" hírek mint korai jelzők
+
+# ──────────────────────────────────────────────────────────────────────
+# IT politikai sajtó-bevezetés 2026-05-15 — első olasz csomag.
+# ÚJ SPHERE: regional_italian (eddig nem létezett, automatikusan
+# létrejön a sphere-aggregátor-fn-ekben). A Markdown-listából
+# (compass_artifact wf-881f9...) 35 működő RSS-feed felvéve.
+# ──────────────────────────────────────────────────────────────────────
+
+# --- Mainstream centrista nagy napilapok ---
+- id: it_corriere_homepage
+  name: Corriere della Sera — HP
+  url: https://www.corriere.it/rss/homepage.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: RCS Mediagroup, Milano — Olaszország legnagyobb napilapja, liberális-centrista
+- id: it_corriere_politica
+  name: Corriere della Sera — Politica
+  url: https://xml2.corriereobjects.it/rss/politica.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: it_corriere_esteri
+  name: Corriere della Sera — Esteri
+  url: https://xml2.corriereobjects.it/rss/esteri.xml
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: it_corriere_economia
+  name: Corriere della Sera — Economia
+  url: https://xml2.corriereobjects.it/rss/economia.xml
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+- id: it_corriere_cronache
+  name: Corriere della Sera — Cronache
+  url: https://xml2.corriereobjects.it/rss/cronache.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+
+# --- La Repubblica (GEDI csoport, Roma/Milano, középbal) ---
+- id: it_repubblica_homepage
+  name: La Repubblica — HP
+  url: https://www.repubblica.it/rss/homepage/rss2.0.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: it_repubblica_politica
+  name: La Repubblica — Politica
+  url: https://www.repubblica.it/rss/politica/rss2.0.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: it_repubblica_esteri
+  name: La Repubblica — Esteri
+  url: https://www.repubblica.it/rss/esteri/rss2.0.xml
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+- id: it_repubblica_economia
+  name: La Repubblica — Economia
+  url: https://www.repubblica.it/rss/economia/rss2.0.xml
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 2
+  lean: left
+  category: economy
+  source_type: rss
+- id: it_repubblica_cronaca
+  name: La Repubblica — Cronaca
+  url: https://www.repubblica.it/rss/cronaca/rss2.0.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+
+# --- La Stampa + Il Tempo ---
+- id: it_la_stampa
+  name: La Stampa — Copertina
+  url: https://www.lastampa.it/rss/copertina.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: GEDI csoport, Torino — FIAT/Stellantis tradíció, liberális-centrista
+- id: it_il_tempo
+  name: Il Tempo
+  url: https://www.iltempo.it/rss.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: Római napilap, jobbközép, FdI/Lega-érzékenységgel
+
+# --- Il Sole 24 Ore (Confindustria, gazdasági mérvadó) ---
+- id: it_sole24_italia
+  name: Il Sole 24 Ore — Italia
+  url: https://www.ilsole24ore.com/rss/italia.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: it_sole24_politica
+  name: Il Sole 24 Ore — Italia/Politica
+  url: https://www.ilsole24ore.com/rss/italia--politica.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: it_sole24_mondo
+  name: Il Sole 24 Ore — Mondo
+  url: https://www.ilsole24ore.com/rss/mondo.xml
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: it_sole24_economia
+  name: Il Sole 24 Ore — Economia
+  url: https://www.ilsole24ore.com/rss/economia.xml
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+- id: it_sole24_finanza
+  name: Il Sole 24 Ore — Finanza
+  url: https://www.ilsole24ore.com/rss/finanza.xml
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+
+# --- Jobboldali sajtó ---
+- id: it_il_foglio_homepage
+  name: Il Foglio — HP
+  url: https://www.ilfoglio.it/rss/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Liberális-konzervatív, atlanticista, Izrael-barát — Cerasa
+- id: it_il_foglio_politica
+  name: Il Foglio — Politica
+  url: https://naxos.ilfoglio.it/api/v5/rss/stories/politica
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: it_il_foglio_esteri
+  name: Il Foglio — Esteri
+  url: https://naxos.ilfoglio.it/api/v5/rss/stories/esteri
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+- id: it_il_foglio_economia
+  name: Il Foglio — Economia
+  url: https://naxos.ilfoglio.it/api/v5/rss/stories/economia
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 2
+  lean: right
+  category: economy
+  source_type: rss
+- id: it_libero
+  name: Libero Quotidiano
+  url: https://www.liberoquotidiano.it/rss.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: Vittorio Feltri — kormánykoalíció-támogató (FdI/Lega)
+- id: it_il_giornale
+  name: Il Giornale
+  url: https://www.ilgiornale.it/feed.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: Berlusconi-család, FI-közeli
+- id: it_secolo_ditalia
+  name: Il Secolo d'Italia
+  url: https://www.secoloditalia.it/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: MSI/AN örökös, ma FdI-közeli
+- id: it_nicola_porro
+  name: Nicola Porro
+  url: https://www.nicolaporro.it/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+  notes: Libertariánus-konzervatív blog
+- id: it_atlantico_quotidiano
+  name: Atlantico Quotidiano
+  url: https://www.atlanticoquotidiano.it/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: right
+  category: general
+  source_type: rss
+
+# --- Baloldali sajtó ---
+- id: it_il_manifesto
+  name: Il Manifesto
+  url: https://ilmanifesto.it/feed
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: left
+  category: general
+  source_type: rss
+  notes: Önmegjelölés "kommunista napilap" — radikális-bal, antiimperialista
+- id: it_il_fatto_homepage
+  name: Il Fatto Quotidiano — HP
+  url: https://www.ilfattoquotidiano.it/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: left
+  category: general
+  source_type: rss
+  notes: Marco Travaglio — populista-bal, kormánykritikus, igazságszolgáltatási fókusz
+- id: it_il_fatto_politica
+  name: Il Fatto Quotidiano — Politica-palazzo
+  url: https://www.ilfattoquotidiano.it/politica-palazzo/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 3
+  lean: left
+  category: general
+  source_type: rss
+- id: it_il_fatto_mondo
+  name: Il Fatto Quotidiano — Mondo
+  url: https://www.ilfattoquotidiano.it/mondo/feed/
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 3
+  lean: left
+  category: foreign
+  source_type: rss
+- id: it_domani
+  name: Domani
+  url: https://www.editorialedomani.it/rss
+  spheres:
+  - regional_italian
+  - global_investigative
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Carlo De Benedetti (2020) — progresszív-liberális oknyomozó
+- id: it_lespresso
+  name: L'Espresso
+  url: https://www.lespresso.it/feed
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Történelmi balközép hetilap (eredetileg GEDI/L'Espresso, ma külön)
+- id: it_linkiesta
+  name: Linkiesta
+  url: https://www.linkiesta.it/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Christian Rocca — liberális-progresszív, európapárti, atlanticista
+
+# --- Hírügynökségek (T1, neutral) ---
+- id: it_ansa_hp
+  name: ANSA — HP
+  url: https://www.ansa.it/sito/ansait_rss.xml
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Olaszország vezető hírügynöksége (36 médiacég szövetkezet)
+- id: it_ansa_politica
+  name: ANSA — Politica
+  url: https://www.ansa.it/sito/notizie/politica/politica_rss.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: it_ansa_mondo
+  name: ANSA — Mondo
+  url: https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: it_ansa_economia
+  name: ANSA — Economia
+  url: https://www.ansa.it/sito/notizie/economia/economia_rss.xml
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 1
+  lean: center
+  category: economy
+  source_type: rss
+- id: it_ansa_cronaca
+  name: ANSA — Cronaca
+  url: https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: it_ansa_europa
+  name: ANSA — Europa
+  url: https://www.ansa.it/europa/notizie/rss.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+- id: it_agi_politica
+  name: AGI — Politica
+  url: https://www.agi.it/politica/rss
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Eni-tulajdonú második legnagyobb hírügynökség
+- id: it_agi_estero
+  name: AGI — Estero
+  url: https://www.agi.it/estero/rss
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: it_adnkronos_primapagina
+  name: Adnkronos — Prima Pagina
+  url: https://www.adnkronos.com/RSS_PrimaPagina.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: it_adnkronos_politica
+  name: Adnkronos — Politica
+  url: https://www.adnkronos.com/RSS_Politica.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: it_adnkronos_esteri
+  name: Adnkronos — Esteri
+  url: https://www.adnkronos.com/RSS_Esteri.xml
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: it_adnkronos_economia
+  name: Adnkronos — Economia
+  url: https://www.adnkronos.com/RSS_Economia.xml
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+- id: it_askanews
+  name: AskaNews — HP
+  url: https://www.askanews.it/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: LaPresse-csoport
+
+# --- Közszolgálati (T1) ---
+- id: it_rai_news
+  name: RAI News — HP
+  url: https://www.rainews.it/rss
+  spheres:
+  - regional_italian
+  - global_anchor
+  language: it
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: it_tgcom24_hp
+  name: TGCom24 — HP
+  url: https://www.tgcom24.mediaset.it/rss/homepage.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Mediaset 24 órás hírcsatorna
+- id: it_tgcom24_politica
+  name: TGCom24 — Politica
+  url: https://www.tgcom24.mediaset.it/rss/politica.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+
+# --- Külpolitikai szaklapok / think tank-ek ---
+- id: it_affari_internazionali
+  name: Affari Internazionali (IAI)
+  url: https://www.affarinternazionali.it/feed/
+  spheres:
+  - regional_italian
+  - global_analysis
+  language: it
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: IAI római think tank — EU-integráció, multilateralizmus
+- id: it_formiche
+  name: Formiche
+  url: https://formiche.net/feed/
+  spheres:
+  - regional_italian
+  - global_analysis
+  language: it
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+  notes: Atlanticista, NATO-párti, biztonságpolitikai fókusz — Paolo Messa
+- id: it_caffe_geopolitico
+  name: Il Caffè Geopolitico
+  url: https://www.ilcaffegeopolitico.net/feed
+  spheres:
+  - regional_italian
+  - global_analysis
+  language: it
+  trust_tier: 3
+  lean: center
+  category: foreign
+  source_type: rss
+
+# --- Digital native + Business ---
+- id: it_il_post_mirror
+  name: Il Post (mirror)
+  url: https://rss.draghetti.it/ilpost.xml
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Luca Sofri minőségi explainer — natív RSS instabil, draghetti.it mirror
+- id: it_open
+  name: Open
+  url: https://www.open.online/feed/
+  spheres:
+  - regional_italian
+  language: it
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Enrico Mentana alapítás — középbal-liberális, fiatal közönség
+- id: it_wallstreet_italia
+  name: Wall Street Italia
+  url: https://www.wallstreetitalia.com/feed/
+  spheres:
+  - regional_italian
+  - global_economy
+  language: it
+  trust_tier: 3
+  lean: center
+  category: economy
+  source_type: rss

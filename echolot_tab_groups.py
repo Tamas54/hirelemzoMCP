@@ -76,6 +76,7 @@ TOPICAL_GROUPS: list[tuple[str, str, str]] = [
 # domestic block).
 GEO_GROUPS: list[dict] = [
     {"label_key": "group.geo.china",         "spheres": _CN_ALL, "extra": "", "lang_owners": ("zh",)},
+    {"label_key": "group.geo.italy",         "spheres": "regional_italian", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.russia",        "spheres": "regional_russian,ru_state_media,ru_opposition,ru_milblog_pro", "extra": "", "lang_owners": ()},
     {"label_key": "group.geo.us",            "spheres": "regional_us,us_maga_blog,us_maga_substack,us_liberal_press,us_liberal_substack", "extra": "", "lang_owners": ("en",)},
     {"label_key": "group.geo.uk",            "spheres": "regional_uk", "extra": "", "lang_owners": ("en",)},
