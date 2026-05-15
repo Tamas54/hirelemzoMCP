@@ -47,7 +47,9 @@ def robots_txt(origin: str) -> str:
 def list_indexable_spheres(db_path: str) -> list[str]:
     """Return sphere-ids with at least one article in the last 30 days.
 
-    Skips dead/empty spheres so the sitemap doesn't 404-bait crawlers.
+    Uses `fetched_at` (UTC ISO, comparable) not `published_at` (mixed-tz,
+    SQLite datetime() returns NULL on offset-suffixed values). Comparator
+    built with strftime to match the 'T' separator format on both sides.
     """
     try:
         conn = sqlite3.connect(db_path)
@@ -55,7 +57,7 @@ def list_indexable_spheres(db_path: str) -> list[str]:
         rows = conn.execute("""
             SELECT spheres_json, COUNT(*) AS n
             FROM articles
-            WHERE published_at >= datetime('now', '-30 days')
+            WHERE fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-30 days')
             GROUP BY spheres_json
         """).fetchall()
         conn.close()
