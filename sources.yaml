@@ -6622,3 +6622,341 @@
   lean: center
   category: foreign
   source_type: rss
+
+# ──────────────────────────────────────────────────────────────────────
+# PL+CZ politikai sajtó-bevezetés 2026-05-15 — lengyel + cseh csomag.
+# Új sphere-ek: regional_polish + regional_czech (eddig egyik se).
+# 30 új feed (12 PL + 18 CZ). A markdown óvatosabb volt mint élesben:
+# több "részben igazolt" feed valójában 200-at adott curl-rel.
+# ──────────────────────────────────────────────────────────────────────
+
+# --- Lengyelország ---
+- id: pl_rzeczpospolita
+  name: Rzeczpospolita
+  url: https://www.rp.pl/rss/1019
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+  notes: Országos napilap, jog/gazdaság fókusz
+- id: pl_rzeczpospolita_main
+  name: Rzeczpospolita — Main
+  url: https://www.rp.pl/rss_main
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: pl_newsweek
+  name: Newsweek Polska
+  url: https://www.newsweek.pl/rss.xml
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Politikai hetilap, lengyel és nemzetközi politika
+- id: pl_salon24
+  name: Salon24 — Wszyscy
+  url: http://www.salon24.pl/rss/wszyscy
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 3
+  lean: center
+  category: general
+  source_type: rss
+  notes: Politikai blogplatform, vegyes/pluralisztikus
+- id: pl_polityka_swiat
+  name: Polityka — Świat na zakręcie (podcast)
+  url: https://www.polityka.pl/rss/podcasts.xml?list=3041
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: left
+  category: foreign
+  source_type: rss
+  notes: Külpolitikai fókuszú podcast
+- id: pl_polityka_temat
+  name: Polityka — Temat tygodnia (podcast)
+  url: https://www.polityka.pl/rss/podcasts.xml?list=2433
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+- id: pl_osw_podcast
+  name: OSW (Ośrodek Studiów Wschodnich) — podcast
+  url: https://anchor.fm/s/5c81fea0/podcast/rss
+  spheres:
+  - regional_polish
+  - regional_v4
+  - global_analysis
+  language: pl
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Centre for Eastern Studies, Kelet-Európa/Oroszország/Ukrajna geopolitikai elemzés
+- id: pl_dziennik
+  name: Dziennik.pl
+  url: https://www.dziennik.pl/.feed
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Digitális napilap, hírportál
+- id: pl_gazetaprawna
+  name: GazetaPrawna.pl
+  url: https://www.gazetaprawna.pl/.feed
+  spheres:
+  - regional_polish
+  - regional_v4
+  - global_economy
+  language: pl
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+  notes: Jogi-gazdasági napilap
+- id: pl_wyborcza_najnowsze
+  name: Gazeta Wyborcza — Najnowsze
+  url: https://wyborcza.pl/pub/rss/najnowsze_wyborcza.xml
+  spheres:
+  - regional_polish
+  - regional_v4
+  language: pl
+  trust_tier: 2
+  lean: left
+  category: general
+  source_type: rss
+  notes: Országos napilap (Agora), liberális-balközép
+
+# --- Csehország ---
+- id: cz_idnes_zpravodaj
+  name: iDNES — Zprávy
+  url: http://servis.idnes.cz/rss.aspx?c=zpravodaj
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Országos hírportál (MAFRA)
+- id: cz_idnes_zahranicni
+  name: iDNES — Zahraniční
+  url: https://servis.idnes.cz/rss.aspx?c=zahranicni
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: cz_idnes_domaci
+  name: iDNES — Domácí
+  url: https://servis.idnes.cz/rss.aspx?c=domaci
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: cz_idnes_ekonomika
+  name: iDNES — Ekonomika
+  url: https://servis.idnes.cz/rss.aspx?c=ekonomika
+  spheres:
+  - regional_czech
+  - regional_v4
+  - global_economy
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: economy
+  source_type: rss
+- id: cz_lidovky_udalosti
+  name: Lidovky — Události
+  url: https://servis.lidovky.cz/rss.aspx?r=ln_lidovky
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: cz_lidovky_nazory
+  name: Lidovky — Názory
+  url: https://servis.lidovky.cz/rss.aspx?c=ln_nazory
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: cz_lidovky_domov
+  name: Lidovky — Domov
+  url: https://servis.lidovky.cz/rss.aspx?r=ln_domov
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: right
+  category: general
+  source_type: rss
+- id: cz_lidovky_zahranici
+  name: Lidovky — Zahraničí
+  url: https://servis.lidovky.cz/rss.aspx?c=ln_zahranici
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: right
+  category: foreign
+  source_type: rss
+- id: cz_novinky_all
+  name: Novinky.cz — All
+  url: https://api-web.novinky.cz/v1/timelines/62baab43a1bac57b7436dc07?xml=rss
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Právo-kötődés, országos hírportál
+- id: cz_novinky_domaci
+  name: Novinky.cz — Domácí
+  url: https://api-web.novinky.cz/v1/timelines/section_5ad5a5fcc25e64000bd6e7ab?xml=rss
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: cz_novinky_zahranicni
+  name: Novinky.cz — Zahraniční
+  url: https://api-web.novinky.cz/v1/timelines/section_5ad5a5fcc25e64000bd6e7a5?xml=rss
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+- id: cz_novinky_komentare
+  name: Novinky.cz — Komentáře
+  url: https://api-web.novinky.cz/v1/timelines/section_5ad5a5ffc25e64000bd6e8a8?xml=rss
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+- id: cz_respekt_all
+  name: Respekt — All articles
+  url: https://www.respekt.cz/api/rss
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+  notes: Politikai hetilap, hivatalosan független
+- id: cz_respekt_unlocked
+  name: Respekt — Unlocked articles
+  url: https://www.respekt.cz/api/rss?type=articles&unlocked=1
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: cz_respekt_podcast
+  name: Respekt — Podcasts
+  url: http://www.respekt.cz/podcast.rss
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 1
+  lean: center
+  category: general
+  source_type: rss
+- id: cz_hlidacipes_zpravy
+  name: HlídacíPes.org — Zprávy
+  url: https://hlidacipes.org/tag/zpravy/feed/
+  spheres:
+  - regional_czech
+  - regional_v4
+  - global_investigative
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Watchdog oknyomozó (médiatulajdon, korrupció, dezinformáció)
+- id: cz_hlidacipes_valka
+  name: HlídacíPes.org — Válka
+  url: https://hlidacipes.org/tag/valka/feed/
+  spheres:
+  - regional_czech
+  - regional_v4
+  - ua_front_osint
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Háborús/biztonsági fókusz, Ukrajna-OSINT cseh perspektíva
+- id: cz_forum24_podcast
+  name: Forum24 — Podcast
+  url: https://www.forum24.cz/feed/podcast/podcast-forum
+  spheres:
+  - regional_czech
+  - regional_v4
+  language: cs
+  trust_tier: 2
+  lean: center
+  category: general
+  source_type: rss
+  notes: Liberális-demokrata önleírás, oligarchia-kritika
