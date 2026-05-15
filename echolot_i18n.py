@@ -103,6 +103,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     'group.sport': {'hu': 'Sport', 'en': 'Sport', 'de': 'Sport', 'es': 'Deportes', 'zh': '体育', 'fr': 'Sport', 'pl': 'Sport', 'ru': 'Спорт', 'uk': 'Спорт'},
     'group.football': {'hu': 'Foci', 'en': 'Football', 'de': 'Fußball', 'es': 'Fútbol', 'zh': '足球', 'fr': 'Football', 'pl': 'Piłka nożna', 'ru': 'Футбол', 'uk': 'Футбол'},
     'group.tabloid': {'hu': 'Bulvár', 'en': 'Tabloid', 'de': 'Boulevard', 'es': 'Prensa rosa', 'zh': '八卦', 'fr': 'Tabloïd', 'pl': 'Brukowiec', 'ru': 'Таблоид', 'uk': 'Таблоїд'},
+    'group.critical_tech': {'hu': 'Tech-kritika', 'en': 'Tech criticism', 'de': 'Tech-Kritik', 'es': 'Crítica tech', 'zh': '科技批评', 'fr': 'Critique tech', 'pl': 'Krytyka tech', 'ru': 'Критика техов', 'uk': 'Критика техів'},
+    'group.preprint': {'hu': 'Preprint', 'en': 'Preprint', 'de': 'Preprint', 'es': 'Preprint', 'zh': '预印本', 'fr': 'Preprint', 'pl': 'Preprint', 'ru': 'Препринт', 'uk': 'Препринт'},
     'group.telegram': {'hu': 'Telegram', 'en': 'Telegram', 'de': 'Telegram', 'es': 'Telegram', 'zh': 'Telegram', 'fr': 'Telegram', 'pl': 'Telegram', 'ru': 'Telegram', 'uk': 'Telegram'},
     'group.geo.china': {'hu': 'Kína', 'en': 'China', 'de': 'China', 'es': 'China', 'zh': '中国', 'fr': 'Chine', 'pl': 'Chiny', 'ru': 'Китай', 'uk': 'Китай'},
     'group.geo.italy': {'hu': 'Olaszország', 'en': 'Italy', 'de': 'Italien', 'es': 'Italia', 'zh': '意大利', 'fr': 'Italie', 'pl': 'Włochy', 'ru': 'Италия', 'uk': 'Італія'},

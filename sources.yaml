@@ -7757,3 +7757,394 @@
   lean: right
   category: general
   source_type: rss
+
+# ──────────────────────────────────────────────────────────────────────
+# TECH+AI+SCIENCE csomag 2026-05-15 (compass_artifact 5aca0ccc...).
+# 44 új feed, 2 új sphere: global_critical_tech + global_preprint.
+# Netzpolitik már fent (de_netzpolitik). HWSW + ETNews kihagyva (404/000).
+# ──────────────────────────────────────────────────────────────────────
+
+# --- Csoport 1: KÖTELEZŐ MAG (Mandatory core) ---
+- id: nature_news
+  name: Nature News
+  url: https://www.nature.com/nature.rss
+  spheres: [global_science]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: AAAS-szerű embargo policy szigorú
+- id: science_aaas
+  name: Science (AAAS)
+  url: https://www.science.org/rss/news_current.xml
+  spheres: [global_science]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: AAAS embargo, RSS csak headline+lead
+- id: quanta_magazine
+  name: Quanta Magazine
+  url: https://www.quantamagazine.org/feed/
+  spheres: [global_science]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Simons Foundation, ingyenes mélymagyarázó
+- id: mit_tech_review
+  name: MIT Technology Review
+  url: https://www.technologyreview.com/feed/
+  spheres: [global_tech]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+- id: wired_us
+  name: Wired (US)
+  url: https://www.wired.com/feed/rss
+  spheres: [global_tech, regional_us]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+- id: ars_technica
+  name: Ars Technica
+  url: https://arstechnica.com/feed/
+  spheres: [global_tech, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: the_verge
+  name: The Verge
+  url: https://www.theverge.com/rss/index.xml
+  spheres: [global_tech, regional_us]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+- id: rest_of_world
+  name: Rest of World
+  url: https://restofworld.org/feed/latest/
+  spheres: [global_tech, global_critical_tech]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Globális dél / non-Western tech-újságírás
+- id: techcrunch
+  name: TechCrunch
+  url: https://techcrunch.com/feed/
+  spheres: [global_tech, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: bloomberg_tech
+  name: Bloomberg Technology
+  url: https://feeds.bloomberg.com/technology/news.rss
+  spheres: [global_tech, global_economy, regional_us]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: ft_technology
+  name: Financial Times — Technology
+  url: https://www.ft.com/technology?format=rss
+  spheres: [global_tech, global_economy, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: import_ai
+  name: Import AI (Jack Clark)
+  url: https://importai.substack.com/feed
+  spheres: [global_ai]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Heti AI policy/research összefoglaló
+- id: the_gradient
+  name: The Gradient
+  url: https://thegradient.pub/rss/
+  spheres: [global_ai]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Mély AI-magyarázók, kutatói kör
+- id: deepmind_blog
+  name: Google DeepMind Blog
+  url: https://deepmind.google/blog/rss.xml
+  spheres: [global_ai]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+
+# --- Csoport 4: KRITIKUS / BIG TECH-SZKEPTIKUS ---
+- id: media_404
+  name: 404 Media
+  url: https://www.404media.co/rss/
+  spheres: [global_critical_tech, global_investigative, regional_us]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: 4 ex-Motherboard riporter alapított, mély tech-investigatív, reader-owned
+- id: pluralistic
+  name: Pluralistic (Cory Doctorow)
+  url: https://pluralistic.net/feed/
+  spheres: [global_critical_tech]
+  language: en
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+  notes: Napi long-form, Creative Commons, full-text RSS
+- id: platformer
+  name: Platformer (Casey Newton)
+  url: https://www.platformer.news/rss/
+  spheres: [global_critical_tech, global_tech]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: ai_snake_oil
+  name: AI Snake Oil (Narayanan/Kapoor)
+  url: https://www.aisnakeoil.com/feed
+  spheres: [global_critical_tech, global_ai]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Princeton-kötődésű AI-kritika, full-text RSS
+- id: wheresyourEd
+  name: Where's Your Ed At (Ed Zitron)
+  url: https://www.wheresyoured.at/rss/
+  spheres: [global_critical_tech]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Long-form, AI-hype-ellenes
+- id: disconnect_blog
+  name: Disconnect (Paris Marx)
+  url: https://disconnect.blog/feed
+  spheres: [global_critical_tech]
+  language: en
+  trust_tier: 3
+  lean: left
+  category: tech
+  source_type: rss
+- id: themarkup
+  name: The Markup
+  url: https://themarkup.org/feeds/rss.xml
+  spheres: [global_critical_tech, global_investigative, regional_us]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Data-driven investigatív tech-újságírás (CalMatters)
+
+# --- Csoport 2: EURÓPAI ---
+- id: heise_de
+  name: Heise Online
+  url: https://www.heise.de/rss/heise-atom.xml
+  spheres: [global_tech, regional_german]
+  language: de
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Németország vezető IT-magazin (c't, iX is alóla)
+- id: golem_de
+  name: Golem.de
+  url: https://rss.golem.de/rss.php?feed=RSS2.0
+  spheres: [global_tech, regional_german]
+  language: de
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: sifted_eu
+  name: Sifted (FT Europe startup)
+  url: https://sifted.eu/feed
+  spheres: [global_tech, regional_uk]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: tech_eu
+  name: Tech.eu
+  url: https://tech.eu/feed/
+  spheres: [global_tech]
+  language: en
+  trust_tier: 3
+  lean: center
+  category: tech
+  source_type: rss
+- id: numerama_fr
+  name: Numerama
+  url: https://www.numerama.com/feed/
+  spheres: [global_tech, regional_french]
+  language: fr
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: xataka_es
+  name: Xataka
+  url: https://feeds.weblogssl.com/xataka2
+  spheres: [global_tech, regional_spanish]
+  language: es
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+- id: repubblica_tecnologia
+  name: La Repubblica — Tecnologia
+  url: https://www.repubblica.it/rss/tecnologia/rss2.0.xml
+  spheres: [global_tech, regional_italian]
+  language: it
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+
+# --- Csoport 3: ÁZSIAI ---
+- id: nikkei_asia
+  name: Nikkei Asia
+  url: https://asia.nikkei.com/rss/feed/nar
+  spheres: [global_tech, global_anchor, regional_japanese]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: foreign
+  source_type: rss
+  notes: Hivatalosan ellenőrzött Telegram-csatorna, paywall body
+- id: technode_cn
+  name: TechNode
+  url: https://technode.com/feed/
+  spheres: [global_tech, regional_chinese]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Angol nyelvű kínai tech-news (Shanghai HQ)
+- id: itmedia_all
+  name: ITmedia (Japan, all)
+  url: https://rss.itmedia.co.jp/rss/2.0/itmedia_all.xml
+  spheres: [global_tech, regional_japanese]
+  language: ja
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Japán IT-portál, csak japánul
+- id: itmedia_aiplus
+  name: ITmedia AI+
+  url: https://rss.itmedia.co.jp/rss/2.0/aiplus.xml
+  spheres: [global_ai, regional_japanese]
+  language: ja
+  trust_tier: 2
+  lean: center
+  category: tech
+  source_type: rss
+
+# --- Csoport 5: MAGYAR ---
+- id: hu_qubit
+  name: Qubit
+  url: https://qubit.hu/feed
+  spheres: [hu_tech, global_science]
+  language: hu
+  trust_tier: 2
+  lean: left
+  category: tech
+  source_type: rss
+  notes: Magyar tudomány-népszerűsítő (Magyar Jeti / 444 testvérportál)
+- id: hu_bitport
+  name: Bitport
+  url: https://bitport.hu/rss
+  spheres: [hu_tech]
+  language: hu
+  trust_tier: 3
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Magyar üzleti-IT-portál, vállalati IT/B2B
+- id: hu_raketa
+  name: Rakéta
+  url: https://raketa.hu/feed
+  spheres: [hu_tech, global_science]
+  language: hu
+  trust_tier: 3
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Player/Roadster csoport, "jövőmagazin"
+
+# --- Csoport 6: AKADÉMIAI / PREPRINT ---
+- id: arxiv_cs_ai
+  name: arXiv — cs.AI
+  url: http://export.arxiv.org/rss/cs.AI
+  spheres: [global_preprint, global_ai]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Napi frissítés (US Eastern 20:00 UTC közelében)
+- id: arxiv_cs_lg
+  name: arXiv — cs.LG (Machine Learning)
+  url: http://export.arxiv.org/rss/cs.LG
+  spheres: [global_preprint, global_ai]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Legnagyobb és leggyorsabban növő AI-kategória
+- id: arxiv_cs_cl
+  name: arXiv — cs.CL (NLP, LLM)
+  url: http://export.arxiv.org/rss/cs.CL
+  spheres: [global_preprint, global_ai]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Computation & Language — NLP, LLM
+- id: biorxiv_all
+  name: bioRxiv (all)
+  url: https://connect.biorxiv.org/biorxiv_xml.php?subject=all
+  spheres: [global_preprint, global_science]
+  language: en
+  trust_tier: 1
+  lean: center
+  category: tech
+  source_type: rss
+  notes: Cold Spring Harbor Laboratory, több ezer preprint/hét
