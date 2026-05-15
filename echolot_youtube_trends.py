@@ -42,6 +42,9 @@ CATEGORY_IDS = {
 SUPPORTED_REGIONS = {
     "HU", "US", "GB", "DE", "FR", "ES", "IT", "PL", "RU", "UA",
     "JP", "KR", "CN", "BR", "MX", "IN", "TR", "NL", "SE", "CZ",
+    # Bővítés 2026-05-15: BY (regional_belarusian), CA/AU (anglosphere),
+    # AR (regional_south_american), KZ (post-szovjet), ID + ZA (potenciál).
+    "BY", "CA", "AU", "AR", "KZ", "ID", "ZA",
 }
 
 

@@ -54,6 +54,14 @@ SKIP_PREFIXES = (
     "特別:", "Wikipedia:", "ヘルプ:", "テンプレート:",
     # Chinese
     "Special:", "Wikipedia:", "Help:",
+    # Belarusian (cyrill)
+    "Адмысловае:", "Катэгорыя:", "Шаблон:", "Файл:", "Удзельнік:",
+    # Slovak
+    "Špeciálne:", "Pomoc:", "Kategória:", "Šablóna:", "Súbor:",
+    # Czech
+    "Speciální:", "Nápověda:", "Kategorie:", "Šablona:", "Soubor:", "Diskuse:",
+    # Korean
+    "특수기능:", "분류:", "틀:", "파일:", "사용자:",
 )
 SKIP_EXACT = {
     # Main page in many wikis
@@ -68,6 +76,9 @@ SKIP_EXACT = {
 SUPPORTED_WIKIS = {
     "en", "hu", "de", "fr", "es", "it", "pl", "ru", "uk",
     "ja", "zh", "ar", "tr", "pt", "nl", "sv", "cs", "ro",
+    # Bővítés 2026-05-15: a regional_belarusian/regional_polish/regional_czech +
+    # regional_v4 (szlovák) + regional_korean új sphere-ekhez illeszkedés.
+    "be", "sk", "ko", "fi", "no", "da", "el", "he",
 }
 
 

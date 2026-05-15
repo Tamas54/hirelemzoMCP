@@ -37,6 +37,19 @@ GEO_FEEDS = {
     "CN": ("zh-CN",  "CN", "CN:zh-Hans"),
     "BR": ("pt-BR",  "BR", "BR:pt-419"),
     "MX": ("es-419", "MX", "MX:es-419"),
+    # Bővítés 2026-05-15: a 4 új regional sphere és a meglévő ország-csomagok
+    # lefedéséhez. CZ + BY az új sphere-ekhez; KR/IN/AU/NL/TR/CA a meglévő
+    # regional_korean/indian/australian/dutch/turkish/canadian-bővítéshez.
+    "CZ": ("cs",     "CZ", "CZ:cs"),
+    "BY": ("be",     "BY", "BY:be"),
+    "KR": ("ko",     "KR", "KR:ko"),
+    "IN": ("en-IN",  "IN", "IN:en"),
+    "AU": ("en-AU",  "AU", "AU:en"),
+    "NL": ("nl",     "NL", "NL:nl"),
+    "TR": ("tr",     "TR", "TR:tr"),
+    "CA": ("en-CA",  "CA", "CA:en"),
+    "SE": ("sv",     "SE", "SE:sv"),
+    "AR": ("es-419", "AR", "AR:es-419"),
 }
 
 CACHE_TTL = 30 * 60  # 30 minutes
