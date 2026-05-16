@@ -106,9 +106,9 @@ def _render_top_stories(stories: list[dict], lang: str) -> str:
       </a>
     """
 
-    # Grid — stories[1:8]
+    # Grid — stories[1:13] (max 12 a hero alatt 2-oszlopos gridben)
     cards = []
-    for s in stories[1:8]:
+    for s in stories[1:13]:
         title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
         url = s.get("lead_url") or "#"
         n_sources = s.get("source_count", 0)
@@ -479,19 +479,25 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         log.warning("local_trending failed: %s", exc)
         local = {"wiki": [], "gnews": [], "velocity": [], "geo": {}}
 
+    # min_sources lang-filtered query-re lazább (kevesebb forrás van nyelvenként):
+    # 2 source elég hogy "story" legyen. Limit 13 = hero + 12-grid (6×2 sor).
     try:
-        stories = cluster_top_stories(db_path, hours=24, min_sources=3, limit=8, lang=lang)
+        stories = cluster_top_stories(db_path, hours=24, min_sources=2, limit=13, lang=lang)
+        if len(stories) < 4:
+            # Fallback: egyetlen-source clusterek is jelennek meg (egyedi cikkek)
+            stories = cluster_top_stories(db_path, hours=24, min_sources=1, limit=13, lang=lang)
     except Exception as exc:
         log.warning("top_stories failed: %s", exc)
         stories = []
 
     try:
-        political_blind = find_political_blindspots(db_path, hours=24, limit=3, lang=lang)
+        # Blindspot lang-filtered: 5→3 min_sources (kevesebb adat nyelvenként)
+        political_blind = find_political_blindspots(db_path, hours=24, min_sources=3, limit=3, lang=lang)
     except Exception as exc:
         log.warning("political_blindspots failed: %s", exc)
         political_blind = []
     try:
-        geo_blind = find_geo_blindspots(db_path, hours=24, limit=2, lang=lang)
+        geo_blind = find_geo_blindspots(db_path, hours=24, min_sources=2, limit=2, lang=lang)
     except Exception as exc:
         log.warning("geo_blindspots failed: %s", exc)
         geo_blind = []
@@ -533,6 +539,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="600">
   <title>Echolot — {title_html}</title>
   {seo_head}
   <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -20,6 +20,7 @@ import sqlite3
 import time
 import unicodedata
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger("echolot.top_stories")
@@ -82,7 +83,7 @@ il la i lo gli e o ma se allora è sono era erano sarà ha hanno
 di del della dei dello degli al alla ai con su per fra tra
 """.split())
 
-CACHE_TTL = 600  # 10 perc
+CACHE_TTL = 600  # 10 perc — frissül de nem lóverseny
 JACCARD_THRESHOLD = 0.5
 SHINGLE_SIZE = 3
 MIN_TOKENS_FOR_SHINGLE = 4   # rövid címeknél token-Jaccard, nem shingle
@@ -135,6 +136,31 @@ def _bias_for(lean: str | None, spheres: list[str]) -> str:
             return "C"
         return "R"
     return base
+
+
+def _age_hours(ts: str | None, now_dt: datetime | None = None) -> float | None:
+    """Parse ISO-8601 timestamp, return age in hours from `now_dt` (UTC).
+
+    Returns None if `ts` is empty or unparseable.
+    """
+    if not ts:
+        return None
+    if now_dt is None:
+        now_dt = datetime.now(timezone.utc)
+    s = ts.strip()
+    # Sokféle formátum: 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DDTHH:MM:SS', 'YYYY-MM-DDTHH:MM:SSZ', '...+00:00'
+    if " " in s and "T" not in s:
+        s = s.replace(" ", "T", 1)
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    delta = now_dt - dt
+    return max(0.0, delta.total_seconds() / 3600.0)
 
 
 def _parse_spheres(raw: str | None) -> list[str]:
@@ -382,6 +408,9 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
     earliest_ts: str | None = None
     earliest_url: str | None = None
     earliest_title: str | None = None
+    latest_ts: str | None = None
+    latest_url: str | None = None
+    latest_title: str | None = None
 
     for i in idxs:
         a = articles[i]
@@ -414,6 +443,10 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
             earliest_ts = ts
             earliest_url = a.get("url")
             earliest_title = a.get("title")
+        if ts and (latest_ts is None or ts > latest_ts):
+            latest_ts = ts
+            latest_url = a.get("url")
+            latest_title = a.get("title")
 
     if not seen_sources:
         return None
@@ -421,15 +454,19 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
     sample_titles = list(titles_by_source.values())[:3]
     trust_avg = round(sum(trust_vals) / len(trust_vals), 2) if trust_vals else None
 
+    # A lead URL most a LEGFRISSEBB cikkre mutat (nem a legkorábbira) — friss
+    # tartalom magasabb kattintási értékkel; a lead_title is a friss cím lesz.
     return {
-        "title": earliest_title or (sample_titles[0] if sample_titles else ""),
-        "lead_url": earliest_url or "",
+        "title": latest_title or earliest_title or (sample_titles[0] if sample_titles else ""),
+        "lead_title": latest_title or earliest_title or "",
+        "lead_url": latest_url or earliest_url or "",
         "source_count": len(seen_sources),
         "bias_dist": _bias_dist_pct(bias_counts),
         "sphere_set": sorted(sphere_set),
         "languages": sorted(languages),
         "trust_avg": trust_avg,
         "first_published": earliest_ts or "",
+        "latest_published": latest_ts or "",
         "sample_titles": sample_titles,
     }
 
@@ -495,7 +532,26 @@ def cluster_top_stories(
             continue
         out.append(agg)
 
-    out.sort(key=lambda c: (-c["source_count"], -(c.get("trust_avg") or 0)))
+    # Recency-súlyú rangsor: a frissebb sztori magasabb pontszámot kap,
+    # a régiebb lassan csúszik lefelé. Súly:
+    #   0-3 óra:  1.00× (full weight)
+    #   3-24 óra: 1.00 → 0.30 (lineáris csökkenés)
+    #   24+ óra:  0.30× (nem nullázzuk, ne tűnjenek el)
+    # score = source_count × recency_w + trust_bonus
+    now_dt = datetime.now(timezone.utc)
+    for c in out:
+        age_h = _age_hours(c.get("latest_published") or c.get("first_published"), now_dt)
+        if age_h is None:
+            recency_w = 0.5
+        elif age_h <= 3:
+            recency_w = 1.0
+        elif age_h >= 24:
+            recency_w = 0.3
+        else:
+            recency_w = 1.0 - (age_h - 3) * (0.7 / 21.0)
+        c["_score"] = c["source_count"] * recency_w + (c.get("trust_avg") or 0) * 0.05
+        c["age_hours"] = round(age_h, 1) if age_h is not None else None
+    out.sort(key=lambda c: -c["_score"])
     out = out[:limit]
 
     _cache[cache_key] = (now, out)
