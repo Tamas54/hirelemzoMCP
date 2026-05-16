@@ -96,6 +96,8 @@ di del della dei dello degli al alla ai con su per fra tra
 """.split())
 
 CACHE_TTL = 600  # 10 perc — frissül de nem lóverseny
+CACHE_TTL_EMPTY = 30  # üres eredményt csak 30s-ig cache-eljük, hogy a deploy
+                     # után gyorsan felépüljön mikor a DB feltöltődik
 JACCARD_THRESHOLD = 0.5
 SHINGLE_SIZE = 3
 MIN_TOKENS_FOR_SHINGLE = 4   # rövid címeknél token-Jaccard, nem shingle
@@ -531,8 +533,12 @@ def cluster_top_stories(
     cache_key = (db_path, int(hours), int(min_sources), int(limit), lang, sf_key)
     now = time.time()
     cached = _cache.get(cache_key)
-    if cached and (now - cached[0]) < CACHE_TTL:
-        return cached[1]
+    if cached:
+        # Üres eredményt csak rövid ideig (CACHE_TTL_EMPTY) cache-eljük, hogy
+        # deploy után, mikor a DB feltöltődik, gyorsan felépüljön.
+        ttl = CACHE_TTL_EMPTY if not cached[1] else CACHE_TTL
+        if (now - cached[0]) < ttl:
+            return cached[1]
 
     t0 = time.time()
     articles = _fetch_articles(db_path, hours, lang=lang)
