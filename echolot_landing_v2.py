@@ -35,6 +35,27 @@ from echolot_entity_trending import top_entities_24h
 log = logging.getLogger("echolot.landing_v2")
 
 
+# Rovat-sphere-halmazok — a Top sztorik alatti tematikus rovatokhoz.
+# Kombinálja a global_* topikális csomagokat a nyelvspecifikus *_tech /
+# *_sport / *_entertainment szférákkal. A lang-szűrt query lokális preferenciát
+# ad; ha nincs elég találat, fallback az összes nyelvre.
+TECH_SPHERES = frozenset({
+    "global_tech", "global_critical_tech", "global_science", "global_ai", "global_preprint",
+    "hu_tech", "yt_tech_ai", "reddit_tech", "mastodon_tech",
+})
+SPORT_SPHERES = frozenset({
+    "global_sport", "global_football", "global_motorsport", "global_basketball",
+    "global_americansports", "global_tennis_sport", "hu_sport",
+})
+TABLOID_SPHERES = frozenset({
+    "global_tabloid", "global_celebrity", "global_entertainment",
+    "hu_entertainment", "hu_lifestyle",
+})
+ECONOMY_SPHERES = frozenset({
+    "hu_economy", "global_economy", "global_business", "global_finance",
+})
+
+
 # ── Render helpers ────────────────────────────────────────────────────
 
 def _render_entity_chip_row(entities: list[dict], lang: str) -> str:
@@ -190,6 +211,29 @@ def _render_local_trending(local: dict, lang: str) -> str:
         <ul class="local-list">{''.join(vel_items) or '<li class="empty">—</li>'}</ul>
       </div>
     """
+
+
+def _render_rovat(stories: list[dict], lang: str) -> str:
+    """Tematikus rovat-oszlop — kompakt lista (max 5-6 sztori, kis méret)."""
+    if not stories:
+        return f'<div class="empty">{_escape(t("landing.empty_panel", lang))}</div>'
+    src_label = _escape(t("article.source", lang)).lower()
+    cards = []
+    for s in stories[:6]:
+        title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
+        url = s.get("lead_url") or "#"
+        n_sources = s.get("source_count", 0)
+        bias = s.get("bias_dist", {"L": 0, "C": 0, "R": 0})
+        cards.append(f"""
+          <a href="{_escape(url)}" target="_blank" rel="noopener" class="rovat-card">
+            <div class="rovat-title">{_escape(title)}</div>
+            <div class="rovat-meta">
+              <span>{n_sources} {src_label}</span>
+              {_render_bias_bar(bias)}
+            </div>
+          </a>
+        """)
+    return "".join(cards)
 
 
 def _render_bias_legend(lang: str) -> str:
@@ -418,6 +462,44 @@ _LANDING_V2_EXTRA_CSS = """
       font-family: 'JetBrains Mono', monospace;
     }
 
+    /* Rovatok — Tech / Gazdaság / Sport / Bulvár 4-oszlopos szekció */
+    .rovatok-grid {
+      max-width: 1280px; margin: 0.5rem auto 1.5rem; padding: 0 1rem;
+      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;
+    }
+    @media (max-width: 1100px) { .rovatok-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .rovatok-grid { grid-template-columns: 1fr; } }
+    .rovat-col h2 {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.2em;
+      color: var(--text-dim); margin: 0 0 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .rovat-card {
+      display: block; text-decoration: none; color: var(--text);
+      padding: 0.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: all 0.15s;
+    }
+    .rovat-card:last-child { border-bottom: none; }
+    .rovat-card:hover .rovat-title { color: var(--primary); }
+    .rovat-title {
+      font-size: 0.82rem; font-weight: 500; line-height: 1.35;
+      margin-bottom: 0.35rem;
+    }
+    .rovat-meta {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.65rem; color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .rovat-meta .bias-bar {
+      flex: 1; height: 10px; font-size: 0.5rem; margin-top: 0;
+    }
+    .rovat-meta .bias-bar > div {
+      /* Belül kis bárban nincs hely a "L 12%" feliratra — elrejtjük */
+      font-size: 0; padding: 0;
+    }
+
     .empty { color: var(--text-dim); font-style: italic; padding: 1rem 0; }
     .legacy-link {
       max-width: 1280px; margin: 2rem auto 4rem; padding: 0 1rem;
@@ -508,6 +590,24 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         log.warning("top_entities failed: %s", exc)
         entities = []
 
+    # Rovatok: Tech / Sport / Bulvár. Először lang-szűrt, ha üres → all-lang.
+    def _rovat(spheres: frozenset[str], label: str) -> list[dict]:
+        try:
+            res = cluster_top_stories(db_path, hours=24, min_sources=1, limit=6,
+                                       lang=lang, sphere_filter=spheres)
+            if not res:
+                res = cluster_top_stories(db_path, hours=24, min_sources=1, limit=6,
+                                           lang=None, sphere_filter=spheres)
+            return res
+        except Exception as exc:
+            log.warning("rovat %s failed: %s", label, exc)
+            return []
+
+    tech_stories = _rovat(TECH_SPHERES, "tech")
+    sport_stories = _rovat(SPORT_SPHERES, "sport")
+    tabloid_stories = _rovat(TABLOID_SPHERES, "tabloid")
+    economy_stories = _rovat(ECONOMY_SPHERES, "economy")
+
     # SEO head (megőrzött, ugyanaz mint az augment_landing-ben)
     seo_head = seo_head_html(
         origin=origin, lang=lang, path="/",
@@ -533,6 +633,15 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     section_top = _escape(t("landing.section.top_stories", lang))
     section_local = _escape(t("landing.section.local", lang))
     section_blind = _escape(t("landing.section.blindspot", lang))
+    section_tech = _escape(t("landing.section.tech", lang))
+    section_sport = _escape(t("landing.section.sport", lang))
+    section_tabloid = _escape(t("landing.section.tabloid", lang))
+    section_economy = _escape(t("landing.section.economy", lang))
+
+    tech_html = _render_rovat(tech_stories, lang)
+    sport_html = _render_rovat(sport_stories, lang)
+    tabloid_html = _render_rovat(tabloid_stories, lang)
+    economy_html = _render_rovat(economy_stories, lang)
 
     return (f"""<!DOCTYPE html>
 <html lang="{lang}">
@@ -577,6 +686,25 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     <div class="landing-col">
       <h2>🔍 {section_blind}</h2>
       {blindspot_html}
+    </div>
+  </div>
+
+  <div class="rovatok-grid">
+    <div class="rovat-col">
+      <h2>💻 {section_tech}</h2>
+      {tech_html}
+    </div>
+    <div class="rovat-col">
+      <h2>💰 {section_economy}</h2>
+      {economy_html}
+    </div>
+    <div class="rovat-col">
+      <h2>⚽ {section_sport}</h2>
+      {sport_html}
+    </div>
+    <div class="rovat-col">
+      <h2>✨ {section_tabloid}</h2>
+      {tabloid_html}
     </div>
   </div>
 

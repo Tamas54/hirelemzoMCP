@@ -40,6 +40,18 @@ LEAN_TO_BIAS: dict[str, str] = {
     "unknown":           "C",
 }
 
+# Általános "general press" sphere-ek, amik egy forrást mainstream-mé tesznek.
+# A rovat-szűréshez "pure topical" source-okat preferáljuk: olyan source-okat
+# akiknek a sphere-jük NEM tartalmazza ezeket. Pl. hu_press-szel taggelt
+# Tudás.hu (hu_press, hu_premium, hu_tech) mainstream tagolású, NEM tiszta
+# tech forrás. Csak a hu_qubit / hu_raketa / hu_bitport tisztán tech.
+GENERAL_PRESS_SPHERES: frozenset[str] = frozenset({
+    "hu_press", "hu_premium",
+    "regional_us", "regional_uk", "regional_german", "regional_french",
+    "regional_spanish", "regional_italian", "regional_polish",
+    "regional_russian", "regional_ukrainian", "regional_chinese",
+})
+
 # Állami propaganda-szférák → R marad (még a "regional_*" finomításnál is)
 PROPAGANDA_SPHERES: frozenset[str] = frozenset({
     "cn_state",
@@ -400,7 +412,9 @@ def _bias_dist_pct(counts: Counter) -> dict[str, int]:
 def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] | None:
     seen_sources: set[str] = set()
     bias_counts: Counter = Counter()
-    sphere_set: set[str] = set()
+    sphere_set: set[str] = set()         # article-szintű spheres (a sztori tényleges témái)
+    source_sphere_set: set[str] = set()  # source-szintű (a kiadó általános profilja)
+    pure_topical_set: set[str] = set()   # csak "pure topical" sources spheres-ből (rovat-szűréshez)
     languages: set[str] = set()
     trust_vals: list[int] = []
     titles_by_source: dict[str, str] = {}
@@ -433,10 +447,19 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
             if a.get("title") and sid not in titles_by_source:
                 titles_by_source[sid] = str(a["title"])
 
+        # Article-spheres a "valódi" cluster-téma; source-spheres csak fallback
+        # (ha az article_spheres üres, akkor a kiadó általános profilja jelzi).
         for sp in article_spheres:
             sphere_set.add(sp)
         for sp in source_spheres:
-            sphere_set.add(sp)
+            source_sphere_set.add(sp)
+        # Pure topical: ha a SOURCE-nak nincs general-press tagje (hu_press stb.),
+        # akkor a sphere-ei "tisztán topikálisak" — rovat-szűréshez ezeket
+        # preferáljuk. Pl. hu_qubit (csak hu_tech, global_science) PURE, de
+        # Tudás.hu (hu_press, hu_premium, hu_tech) NEM PURE.
+        if source_spheres and not (set(source_spheres) & GENERAL_PRESS_SPHERES):
+            for sp in source_spheres:
+                pure_topical_set.add(sp)
 
         ts = a.get("published_at") or a.get("fetched_at")
         if ts and (earliest_ts is None or ts < earliest_ts):
@@ -447,6 +470,11 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
             latest_ts = ts
             latest_url = a.get("url")
             latest_title = a.get("title")
+
+    # Fallback: ha NINCS article-szintű sphere a clusterben (régi cikkek),
+    # akkor a source-spheres válik a sphere_set-té.
+    if not sphere_set:
+        sphere_set = source_sphere_set
 
     if not seen_sources:
         return None
@@ -463,6 +491,7 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         "source_count": len(seen_sources),
         "bias_dist": _bias_dist_pct(bias_counts),
         "sphere_set": sorted(sphere_set),
+        "pure_topical_set": sorted(pure_topical_set),
         "languages": sorted(languages),
         "trust_avg": trust_avg,
         "first_published": earliest_ts or "",
@@ -480,6 +509,7 @@ def cluster_top_stories(
     min_sources: int = 3,
     limit: int = 8,
     lang: str | None = None,
+    sphere_filter: frozenset[str] | set[str] | None = None,
 ) -> list[dict]:
     """Visszaad top N legtöbb-source-fed cluster-t bias-bárral.
 
@@ -490,11 +520,15 @@ def cluster_top_stories(
         limit: top N visszaadott cluster.
         lang: ha megadva, csak az `articles.language=lang` cikkek alapján
             clusterezünk (különben minden nyelv vegyesen).
+        sphere_filter: ha megadva, csak azok a clusterek maradnak amik
+            sphere_set-je legalább egy elemet tartalmaz a halmazból
+            (post-hoc szűrés a clustering után). Tech/Sport/Bulvár rovatokhoz.
 
     Returns:
         list[dict] — lásd modul-docstring példa.
     """
-    cache_key = (db_path, int(hours), int(min_sources), int(limit), lang)
+    sf_key = tuple(sorted(sphere_filter)) if sphere_filter else None
+    cache_key = (db_path, int(hours), int(min_sources), int(limit), lang, sf_key)
     now = time.time()
     cached = _cache.get(cache_key)
     if cached and (now - cached[0]) < CACHE_TTL:
@@ -551,6 +585,17 @@ def cluster_top_stories(
             recency_w = 1.0 - (age_h - 3) * (0.7 / 21.0)
         c["_score"] = c["source_count"] * recency_w + (c.get("trust_avg") or 0) * 0.05
         c["age_hours"] = round(age_h, 1) if age_h is not None else None
+    # Sphere-szűrés (post-hoc): tech/sport/bulvár/gazdaság rovatokhoz.
+    # ELSŐ: pure_topical_set match (PURE-topical source contributed a topikális sphere-t).
+    # Ha üres ezzel, fallback: bármely sphere_set match (lazább).
+    if sphere_filter:
+        sf = set(sphere_filter)
+        strict = [c for c in out if set(c.get("pure_topical_set", [])) & sf]
+        if strict:
+            out = strict
+        else:
+            out = [c for c in out if set(c.get("sphere_set", [])) & sf]
+
     out.sort(key=lambda c: -c["_score"])
     out = out[:limit]
 
