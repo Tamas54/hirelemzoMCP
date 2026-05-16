@@ -201,8 +201,14 @@ WHERE a.fetched_at >= ?
 """
 
 
-def _fetch_articles(db_path: str, hours: int) -> list[dict]:
-    """Lekéri az utolsó `hours` órás cikkeket. Üres ha sehol — fallback: max(fetched_at)-tól visszafelé."""
+def _fetch_articles(db_path: str, hours: int, lang: str | None = None) -> list[dict]:
+    """Lekéri az utolsó `hours` órás cikkeket.
+
+    Ha `lang` megadva, csak az adott `articles.language`-jű cikkek jönnek
+    vissza — különben minden nyelv vegyesen.
+
+    Üres ha sehol — fallback: max(fetched_at)-tól visszafelé.
+    """
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     try:
@@ -211,20 +217,33 @@ def _fetch_articles(db_path: str, hours: int) -> list[dict]:
             "SELECT strftime('%Y-%m-%dT%H:%M:%S', 'now', ?)",
             (f"-{int(hours)} hours",),
         ).fetchone()[0]
-        rows = cur.execute(_FETCH_SQL, (cutoff,)).fetchall()
+        sql = _FETCH_SQL
+        params: list = [cutoff]
+        if lang:
+            sql = sql + " AND a.language = ?"
+            params.append(lang)
+        rows = cur.execute(sql, params).fetchall()
         if not rows:
             # Fallback: ha 0 cikk az utóbbi `hours`-ban, használjuk a max(fetched_at)-ot referenciának
-            max_ft = cur.execute("SELECT MAX(fetched_at) FROM articles").fetchone()[0]
+            if lang:
+                max_ft = cur.execute(
+                    "SELECT MAX(fetched_at) FROM articles WHERE language = ?",
+                    (lang,),
+                ).fetchone()[0]
+            else:
+                max_ft = cur.execute("SELECT MAX(fetched_at) FROM articles").fetchone()[0]
             if max_ft:
-                # csúsztatott cutoff: max_ft - hours óra
                 cutoff2 = cur.execute(
                     "SELECT strftime('%Y-%m-%dT%H:%M:%S', ?, ?)",
                     (max_ft, f"-{int(hours)} hours"),
                 ).fetchone()[0]
-                rows = cur.execute(_FETCH_SQL, (cutoff2,)).fetchall()
+                params2: list = [cutoff2]
+                if lang:
+                    params2.append(lang)
+                rows = cur.execute(sql, params2).fetchall()
                 logger.info(
-                    "top_stories: empty live window, fell back to max(fetched_at) cutoff=%s",
-                    cutoff2,
+                    "top_stories: empty live window, fell back to max(fetched_at) cutoff=%s lang=%s",
+                    cutoff2, lang,
                 )
         return [dict(r) for r in rows]
     finally:
@@ -423,6 +442,7 @@ def cluster_top_stories(
     hours: int = 24,
     min_sources: int = 3,
     limit: int = 8,
+    lang: str | None = None,
 ) -> list[dict]:
     """Visszaad top N legtöbb-source-fed cluster-t bias-bárral.
 
@@ -431,20 +451,22 @@ def cluster_top_stories(
         hours: visszamenőleges ablak órákban (fetched_at).
         min_sources: minimum distinct source-szám egy clusterben.
         limit: top N visszaadott cluster.
+        lang: ha megadva, csak az `articles.language=lang` cikkek alapján
+            clusterezünk (különben minden nyelv vegyesen).
 
     Returns:
         list[dict] — lásd modul-docstring példa.
     """
-    cache_key = (db_path, int(hours), int(min_sources), int(limit))
+    cache_key = (db_path, int(hours), int(min_sources), int(limit), lang)
     now = time.time()
     cached = _cache.get(cache_key)
     if cached and (now - cached[0]) < CACHE_TTL:
         return cached[1]
 
     t0 = time.time()
-    articles = _fetch_articles(db_path, hours)
+    articles = _fetch_articles(db_path, hours, lang=lang)
     t_fetch = time.time() - t0
-    logger.info("top_stories: fetched %d articles in %.2fs", len(articles), t_fetch)
+    logger.info("top_stories: fetched %d articles in %.2fs (lang=%s)", len(articles), t_fetch, lang)
 
     if not articles:
         _cache[cache_key] = (now, [])

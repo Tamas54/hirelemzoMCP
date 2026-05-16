@@ -2476,7 +2476,7 @@ async def landing(request):
     Blindspot + Entity-trending chip-row. The classic augmented
     LANDING_HTML lives at /landing-classic; the raw original at /landing-legacy."""
     from echolot_landing_v2 import render_landing_v2
-    page, lang = render_landing_v2(request, str(DB_PATH))
+    page, lang = await render_landing_v2(request, str(DB_PATH))
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp

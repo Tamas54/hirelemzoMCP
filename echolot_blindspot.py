@@ -195,22 +195,42 @@ def _safe_json_list(raw: Any) -> list[str]:
     return []
 
 
-def _fetch_articles(conn: sqlite3.Connection, hours: int) -> list[dict[str, Any]]:
-    """Articles within `hours` joined with source lean/spheres."""
+def _fetch_articles(
+    conn: sqlite3.Connection, hours: int, lang: str | None = None
+) -> list[dict[str, Any]]:
+    """Articles within `hours` joined with source lean/spheres.
+
+    Ha `lang` megadva, csak az adott nyelvű cikkeket adja vissza.
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-    cur = conn.execute(
-        """
-        SELECT a.article_id, a.title, a.lead, a.url,
-               a.source_id, a.source_name, a.language,
-               a.published_at, a.spheres_json AS article_spheres,
-               s.lean        AS source_lean,
-               s.spheres_json AS source_spheres
-          FROM articles a
-          LEFT JOIN sources s ON s.id = a.source_id
-         WHERE a.published_at >= ?
-        """,
-        (cutoff,),
-    )
+    if lang:
+        cur = conn.execute(
+            """
+            SELECT a.article_id, a.title, a.lead, a.url,
+                   a.source_id, a.source_name, a.language,
+                   a.published_at, a.spheres_json AS article_spheres,
+                   s.lean        AS source_lean,
+                   s.spheres_json AS source_spheres
+              FROM articles a
+              LEFT JOIN sources s ON s.id = a.source_id
+             WHERE a.published_at >= ? AND a.language = ?
+            """,
+            (cutoff, lang),
+        )
+    else:
+        cur = conn.execute(
+            """
+            SELECT a.article_id, a.title, a.lead, a.url,
+                   a.source_id, a.source_name, a.language,
+                   a.published_at, a.spheres_json AS article_spheres,
+                   s.lean        AS source_lean,
+                   s.spheres_json AS source_spheres
+              FROM articles a
+              LEFT JOIN sources s ON s.id = a.source_id
+             WHERE a.published_at >= ?
+            """,
+            (cutoff,),
+        )
     out: list[dict[str, Any]] = []
     for r in cur.fetchall():
         spheres = _safe_json_list(r["source_spheres"]) or _safe_json_list(r["article_spheres"])
@@ -365,6 +385,7 @@ def find_political_blindspots(
     bias_threshold: float = 0.7,
     opposite_max: float = 0.10,
     limit: int = 8,
+    lang: str | None = None,
 ) -> list[dict]:
     """Politikai-aszimmetria sztorik: csak L vagy csak R oldal hozza.
 
@@ -375,13 +396,14 @@ def find_political_blindspots(
         bias_threshold: dominant side's share (0-1) must be >= this.
         opposite_max: opposite side's share (0-1) must be <= this.
         limit: top N.
+        lang: ha megadva, csak az adott nyelvű cikkek alapján clusterez.
     """
     cache_key = ("pol", db_path, hours, min_sources,
-                 round(bias_threshold, 3), round(opposite_max, 3), limit)
+                 round(bias_threshold, 3), round(opposite_max, 3), limit, lang)
     return _cached(
         cache_key,
         lambda: _find_political_blindspots_uncached(
-            db_path, hours, min_sources, bias_threshold, opposite_max, limit
+            db_path, hours, min_sources, bias_threshold, opposite_max, limit, lang
         ),
     )
 
@@ -393,11 +415,12 @@ def _find_political_blindspots_uncached(
     bias_threshold: float,
     opposite_max: float,
     limit: int,
+    lang: str | None = None,
 ) -> list[dict]:
     t0 = time.time()
     conn = _connect(db_path)
     try:
-        articles = _fetch_articles(conn, hours)
+        articles = _fetch_articles(conn, hours, lang=lang)
     finally:
         conn.close()
     clusters = _cluster(articles, sim_threshold=0.5)
@@ -450,6 +473,7 @@ def find_geo_blindspots(
     hours: int = 24,
     min_sources: int = 3,
     limit: int = 8,
+    lang: str | None = None,
 ) -> list[dict]:
     """Földrajzi-aszimmetria: csak egy regionális sphere hozza.
 
@@ -460,11 +484,13 @@ def find_geo_blindspots(
       - és a globális anchor-szférák (regional_us, regional_uk,
         regional_german, regional_french, global_anchor) közül
         legfeljebb 1-et fed le (vagyis hiányzik ≥4 anchor).
+
+    Ha `lang` megadva, csak az adott nyelvű cikkek alapján clusterez.
     """
-    cache_key = ("geo", db_path, hours, min_sources, limit)
+    cache_key = ("geo", db_path, hours, min_sources, limit, lang)
     return _cached(
         cache_key,
-        lambda: _find_geo_blindspots_uncached(db_path, hours, min_sources, limit),
+        lambda: _find_geo_blindspots_uncached(db_path, hours, min_sources, limit, lang),
     )
 
 
@@ -473,11 +499,12 @@ def _find_geo_blindspots_uncached(
     hours: int,
     min_sources: int,
     limit: int,
+    lang: str | None = None,
 ) -> list[dict]:
     t0 = time.time()
     conn = _connect(db_path)
     try:
-        articles = _fetch_articles(conn, hours)
+        articles = _fetch_articles(conn, hours, lang=lang)
     finally:
         conn.close()
     clusters = _cluster(articles, sim_threshold=0.5)
