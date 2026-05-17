@@ -23,7 +23,6 @@ Usage (HTTP):
     GET /domain/{domain}/rank → RankInfo only
 """
 
-from domain_intel.analyzer import DomainAnalyzer
 from domain_intel.audience import AudienceEstimator
 from domain_intel.models import (
     AudienceInfo,
@@ -41,6 +40,17 @@ from domain_intel.reach import (
     StoryReachAggregator,
     StoryReachReport,
 )
+
+
+def __getattr__(name):
+    """Lazy import for the heavy DomainAnalyzer (pulls bs4, diskcache,
+    geoip2, whois, dns). The embedded Echolot adapter never needs it
+    and avoiding the eager import keeps production deps minimal."""
+    if name == "DomainAnalyzer":
+        from domain_intel.analyzer import DomainAnalyzer as _D
+        return _D
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __version__ = "0.2.0"
 __all__ = [
