@@ -38,7 +38,13 @@ except Exception as _edi_err:
     log.warning("domain_intel adapter unavailable: %s", _edi_err)
     _edi = None
 
-_REACH_DB_PATH: str = "/home/tamas1/Hirmagnetmcp/echolot.db"
+import os as _os
+# Production sets DB_PATH=/data/echolot.db (Railway volume mount); local
+# defaults to the repo-relative echolot.db (matches server.py's DB_PATH).
+_REACH_DB_PATH: str = _os.environ.get(
+    "DB_PATH",
+    str(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "echolot.db")),
+)
 
 log = logging.getLogger("echolot.landing_v2")
 
