@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  domain-intel:
+    build: .
+    container_name: echolot-domain-intel
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Daily ranking refresher — separate container, runs as cron
+  ranking-cron:
+    build: .
+    container_name: echolot-ranking-cron
+    command: >
+      sh -c "while true; do
+        echo '[cron] Sleeping until 03:00 UTC...';
+        TARGET=$$(date -u -d 'tomorrow 03:00' +%s);
+        NOW=$$(date -u +%s);
+        SLEEP=$$((TARGET - NOW));
+        sleep $$SLEEP;
+        echo '[cron] Running ranking refresh...';
+        python scripts/update_rankings.py;
+      done"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      - domain-intel

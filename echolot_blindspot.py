@@ -453,6 +453,7 @@ def _find_political_blindspots_uncached(
             "lead_source": lead.get("source_name", ""),
             "lead_published_at": lead.get("published_at", ""),
             "source_count": n_sources,
+            "source_ids": sorted({d.get("source_id") for d in distinct if d.get("source_id")}),
             "bias_dist": bias_dist,
             "dominant_side": dominant,
             "asymmetry": asymmetry,

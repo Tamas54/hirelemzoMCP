@@ -491,6 +491,7 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         "lead_title": latest_title or earliest_title or "",
         "lead_url": latest_url or earliest_url or "",
         "source_count": len(seen_sources),
+        "source_ids": sorted(seen_sources),
         "bias_dist": _bias_dist_pct(bias_counts),
         "sphere_set": sorted(sphere_set),
         "pure_topical_set": sorted(pure_topical_set),

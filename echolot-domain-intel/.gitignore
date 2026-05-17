@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Env / secrets
+.env
+.env.local
+
+# Data — keep the dir but ignore downloaded lists
+data/tranco/
+data/umbrella/
+data/majestic/
+data/tranco_historical/
+data/cache/
+data/GeoLite2-*.mmdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

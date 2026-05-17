@@ -31,6 +31,14 @@ from echolot_local_trending import build_local_trending
 from echolot_top_stories import cluster_top_stories
 from echolot_blindspot import find_political_blindspots, find_geo_blindspots
 from echolot_entity_trending import top_entities_24h
+try:
+    import echolot_domain_intel as _edi
+except Exception as _edi_err:
+    log = logging.getLogger("echolot.landing_v2")
+    log.warning("domain_intel adapter unavailable: %s", _edi_err)
+    _edi = None
+
+_REACH_DB_PATH: str = "/home/tamas1/Hirmagnetmcp/echolot.db"
 
 log = logging.getLogger("echolot.landing_v2")
 
@@ -83,6 +91,52 @@ def _render_entity_chip_row(entities: list[dict], lang: str) -> str:
     """
 
 
+_FLAG_BY_CC: dict[str, str] = {
+    "HU": "🇭🇺", "US": "🇺🇸", "GB": "🇬🇧", "DE": "🇩🇪", "FR": "🇫🇷", "ES": "🇪🇸",
+    "IT": "🇮🇹", "PL": "🇵🇱", "RU": "🇷🇺", "UA": "🇺🇦", "BY": "🇧🇾", "IL": "🇮🇱",
+    "IR": "🇮🇷", "TR": "🇹🇷", "JP": "🇯🇵", "CN": "🇨🇳", "KR": "🇰🇷", "IN": "🇮🇳",
+    "BR": "🇧🇷", "AR": "🇦🇷", "ZA": "🇿🇦", "AU": "🇦🇺", "CA": "🇨🇦", "MX": "🇲🇽",
+    "AE": "🇦🇪", "SA": "🇸🇦", "EG": "🇪🇬", "NL": "🇳🇱", "BE": "🇧🇪", "SE": "🇸🇪",
+    "NO": "🇳🇴", "DK": "🇩🇰", "FI": "🇫🇮", "CZ": "🇨🇿", "RO": "🇷🇴", "GR": "🇬🇷",
+    "AT": "🇦🇹", "CH": "🇨🇭", "PT": "🇵🇹", "IE": "🇮🇪", "BG": "🇧🇬", "SK": "🇸🇰",
+    "HR": "🇭🇷", "SI": "🇸🇮", "RS": "🇷🇸",
+}
+
+
+def _render_reach_badge(source_ids: list[str] | None) -> str:
+    """Compact reach-badge under each story card.
+
+    Renders ≈XXX olvasó with optional top-country flag. Returns empty
+    string if domain-intel is unavailable, no source_ids provided, or no
+    audience could be estimated.
+    """
+    if not _edi or not source_ids:
+        return ""
+    try:
+        reach = _edi.compute_story_reach(_REACH_DB_PATH, source_ids)
+    except Exception:
+        return ""
+    if not reach or not reach.get("total_readers"):
+        return ""
+    total = _edi.format_readers_compact(reach["total_readers"])
+    bc = reach.get("by_country") or []
+    if bc:
+        top = bc[0]
+        flag = _FLAG_BY_CC.get(top["country_code"], top["country_code"])
+        pct = top["pct_of_internet_users"]
+        sub = f'<span class="reach-country">{flag} {pct:.1f}%</span>'
+        title = f'≈{total} olvasó · top: {top["country_code"]} ({pct:.1f}% of internet users)'
+    else:
+        sub = '<span class="reach-country reach-global">🌐 global</span>'
+        title = f'≈{total} olvasó · global'
+    return (
+        f'<div class="reach-badge" title="{_escape(title)}">'
+        f'<span class="reach-num">≈{total}</span> '
+        f'<span class="reach-label">reach</span>{sub}'
+        f'</div>'
+    )
+
+
 def _render_bias_bar(bias: dict) -> str:
     """L/C/R % bias-bar (Ground News-stílus)."""
     L = int(bias.get("L", 0))
@@ -124,6 +178,7 @@ def _render_top_stories(stories: list[dict], lang: str) -> str:
         </div>
         <div class="story-title">{_escape(h_title)}</div>
         {_render_bias_bar(h_bias)}
+        {_render_reach_badge(hero.get("source_ids"))}
       </a>
     """
 
@@ -144,6 +199,7 @@ def _render_top_stories(stories: list[dict], lang: str) -> str:
             </div>
             <div class="story-title">{_escape(title)}</div>
             {_render_bias_bar(bias)}
+            {_render_reach_badge(s.get("source_ids"))}
           </a>
         """)
     grid_html = f'<div class="story-grid">{"".join(cards)}</div>' if cards else ""
@@ -231,6 +287,7 @@ def _render_rovat(stories: list[dict], lang: str) -> str:
               <span>{n_sources} {src_label}</span>
               {_render_bias_bar(bias)}
             </div>
+            {_render_reach_badge(s.get("source_ids"))}
           </a>
         """)
     return "".join(cards)
@@ -270,6 +327,7 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
             <div class="blindspot-title">{_escape(title)}</div>
             {_render_bias_bar(bias)}
             <div class="blindspot-meta">{p.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
+            {_render_reach_badge(p.get("source_ids"))}
           </a>
         """)
     for g in geo[:2]:
@@ -281,6 +339,7 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
             <div class="blindspot-tag">Geo blindspot · only {_escape(dom)}</div>
             <div class="blindspot-title">{_escape(title)}</div>
             <div class="blindspot-meta">{g.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
+            {_render_reach_badge(g.get("source_ids"))}
           </a>
         """)
     if not cards:
@@ -418,6 +477,47 @@ _LANDING_V2_EXTRA_CSS = """
     .bias-l { background: #b91c1c; }
     .bias-c { background: #57534e; color: #f5f5f4; }
     .bias-r { background: #1d4ed8; }
+
+    /* Reach-badge — sor a bias-bar alatt. Egy fokkal hangsúlyosabb a
+       bias-barnál, mert OSINT-szempontból ez a kulcs-szignál (mekkora
+       közönség látta a sztorit). Tooltip-en (title) megy a teljes
+       country-breakdown. */
+    .reach-badge {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-top: 0.45rem; padding-top: 0.4rem;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem; line-height: 1.1;
+      color: var(--text);
+      letter-spacing: 0.04em;
+    }
+    .reach-badge .reach-num {
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+    }
+    .reach-badge .reach-label {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.6rem;
+      opacity: 0.8;
+    }
+    .reach-badge .reach-country {
+      margin-left: auto;
+      font-size: 0.8rem;
+      opacity: 0.95;
+    }
+    .reach-badge .reach-global { opacity: 0.55; font-size: 0.7rem; }
+    .blindspot-card .reach-badge,
+    .rovat-card .reach-badge {
+      font-size: 0.65rem;
+      margin-top: 0.35rem; padding-top: 0.3rem;
+    }
+    .blindspot-card .reach-badge .reach-num,
+    .rovat-card .reach-badge .reach-num {
+      font-size: 0.85rem;
+    }
 
     .local-block { margin-bottom: 1.2rem; }
     .local-list { list-style: none; padding: 0; margin: 0; }
