@@ -401,6 +401,49 @@ def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
     """
 
 
+def _render_tv_panel() -> str:
+    """Live TV viewer mount-pont a jobb landing-col tetején, a Vakfolt FÖLÖTT.
+
+    Phase 1.x (2026-05-18): a Gemini deep-research javasolta a jobb felső
+    1fr pozíciót a bal oszlop mély-olvasási zónájának védelmére. Auto-play
+    marad (Kommandant döntés), de prominens minimize + mute kontrol.
+    A logikát a /static/echolot-tv.js viszi.
+    """
+    return """
+      <div class="landing-v2-shell tv-panel-wrap">
+        <section class="ts-section">
+          <div class="ts-section-header">
+            <span class="ts-section-icon">▶</span>
+            <span class="ts-section-title">Élő TV</span>
+            <span class="ts-section-meta" id="tv-header-meta">HLS + YT · 9 csatorna</span>
+            <button id="tv-popout-btn" class="tv-popout-btn" type="button"
+              aria-label="TV panel kiemelése floating ablakba"
+              title="Kiemelés (drag-able, resizable)">↗</button>
+            <button id="tv-fullscreen-btn" class="tv-fullscreen-btn" type="button"
+              aria-label="Teljes képernyő" title="Teljes képernyő (Esc kilép)">⛶</button>
+            <button id="tv-collapse-btn" class="tv-collapse-btn" type="button"
+              aria-label="TV panel lekicsinyítése" title="Lekicsinyít / kibont">▽</button>
+          </div>
+          <div class="echolot-tv" id="tv-root">
+            <div class="tv-tabs" id="tv-tabs" role="tablist" aria-label="Live TV csatornák"></div>
+            <div class="tv-player-wrap">
+              <video id="tv-video" controls playsinline muted autoplay></video>
+              <iframe id="tv-iframe"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowfullscreen></iframe>
+              <div class="tv-offline" id="tv-offline" hidden>Csatorna offline</div>
+            </div>
+            <div class="tv-meta">
+              <span id="tv-channel-name" class="tv-channel-name"></span>
+              <span id="tv-source-badge" class="tv-source-badge"></span>
+              <button id="tv-mute-btn" class="tv-mute-btn" type="button" aria-label="Mute toggle">🔇</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    """
+
+
 def _render_top_stories(stories: list[dict], lang: str) -> str:
     """Top Stories — eredeti layout (hero + 2-col sub-grid) mockup v2 vizuálisan.
 
@@ -625,6 +668,11 @@ _LANDING_V2_EXTRA_CSS = """
     }
     @media (max-width: 1024px) { .landing-grid { grid-template-columns: 1fr; } }
 
+    /* Min-width: 0 a grid-blowout megakadályozására — különben az
+       intrinsic-min-content (TV-tabs, hosszú headline-ok) szétfeszíti
+       a 2fr/1.2fr/1fr arányokat, és a jobb oszlop indokolatlanul
+       szélesre nő. */
+    .landing-col { min-width: 0; }
     .landing-col h2 {
       font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.2em;
       color: var(--text-dim); margin: 0 0 0.8rem;
@@ -1296,6 +1344,356 @@ _LANDING_V2_EXTRA_CSS = """
       color: var(--fg-3); font-style: italic;
       padding: var(--sp-2) 0; list-style: none;
     }
+
+    /* =====================================================================
+       LANDING V2 — LIVE TV PANEL (.tv-panel-wrap)
+       A bal landing-col-ban a Top Stories ALATT. 9 csatorna, HLS+YT.
+       A logikát a /static/echolot-tv.js viszi.
+       ===================================================================== */
+    .tv-panel-wrap { padding-top: 0; padding-bottom: var(--sp-5); }
+    .tv-panel-wrap .ts-section { padding: var(--sp-5) var(--sp-5) 0; max-width: none; }
+
+    :is(.landing-v2-shell, .rovat-shell) .echolot-tv {
+      background: var(--bg-1);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      margin-top: var(--sp-4);
+    }
+
+    :is(.landing-v2-shell, .rovat-shell) .tv-tabs {
+      display: flex;
+      gap: var(--sp-1);
+      padding: var(--sp-3) var(--sp-3) 0;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--line-soft);
+      scrollbar-width: thin;
+      scrollbar-color: var(--line) transparent;
+      /* min-width: 0 a flex-item-eken, hogy a hosszú tab-strip ne feszítse
+         szét a grid-oszlopot — ne ki, hanem belül scrollozzon. */
+      min-width: 0;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-tabs::-webkit-scrollbar { height: 4px; }
+    :is(.landing-v2-shell, .rovat-shell) .tv-tabs::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+    :is(.landing-v2-shell, .rovat-shell) .tv-tabs::-webkit-scrollbar-track { background: transparent; }
+
+    :is(.landing-v2-shell, .rovat-shell) .tv-tab {
+      flex: 0 0 auto;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      padding: var(--sp-2) var(--sp-3);
+      background: transparent;
+      color: var(--fg-2);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-md) var(--r-md) 0 0;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      margin-bottom: -1px;
+      cursor: pointer;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-tab:hover { color: var(--fg-1); border-color: var(--line); }
+    :is(.landing-v2-shell, .rovat-shell) .tv-tab.is-active {
+      color: var(--fg-0);
+      border-color: var(--sphere-hu-econ);
+      background: rgba(45,212,191,0.08);
+    }
+
+    :is(.landing-v2-shell, .rovat-shell) .tv-player-wrap {
+      position: relative;
+      background: var(--bg-0);
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      overflow: hidden;
+    }
+    :is(.landing-v2-shell, .rovat-shell) #tv-video,
+    :is(.landing-v2-shell, .rovat-shell) #tv-iframe {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; border: 0;
+      background: var(--bg-0);
+      display: none;
+    }
+    :is(.landing-v2-shell, .rovat-shell) #tv-video.is-active,
+    :is(.landing-v2-shell, .rovat-shell) #tv-iframe.is-active { display: block; }
+
+    :is(.landing-v2-shell, .rovat-shell) .tv-offline {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--fg-2);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-offline[hidden] { display: none; }
+
+    :is(.landing-v2-shell, .rovat-shell) .tv-meta {
+      display: flex; align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-2) var(--sp-3);
+      border-top: 1px solid var(--line-soft);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--fg-2);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-channel-name {
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--fg-0);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-source-badge {
+      font-family: var(--font-mono);
+      font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+      font-weight: 600;
+      padding: 2px var(--sp-2);
+      border-radius: var(--r-sm);
+      background: var(--bg-3); color: var(--fg-1);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-source-badge.badge-hls { background: rgba(45,212,191,0.18); color: var(--sphere-hu-econ); }
+    :is(.landing-v2-shell, .rovat-shell) .tv-source-badge.badge-yt  { background: rgba(224,82,79,0.18); color: var(--sphere-hu-pol); }
+    :is(.landing-v2-shell, .rovat-shell) .tv-source-badge.badge-fb  { background: rgba(245,158,11,0.18); color: var(--sphere-hu-soc); }
+    :is(.landing-v2-shell, .rovat-shell) .tv-source-badge.badge-off { background: var(--bg-3); color: var(--fg-2); }
+
+    :is(.landing-v2-shell, .rovat-shell) .tv-mute-btn {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      padding: var(--sp-1) var(--sp-3);
+      color: var(--fg-1);
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-mute-btn:hover { border-color: var(--fg-2); color: var(--fg-0); }
+
+    /* Minimize / kibont gomb a section-header jobb szélén */
+    :is(.landing-v2-shell, .rovat-shell) .tv-collapse-btn {
+      margin-left: var(--sp-2);
+      background: transparent;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      width: 24px;
+      height: 22px;
+      color: var(--fg-1);
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-collapse-btn:hover {
+      border-color: var(--sphere-hu-econ); color: var(--fg-0);
+      background: rgba(45,212,191,0.08);
+    }
+    /* Lekicsinyített állapot: csak a section-header látszik, a player+tabs+meta
+       eltűnik. A gomb ikonja "▷" (kibont) lesz. */
+    .tv-panel-wrap.is-collapsed .echolot-tv {
+      max-height: 0;
+      overflow: hidden;
+      border-color: transparent;
+      margin-top: 0;
+      opacity: 0;
+      transition: max-height 0.25s ease, opacity 0.2s, margin-top 0.25s;
+    }
+    .tv-panel-wrap:not(.is-collapsed) .echolot-tv {
+      max-height: 1000px;
+      transition: max-height 0.3s ease, opacity 0.2s;
+    }
+
+    /* Pop-out gomb a section-header-en */
+    :is(.landing-v2-shell, .rovat-shell) .tv-popout-btn {
+      margin-left: var(--sp-2);
+      background: transparent;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      width: 24px;
+      height: 22px;
+      color: var(--fg-1);
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-popout-btn:hover {
+      border-color: var(--sphere-hu-econ); color: var(--fg-0);
+      background: rgba(45,212,191,0.08);
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       POPPED-OUT ÁLLAPOT — az egész oldal FÖLÉ helyezve, drag-elhető,
+       jobb-alsó sarokban natív CSS resize-handle. Pozíció+méret
+       localStorage-ban perzisztálva.
+       ════════════════════════════════════════════════════════════════════ */
+    .tv-panel-wrap.is-popped-out {
+      position: fixed;
+      top: 80px;
+      left: auto;
+      right: 80px;
+      width: 480px;
+      height: 360px;
+      z-index: 9999;
+      padding: 0;
+      margin: 0;
+      background: var(--bg-1);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(45,212,191,0.15);
+      overflow: hidden;
+      resize: both;
+      min-width: 320px;
+      min-height: 240px;
+      max-width: 95vw;
+      max-height: 95vh;
+    }
+    /* A wrapper section veszi át a teljes terület-méretezést */
+    .tv-panel-wrap.is-popped-out .ts-section {
+      padding: 0;
+      max-width: none;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    /* A section-header lesz a drag-handle */
+    .tv-panel-wrap.is-popped-out .ts-section-header {
+      cursor: move;
+      user-select: none;
+      padding: 10px 14px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--line-soft);
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+    /* A player wrapper kitölti a maradék vertikális teret —
+       aspect-ratio-t felülírjuk, hogy a felhasználó szabadon méretezhessen. */
+    .tv-panel-wrap.is-popped-out .echolot-tv {
+      flex: 1;
+      min-height: 0;
+      max-height: none;
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .tv-panel-wrap.is-popped-out .tv-tabs {
+      flex-shrink: 0;
+    }
+    .tv-panel-wrap.is-popped-out .tv-player-wrap {
+      flex: 1;
+      min-height: 0;
+      aspect-ratio: unset;
+    }
+    .tv-panel-wrap.is-popped-out .tv-meta {
+      flex-shrink: 0;
+    }
+    /* Pop-out közben a collapse-gomb értelmét veszti — elrejtjük */
+    .tv-panel-wrap.is-popped-out .tv-collapse-btn { display: none; }
+    /* A popout-gomb ikonja "↘" (dock back) lesz */
+    .tv-panel-wrap.is-popped-out .tv-popout-btn {
+      border-color: var(--sphere-hu-econ);
+      color: var(--sphere-hu-econ);
+      background: rgba(45,212,191,0.12);
+    }
+
+    /* Fullscreen-gomb — ugyanolyan mint a popout/collapse */
+    :is(.landing-v2-shell, .rovat-shell) .tv-fullscreen-btn {
+      margin-left: var(--sp-2);
+      background: transparent;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      width: 24px;
+      height: 22px;
+      color: var(--fg-1);
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .tv-fullscreen-btn:hover {
+      border-color: var(--sphere-hu-econ); color: var(--fg-0);
+      background: rgba(45,212,191,0.08);
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       FULLSCREEN ÁLLAPOT — natív Fullscreen API. A panel a teljes
+       böngészőablakot kitölti, Esc-re kilép. A többi action-gomb
+       (popout, collapse) elrejtve, csak a mute marad elérhető.
+       ════════════════════════════════════════════════════════════════════ */
+    .tv-panel-wrap:fullscreen {
+      background: var(--bg-0);
+      padding: 0;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+    .tv-panel-wrap:fullscreen .ts-section {
+      padding: 0;
+      max-width: none;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .tv-panel-wrap:fullscreen .ts-section-header {
+      padding: 10px 16px;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--line-soft);
+      margin-bottom: 0;
+      flex-shrink: 0;
+      cursor: default;
+    }
+    .tv-panel-wrap:fullscreen .echolot-tv {
+      flex: 1;
+      min-height: 0;
+      max-height: none;
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .tv-panel-wrap:fullscreen .tv-tabs { flex-shrink: 0; }
+    .tv-panel-wrap:fullscreen .tv-player-wrap {
+      flex: 1;
+      min-height: 0;
+      aspect-ratio: unset;
+    }
+    .tv-panel-wrap:fullscreen .tv-meta { flex-shrink: 0; }
+    /* Fullscreen alatt a popout + collapse értelmetlen — elrejtjük */
+    .tv-panel-wrap:fullscreen .tv-popout-btn,
+    .tv-panel-wrap:fullscreen .tv-collapse-btn { display: none; }
+    /* A fullscreen-gomb látványosabb formára vált — szöveg + zöld háttér,
+       hogy a felhasználó ne csak Esc-re számítson a kilépéshez. */
+    .tv-panel-wrap:fullscreen .tv-fullscreen-btn {
+      width: auto;
+      height: auto;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      border-color: var(--sphere-hu-econ);
+      color: var(--bg-0);
+      background: var(--sphere-hu-econ);
+    }
+    .tv-panel-wrap:fullscreen .tv-fullscreen-btn:hover {
+      background: #34e6cf;
+      color: var(--bg-0);
+    }
 """
 
 
@@ -1401,6 +1799,9 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     tabloid_html = _render_rovat(tabloid_stories, lang)
     economy_html = _render_rovat(economy_stories, lang)
 
+    # Live TV panel — bal landing-col, Top Stories ALATT (Kommandant döntés)
+    tv_panel_html = _render_tv_panel()
+
     return (f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
@@ -1442,6 +1843,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
       {local_trending_html}
     </div>
     <div class="landing-col">
+      {tv_panel_html}
       <h2>🔍 {section_blind}</h2>
       {blindspot_html}
     </div>
@@ -1471,5 +1873,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     <span> · </span>
     <a href="/dashboard?lang={lang}">▷ {dashboard_label} ◁</a>
   </div>
+
+  <script src="/static/echolot-tv.js" defer></script>
 </body>
 </html>""", lang)

@@ -1671,6 +1671,52 @@ async def static_og_image(request):
     )
 
 
+# ── Live TV viewer (Phase 1 integration) ──────────────────────────────
+
+@mcp.custom_route("/static/echolot-tv.js", methods=["GET"])
+async def static_echolot_tv_js(request):
+    """Vanilla JS player a Live TV panelhez (HLS.js + YT iframe swap)."""
+    p = Path(__file__).parent / "static" / "echolot-tv.js"
+    if not p.is_file():
+        return PlainTextResponse("echolot-tv.js missing", status_code=500)
+    return Response(
+        p.read_bytes(),
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@mcp.custom_route("/api/echolot/channels", methods=["GET"])
+async def api_echolot_channels(request):
+    """A Live TV panel 9 default csatornáját adja vissza JSON-ban."""
+    from echolot_live_news import all_channels
+    return JSONResponse(all_channels())
+
+
+@mcp.custom_route("/api/echolot/live/{channel_id}", methods=["GET"])
+async def api_echolot_live(request):
+    """Resolve egy csatornát live-info-ra (videoId, hlsUrl, isLive, source).
+
+    A `resolve_channel` synchron httpx-szel scrape-el YT-t — to_thread-be
+    csomagoljuk hogy ne blokkolja az event loop-ot.
+    """
+    import asyncio
+    from echolot_live_news import resolve_channel
+    channel_id = request.path_params.get("channel_id", "")
+    try:
+        result = await asyncio.to_thread(resolve_channel, channel_id)
+    except Exception as exc:
+        logger.exception("resolve_channel(%s) failed", channel_id)
+        return JSONResponse(
+            {"error": str(exc), "channel_id": channel_id}, status_code=500
+        )
+    if not result.get("name"):
+        return JSONResponse(
+            {"error": "unknown channel", "channel_id": channel_id}, status_code=404
+        )
+    return JSONResponse(result)
+
+
 @mcp.custom_route("/api/news", methods=["GET"])
 async def api_news(request):
     """Latest articles for landing page.

@@ -18,3 +18,7 @@ todo_*.md
 thoughts*.md
 *_handover.md
 *_snapshot.md
+
+# Live-TV viewer sandbox (dev playground; production-be integrálva,
+# lásd echolot_live_news.py + static/echolot-tv.js)
+tv-viewer/
