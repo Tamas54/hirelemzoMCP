@@ -104,11 +104,13 @@ def fetch_country_trending(geo: str = "HU", limit: int = 15) -> list[dict]:
                 title, source = parts[0], parts[1]
         if not source:
             source = (entry.get("source", {}) or {}).get("title", "") if hasattr(entry, "source") else ""
+        summary = _strip_html(entry.get("summary") or entry.get("description") or "").strip()
         results.append({
             "title": title,
             "source": source,
             "link": link,
             "published": entry.get("published") or entry.get("updated") or "",
+            "summary": summary,
             "geo": geo,
         })
 

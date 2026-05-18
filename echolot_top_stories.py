@@ -224,6 +224,7 @@ _FETCH_SQL = """
 SELECT
     a.article_id,
     a.title,
+    a.lead,
     a.url,
     a.source_id,
     a.source_name,
@@ -424,9 +425,12 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
     earliest_ts: str | None = None
     earliest_url: str | None = None
     earliest_title: str | None = None
+    earliest_lead: str | None = None
     latest_ts: str | None = None
     latest_url: str | None = None
     latest_title: str | None = None
+    latest_lead: str | None = None
+    any_lead: str | None = None  # first non-empty lead seen (fallback)
 
     for i in idxs:
         a = articles[i]
@@ -464,14 +468,19 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                 pure_topical_set.add(sp)
 
         ts = a.get("published_at") or a.get("fetched_at")
+        lead_txt = (a.get("lead") or "").strip() or None
+        if lead_txt and any_lead is None:
+            any_lead = lead_txt
         if ts and (earliest_ts is None or ts < earliest_ts):
             earliest_ts = ts
             earliest_url = a.get("url")
             earliest_title = a.get("title")
+            earliest_lead = lead_txt
         if ts and (latest_ts is None or ts > latest_ts):
             latest_ts = ts
             latest_url = a.get("url")
             latest_title = a.get("title")
+            latest_lead = lead_txt
 
     # Fallback: ha NINCS article-szintű sphere a clusterben (régi cikkek),
     # akkor a source-spheres válik a sphere_set-té.
@@ -486,9 +495,13 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
 
     # A lead URL most a LEGFRISSEBB cikkre mutat (nem a legkorábbira) — friss
     # tartalom magasabb kattintási értékkel; a lead_title is a friss cím lesz.
+    # Lead-summary: prefer LATEST article's lead, fall back to EARLIEST, then
+    # any non-empty lead found in cluster. Empty string if no lead anywhere.
+    lead_summary = latest_lead or earliest_lead or any_lead or ""
     return {
         "title": latest_title or earliest_title or (sample_titles[0] if sample_titles else ""),
         "lead_title": latest_title or earliest_title or "",
+        "lead_summary": lead_summary,
         "lead_url": latest_url or earliest_url or "",
         "source_count": len(seen_sources),
         "source_ids": sorted(seen_sources),

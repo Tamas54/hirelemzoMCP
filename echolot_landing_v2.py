@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import html as _html
 import logging
+from datetime import datetime, timezone
 
 from echolot_i18n import t
 from echolot_dashboard import (
@@ -72,6 +73,103 @@ ECONOMY_SPHERES = frozenset({
 
 # ── Render helpers ────────────────────────────────────────────────────
 
+# Sphere → CSS variable mapping for the v2 mockup card design.
+# Unknown spheres fall back to a neutral gray (--fg-2).
+_SPHERE_COLOR_MAP: dict[str, str] = {
+    # HU
+    "hu_politics": "var(--sphere-hu-pol)",
+    "hu_pol": "var(--sphere-hu-pol)",
+    "hu_economy": "var(--sphere-hu-econ)",
+    "hu_econ": "var(--sphere-hu-econ)",
+    "hu_society": "var(--sphere-hu-soc)",
+    "hu_soc": "var(--sphere-hu-soc)",
+    # Tech / science (cross-language)
+    "hu_tech": "var(--sphere-tech)",
+    "tech": "var(--sphere-tech)",
+    "global_tech": "var(--sphere-tech)",
+    "global_science": "var(--sphere-tech)",
+    "global_ai": "var(--sphere-tech)",
+    "global_critical_tech": "var(--sphere-tech)",
+    # World
+    "world_politics": "var(--sphere-world-pol)",
+    "world_pol": "var(--sphere-world-pol)",
+    "global_politics": "var(--sphere-world-pol)",
+    "world_economy": "var(--sphere-world-econ)",
+    "world_econ": "var(--sphere-world-econ)",
+    "global_economy": "var(--sphere-world-econ)",
+    "global_business": "var(--sphere-world-econ)",
+    "global_finance": "var(--sphere-world-econ)",
+    # Country accents
+    "russia": "var(--sphere-ru)",
+    "ru": "var(--sphere-ru)",
+    "global_russia": "var(--sphere-ru)",
+    "us": "var(--sphere-us)",
+    "usa": "var(--sphere-us)",
+    "global_us": "var(--sphere-us)",
+    "global_usa": "var(--sphere-us)",
+}
+
+
+def _sphere_color(sphere: str | None) -> str:
+    """Map an Echolot sphere name to its CSS color variable.
+
+    Case-insensitive; accepts both hyphenated and underscored forms.
+    Returns ``var(--fg-2)`` (neutral) for unknown / empty input.
+    """
+    if not sphere:
+        return "var(--fg-2)"
+    key = sphere.strip().lower().replace("-", "_")
+    return _SPHERE_COLOR_MAP.get(key, "var(--fg-2)")
+
+
+def _fmt_age(dt: datetime, now: datetime) -> str:
+    """Compact Hungarian relative age: '12p' / '5ó' / '3n'.
+
+    Handles mixed naive/aware datetimes by stripping tz info before
+    subtraction — both inputs are coerced to naive in UTC.
+    """
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    if now.tzinfo is not None:
+        now = now.astimezone(timezone.utc).replace(tzinfo=None)
+    delta = now - dt
+    secs = int(delta.total_seconds())
+    if secs < 0:
+        return "most"
+    if secs < 60:
+        return "most"
+    mins = secs // 60
+    if mins < 60:
+        return f"{mins}p"
+    hours = mins // 60
+    if hours < 48:
+        return f"{hours}ó"
+    days = hours // 24
+    return f"{days}n"
+
+
+def _format_reach_window(first_published: str | None,
+                        latest_published: str | None) -> str:
+    """Compact '2ó–6ó' window string for the reach badge, or '' if unavailable."""
+    if not first_published or not latest_published:
+        return ""
+    try:
+        first_dt = datetime.fromisoformat(first_published)
+        latest_dt = datetime.fromisoformat(latest_published)
+    except (ValueError, TypeError):
+        return ""
+    now = datetime.now(timezone.utc) if (first_dt.tzinfo or latest_dt.tzinfo) else datetime.now()
+    # Convention: 'first' is the oldest, 'latest' is the most recent.
+    # Display: latest_age → first_age (newest to oldest), to read naturally.
+    # Normalize both to UTC-naive for the span calculation.
+    fdt = first_dt.astimezone(timezone.utc).replace(tzinfo=None) if first_dt.tzinfo else first_dt
+    ldt = latest_dt.astimezone(timezone.utc).replace(tzinfo=None) if latest_dt.tzinfo else latest_dt
+    span_sec = int((ldt - fdt).total_seconds())
+    if span_sec < 1800:  # < 30 min span — treat as point-in-time
+        return _fmt_age(latest_dt, now)
+    return f"{_fmt_age(latest_dt, now)}–{_fmt_age(first_dt, now)}"
+
+
 def _render_entity_chip_row(entities: list[dict], lang: str) -> str:
     """A felső chip-row entity-trending. Klikkre /dashboard?query=NAME."""
     if not entities:
@@ -109,12 +207,18 @@ _FLAG_BY_CC: dict[str, str] = {
 }
 
 
-def _render_reach_badge(source_ids: list[str] | None) -> str:
+def _render_reach_badge(
+    source_ids: list[str] | None,
+    first_published: str | None = None,
+    latest_published: str | None = None,
+) -> str:
     """Compact reach-badge under each story card.
 
-    Renders ≈XXX olvasó with optional top-country flag. Returns empty
-    string if domain-intel is unavailable, no source_ids provided, or no
-    audience could be estimated.
+    Renders ≈XXX olvasó with optional top-country flag and an optional
+    "mikortól mikorig" relative time window (e.g. ``2ó–6ó`` meaning the
+    cluster spans from 2 to 6 hours ago). Returns empty string if
+    domain-intel is unavailable, no source_ids provided, or no audience
+    could be estimated.
     """
     if not _edi or not source_ids:
         return ""
@@ -135,10 +239,17 @@ def _render_reach_badge(source_ids: list[str] | None) -> str:
     else:
         sub = '<span class="reach-country reach-global">🌐 global</span>'
         title = f'≈{total} olvasó · global'
+    window = _format_reach_window(first_published, latest_published)
+    window_html = (
+        f' <span class="reach-window" title="cluster aktív: {_escape(window)}">{_escape(window)}</span>'
+        if window else ""
+    )
+    if window:
+        title = f"{title} · {window}"
     return (
         f'<div class="reach-badge" title="{_escape(title)}">'
         f'<span class="reach-num">≈{total}</span> '
-        f'<span class="reach-label">reach</span>{sub}'
+        f'<span class="reach-label">reach</span>{window_html}{sub}'
         f'</div>'
     )
 
@@ -157,68 +268,188 @@ def _render_bias_bar(bias: dict) -> str:
     """
 
 
-def _render_top_stories(stories: list[dict], lang: str) -> str:
-    """Top Stories cluster lista — hero-card + 2-col grid.
+def _render_source_stack(n_sources: int) -> str:
+    """Render overlapping colored dots representing N sources.
 
-    Az ELSŐ cluster (legtöbb-source) nagy hero-kártyaként renderelődik,
-    a maradék 5-7 cluster egy 2-oszlopos CSS grid-ben alatta.
+    Max 5 dots; if N > 5, show 4 dots + an "+N" overflow indicator.
+    Uses the s1..s5 gradient color classes defined in the v2 CSS.
+    """
+    if n_sources <= 0:
+        return ""
+    if n_sources <= 5:
+        dots = "".join(f'<span class="src-dot s{i+1}"></span>' for i in range(n_sources))
+        return f'<span class="dots">{dots}</span>'
+    overflow = n_sources - 4
+    dots = "".join(f'<span class="src-dot s{i+1}"></span>' for i in range(4))
+    dots += f'<span class="src-dot overflow">+{overflow}</span>'
+    return f'<span class="dots">{dots}</span>'
+
+
+def _render_pol_bar(bias: dict) -> str:
+    """Mockup-style political distribution bar — L/C/R % with flex weights."""
+    L = int(bias.get("L", 0))
+    C = int(bias.get("C", 0))
+    R = int(bias.get("R", 0))
+    return (
+        '<div class="pol-bar" title="'
+        f'L {L}% · C {C}% · R {R}%">'
+        f'<span class="seg l" style="flex: {max(L, 1)}">L {L}%</span>'
+        f'<span class="seg c" style="flex: {max(C, 1)}">C {C}%</span>'
+        f'<span class="seg r" style="flex: {max(R, 1)}">R {R}%</span>'
+        '</div>'
+    )
+
+
+def _render_v2_footer_reach(
+    source_ids: list[str] | None,
+    first_published: str | None,
+    latest_published: str | None,
+) -> str:
+    """Inline reach span for the v2 story footer.
+
+    Same data as ``_render_reach_badge`` but emitted as a single inline
+    ``<span class="footer-reach">`` (no surrounding div, no top border)
+    so it fits horizontally next to the time stamp in ``.story-footer-v2``.
+    """
+    if not _edi or not source_ids:
+        return ""
+    try:
+        reach = _edi.compute_story_reach(_REACH_DB_PATH, source_ids)
+    except Exception:
+        return ""
+    if not reach or not reach.get("total_readers"):
+        return ""
+    total = _edi.format_readers_compact(reach["total_readers"])
+    bc = reach.get("by_country") or []
+    if bc:
+        top = bc[0]
+        flag = _FLAG_BY_CC.get(top["country_code"], top["country_code"])
+        pct = top["pct_of_internet_users"]
+        country_html = f'<span class="reach-country">{flag} {pct:.1f}%</span>'
+        title = f'≈{total} olvasó · top: {top["country_code"]} ({pct:.1f}%)'
+    else:
+        country_html = '<span class="reach-country reach-global">🌐 global</span>'
+        title = f'≈{total} olvasó · global'
+    window = _format_reach_window(first_published, latest_published)
+    window_html = (
+        f' <span class="reach-window">{_escape(window)}</span>' if window else ""
+    )
+    if window:
+        title += f" · {window}"
+    return (
+        f'<span class="footer-reach" title="{_escape(title)}">'
+        f'<span class="reach-num">≈{total}</span> '
+        f'<span class="reach-label">reach</span>{window_html} {country_html}'
+        f'</span>'
+    )
+
+
+def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
+    """Render a single story card in the v2 mockup style.
+
+    ``variant`` is 'hero', 'sub', or 'sub compact'. The hero gets a
+    larger headline + full lead, regular sub gets a 19px headline +
+    2-line lead clamp, compact sub drops the lead entirely and uses a
+    15px headline + tighter pol-bar.
+    """
+    is_compact = "compact" in variant
+    title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
+    lead = "" if is_compact else (s.get("lead_summary") or "")
+    url = s.get("lead_url") or "#"
+    n_sources = int(s.get("source_count") or 0)
+    bias = s.get("bias_dist") or {"L": 0, "C": 0, "R": 0}
+    spheres = s.get("sphere_set") or []
+    sphere = spheres[0] if spheres else ""
+    accent = _sphere_color(sphere)
+
+    # Relative age (from latest_published). Fall back to first_published.
+    age_html = ""
+    latest = s.get("latest_published")
+    first = s.get("first_published")
+    if latest:
+        try:
+            dt = datetime.fromisoformat(latest)
+            now = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
+            age_html = f'<time datetime="{_escape(latest)}">{_fmt_age(dt, now)}</time>'
+        except (ValueError, TypeError):
+            age_html = ""
+
+    lead_html = (
+        f'<p class="story-lead-v2">{_escape(lead)}</p>' if lead else ""
+    )
+
+    footer_reach = _render_v2_footer_reach(s.get("source_ids"), first, latest)
+
+    return f"""
+      <a href="{_escape(url)}" target="_blank" rel="noopener" class="story {variant}">
+        <span class="accent" style="background: {accent}"></span>
+        <div class="meta-row">
+          <span class="sphere-tag" style="color: {accent}">{_escape(sphere)}</span>
+          <span class="source-stack">
+            {_render_source_stack(n_sources)}
+            <span class="src-count">{n_sources} {src_label}</span>
+          </span>
+        </div>
+        <h2 class="story-title-v2">{_escape(title)}</h2>
+        {lead_html}
+        {_render_pol_bar(bias)}
+        <div class="story-footer-v2">
+          {age_html}
+          {footer_reach}
+        </div>
+      </a>
+    """
+
+
+def _render_top_stories(stories: list[dict], lang: str) -> str:
+    """Top Stories — eredeti layout (hero + 2-col sub-grid) mockup v2 vizuálisan.
+
+    Az ELSŐ cluster (legtöbb-source) teljes szélességű hero-kártya, a
+    maradék 1-12 cluster 2-oszlopos rácsban alatta (a klasszikus echolot
+    elrendezés). Mind az új mockup-style designt használja
+    (.landing-v2-shell scope-ban).
     """
     if not stories:
         return f'<div class="empty">{_escape(t("landing.empty_panel", lang))}</div>'
 
     src_label = _escape(t("article.source", lang)).lower()
+    section_label = _escape(t("landing.section.top_stories", lang))
 
-    # Hero — stories[0]
-    hero = stories[0]
-    h_title = hero.get("lead_title") or (hero.get("sample_titles") or [""])[0] or "?"
-    h_url = hero.get("lead_url") or "#"
-    h_n = hero.get("source_count", 0)
-    h_bias = hero.get("bias_dist", {"L": 0, "C": 0, "R": 0})
-    h_spheres = hero.get("sphere_set") or []
-    h_sphere = h_spheres[0] if h_spheres else ""
-    hero_html = f"""
-      <a href="{_escape(h_url)}" target="_blank" rel="noopener" class="story-hero">
-        <div class="story-meta">
-          <span class="story-sphere">{_escape(h_sphere)}</span>
-          <span class="story-sources"><strong>{h_n}</strong> {src_label}</span>
-        </div>
-        <div class="story-title">{_escape(h_title)}</div>
-        {_render_bias_bar(h_bias)}
-        {_render_reach_badge(hero.get("source_ids"))}
-      </a>
+    hero_html = _render_story_v2(stories[0], "hero", src_label)
+    # Lépcsős méretcsökkentés: első 4 sub-medium, utána sub-compact (cím-only)
+    sub_cards = []
+    for i, s in enumerate(stories[1:13]):
+        variant = "sub" if i < 4 else "sub compact"
+        sub_cards.append(_render_story_v2(s, variant, src_label))
+    sub_html = (
+        f'<div class="stories-grid">{"".join(sub_cards)}</div>' if sub_cards else ""
+    )
+
+    return f"""
+      <div class="landing-v2-shell">
+        <section class="ts-section">
+          <div class="ts-section-header">
+            <span class="ts-section-icon">★</span>
+            <span class="ts-section-title">{section_label}</span>
+            <span class="ts-section-meta">FRISSÍTVE · 24H</span>
+          </div>
+          <div class="stories">{hero_html}</div>
+          {sub_html}
+        </section>
+      </div>
     """
-
-    # Grid — stories[1:13] (max 12 a hero alatt 2-oszlopos gridben)
-    cards = []
-    for s in stories[1:13]:
-        title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
-        url = s.get("lead_url") or "#"
-        n_sources = s.get("source_count", 0)
-        bias = s.get("bias_dist", {"L": 0, "C": 0, "R": 0})
-        spheres = s.get("sphere_set") or []
-        sphere_tag = spheres[0] if spheres else ""
-        cards.append(f"""
-          <a href="{_escape(url)}" target="_blank" rel="noopener" class="story-card">
-            <div class="story-meta">
-              <span class="story-sphere">{_escape(sphere_tag)}</span>
-              <span class="story-sources">{n_sources} {src_label}</span>
-            </div>
-            <div class="story-title">{_escape(title)}</div>
-            {_render_bias_bar(bias)}
-            {_render_reach_badge(s.get("source_ids"))}
-          </a>
-        """)
-    grid_html = f'<div class="story-grid">{"".join(cards)}</div>' if cards else ""
-    return hero_html + grid_html
 
 
 def _render_local_trending(local: dict, lang: str) -> str:
-    """Helyi trending blokk — Wiki + Google News + sphere-velocity."""
-    geo = local.get("geo", {})
-    wiki_geo = geo.get("wiki", "?")
-    gnews_geo = geo.get("gnews", "?")
+    """Helyi trending blokk — 3 vizuálisan elkülönülő szekció.
 
-    # Wikipedia top — backend visszaad {"results": [...], "error"?: ...}
+    Kommandant döntés szerint a forrás-nevek (Wikipedia / Google News)
+    nem jelennek meg explicit alcímként; helyettük neutrális magyar
+    címkék (KULCSSZAVAK / HÍREK / SZFÉRA VELOCITY). A hírek (Google News)
+    az új v2 stílusú kis kártyákban renderelődnek, cím + lead-szöveggel.
+    Wiki és Velocity sima text-sor listákban (ahogy az eredeti elrendezés).
+    """
+    # ── Wikipedia top — sima text-sor (mint az eredeti) ──────────────
     wiki_results = (local.get("wiki") or {}).get("results", []) if isinstance(local.get("wiki"), dict) else (local.get("wiki") or [])
     wiki_items = []
     for w in (wiki_results or [])[:8]:
@@ -226,23 +457,34 @@ def _render_local_trending(local: dict, lang: str) -> str:
         url = w.get("wiki_url") or "#"
         views = w.get("views", 0)
         wiki_items.append(
-            f'<li><a href="{_escape(url)}" target="_blank" rel="noopener">{_escape(title)}</a>'
-            f'<span class="n">{int(views):,}</span></li>'
+            f'<li class="lt-row">'
+            f'<a href="{_escape(url)}" target="_blank" rel="noopener">'
+            f'<span class="lt-row-title">{_escape(title)}</span>'
+            f'<span class="lt-row-meta">{int(views):,}</span>'
+            f'</a></li>'
         )
 
-    # Google News — same dict-with-results shape
+    # ── Google News — új v2 stílusú kis kártyák, lead-del ────────────
     gnews_results = (local.get("gnews") or {}).get("results", []) if isinstance(local.get("gnews"), dict) else (local.get("gnews") or [])
     gnews_items = []
     for g in (gnews_results or [])[:8]:
         title = g.get("title") or ""
         url = g.get("link") or "#"
         src = g.get("source") or ""
+        summary = (g.get("summary") or "").strip()
+        lead_html = (
+            f'<p class="lt-news-lead">{_escape(summary)}</p>' if summary else ""
+        )
         gnews_items.append(
-            f'<li><a href="{_escape(url)}" target="_blank" rel="noopener">{_escape(title)}</a>'
-            f'<span class="src">{_escape(src)}</span></li>'
+            f'<li class="lt-news-card">'
+            f'<a href="{_escape(url)}" target="_blank" rel="noopener">'
+            f'<h4 class="lt-news-title">{_escape(title)}</h4>'
+            f'{lead_html}'
+            f'<span class="lt-news-host">{_escape(src.lower())}</span>'
+            f'</a></li>'
         )
 
-    # Sphere velocity — backend wraps in {"results": [...]} or {"spheres": [...]}
+    # ── Sphere velocity — sima text-sor (mint az eredeti) ────────────
     vel_blob = local.get("velocity") or {}
     if isinstance(vel_blob, dict):
         vel_results = vel_blob.get("results") or vel_blob.get("spheres") or []
@@ -255,48 +497,50 @@ def _render_local_trending(local: dict, lang: str) -> str:
         ratio_s = f"{ratio:.1f}×" if ratio is not None else "—"
         status = v.get("status", "normal")
         vel_items.append(
-            f'<li><a href="/dashboard/sphere/{_escape(sphere)}?lang={lang}">'
-            f'{_escape(sphere)}</a><span class="ratio status-{status}">{ratio_s}</span></li>'
+            f'<li class="lt-row lt-row-velocity">'
+            f'<a href="/dashboard/sphere/{_escape(sphere)}?lang={lang}">'
+            f'<span class="lt-row-title">{_escape(sphere)}</span>'
+            f'<span class="lt-row-ratio status-{_escape(status)}">{_escape(ratio_s)}</span>'
+            f'</a></li>'
         )
 
+    empty = '<li class="lt-empty">—</li>'
     return f"""
-      <div class="local-block">
-        <h3>📈 Wikipedia ({_escape(wiki_geo)}.wikipedia)</h3>
-        <ul class="local-list">{''.join(wiki_items) or '<li class="empty">—</li>'}</ul>
-      </div>
-      <div class="local-block">
-        <h3>📰 Google News ({_escape(gnews_geo)})</h3>
-        <ul class="local-list">{''.join(gnews_items) or '<li class="empty">—</li>'}</ul>
-      </div>
-      <div class="local-block">
-        <h3>🔥 {_escape(t('tab.spheres', lang))} velocity</h3>
-        <ul class="local-list">{''.join(vel_items) or '<li class="empty">—</li>'}</ul>
+      <div class="lt-shell">
+        <div class="lt-section">
+          <div class="lt-section-label"><span class="lt-icon">◆</span>KULCSSZAVAK · 24H</div>
+          <ul class="lt-list">{''.join(wiki_items) or empty}</ul>
+        </div>
+        <div class="lt-section">
+          <div class="lt-section-label"><span class="lt-icon">◆</span>HÍREK · MA</div>
+          <ul class="lt-news-cards">{''.join(gnews_items) or empty}</ul>
+        </div>
+        <div class="lt-section">
+          <div class="lt-section-label"><span class="lt-icon">◆</span>SZFÉRA VELOCITY</div>
+          <ul class="lt-list">{''.join(vel_items) or empty}</ul>
+        </div>
       </div>
     """
 
 
 def _render_rovat(stories: list[dict], lang: str) -> str:
-    """Tematikus rovat-oszlop — kompakt lista (max 5-6 sztori, kis méret)."""
+    """Tematikus rovat-oszlop — v2 mockup stílus, sub.compact kártyák.
+
+    Az új v2 design tokenrendszerre kapcsolva: a kártyák `_render_story_v2`
+    'sub compact' variánssal renderelődnek (Newsreader cím, sphere-accent
+    bal-sáv, mockup pol-bar, footer reach időablakkal).
+    """
     if not stories:
         return f'<div class="empty">{_escape(t("landing.empty_panel", lang))}</div>'
     src_label = _escape(t("article.source", lang)).lower()
-    cards = []
-    for s in stories[:6]:
-        title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
-        url = s.get("lead_url") or "#"
-        n_sources = s.get("source_count", 0)
-        bias = s.get("bias_dist", {"L": 0, "C": 0, "R": 0})
-        cards.append(f"""
-          <a href="{_escape(url)}" target="_blank" rel="noopener" class="rovat-card">
-            <div class="rovat-title">{_escape(title)}</div>
-            <div class="rovat-meta">
-              <span>{n_sources} {src_label}</span>
-              {_render_bias_bar(bias)}
-            </div>
-            {_render_reach_badge(s.get("source_ids"))}
-          </a>
-        """)
-    return "".join(cards)
+    cards = [
+        _render_story_v2(s, "sub compact", src_label) for s in stories[:6]
+    ]
+    return f"""
+      <div class="rovat-shell">
+        <div class="stories">{''.join(cards)}</div>
+      </div>
+    """
 
 
 def _render_bias_legend(lang: str) -> str:
@@ -333,7 +577,7 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
             <div class="blindspot-title">{_escape(title)}</div>
             {_render_bias_bar(bias)}
             <div class="blindspot-meta">{p.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
-            {_render_reach_badge(p.get("source_ids"))}
+            {_render_reach_badge(p.get("source_ids"), p.get("first_published"), p.get("latest_published"))}
           </a>
         """)
     for g in geo[:2]:
@@ -345,7 +589,7 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
             <div class="blindspot-tag">Geo blindspot · only {_escape(dom)}</div>
             <div class="blindspot-title">{_escape(title)}</div>
             <div class="blindspot-meta">{g.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
-            {_render_reach_badge(g.get("source_ids"))}
+            {_render_reach_badge(g.get("source_ids"), g.get("first_published"), g.get("latest_published"))}
           </a>
         """)
     if not cards:
@@ -357,7 +601,7 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
 
 _LANDING_V2_EXTRA_CSS = """
     .entity-row {
-      max-width: 1280px; margin: 1.2rem auto 0; padding: 0 1rem;
+      max-width: 1500px; margin: 1.2rem auto 0; padding: 0 1rem;
       display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
     }
     .entity-row-label {
@@ -376,7 +620,7 @@ _LANDING_V2_EXTRA_CSS = """
     .entity-chip .n { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
 
     .landing-grid {
-      max-width: 1280px; margin: 1.5rem auto; padding: 0 1rem;
+      max-width: 1500px; margin: 1.5rem auto; padding: 0 1rem;
       display: grid; grid-template-columns: 2fr 1.2fr 1fr; gap: 1.5rem;
     }
     @media (max-width: 1024px) { .landing-grid { grid-template-columns: 1fr; } }
@@ -443,7 +687,7 @@ _LANDING_V2_EXTRA_CSS = """
 
     /* Bias-bar magyarázó legend — entity-row alatt, landing-grid felett */
     .bias-legend {
-      max-width: 1280px; margin: 0.6rem auto 0; padding: 0.45rem 1rem;
+      max-width: 1500px; margin: 0.6rem auto 0; padding: 0.45rem 1rem;
       display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
       font-size: 0.7rem; color: var(--text-dim);
       font-family: 'JetBrains Mono', monospace;
@@ -570,7 +814,7 @@ _LANDING_V2_EXTRA_CSS = """
 
     /* Rovatok — Tech / Gazdaság / Sport / Bulvár 4-oszlopos szekció */
     .rovatok-grid {
-      max-width: 1280px; margin: 0.5rem auto 1.5rem; padding: 0 1rem;
+      max-width: 1500px; margin: 0.5rem auto 1.5rem; padding: 0 1rem;
       display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;
     }
     @media (max-width: 1100px) { .rovatok-grid { grid-template-columns: 1fr 1fr; } }
@@ -608,7 +852,7 @@ _LANDING_V2_EXTRA_CSS = """
 
     .empty { color: var(--text-dim); font-style: italic; padding: 1rem 0; }
     .legacy-link {
-      max-width: 1280px; margin: 2rem auto 4rem; padding: 0 1rem;
+      max-width: 1500px; margin: 2rem auto 4rem; padding: 0 1rem;
       text-align: center; font-size: 0.8rem; color: var(--text-dim);
     }
     .legacy-link a { color: var(--primary); text-decoration: none; }
@@ -643,6 +887,414 @@ _LANDING_V2_EXTRA_CSS = """
     @media (max-width: 700px) {
       .top-actions { position: static; padding: 0.7rem 1rem 0;
                      justify-content: flex-end; }
+    }
+
+    /* =====================================================================
+       LANDING V2 — MOCKUP TOKEN SYSTEM
+       Scoped under .landing-v2-shell so it doesn't leak into the existing
+       dashboard / sphere / blindspot pages. Editorial / intelligence-terminal
+       hybrid design — Newsreader serif headlines + JetBrains Mono labels.
+       ===================================================================== */
+    /* Shared design tokens — all v2 panels (Top Stories + Helyi Trending + Rovat) */
+    .landing-v2-shell,
+    .lt-shell,
+    .rovat-shell {
+      /* Base palette — deep slate, never pure black (premium feel) */
+      --bg-0: #0a0d12;
+      --bg-1: #11151c;
+      --bg-2: #1a1f29;
+      --bg-3: #232a36;
+      --line: #2a323f;
+      --line-soft: #1c2230;
+
+      /* Warm off-white text scale */
+      --fg-0: #f4f1ea;
+      --fg-1: #c9c4b8;
+      --fg-2: #8a8478;
+      --fg-3: #5a5448;
+
+      /* Sphere accent colors (8 anchor — fallback to --fg-2 for the rest) */
+      --sphere-hu-pol:     #e0524f;
+      --sphere-hu-econ:    #2dd4bf;
+      --sphere-hu-soc:     #f59e0b;
+      --sphere-world-pol:  #d4a574;
+      --sphere-world-econ: #5b9eff;
+      --sphere-tech:       #a78bfa;
+      --sphere-ru:         #ef4444;
+      --sphere-us:         #4ade80;
+
+      /* Political distribution */
+      --pol-l: #c84a47;
+      --pol-c: #7a7163;
+      --pol-r: #4a6ad4;
+
+      /* Typography */
+      --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+      --font-body:    'Inter Tight', -apple-system, system-ui, sans-serif;
+      --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+      /* Spacing scale (4px base) */
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 24px;
+      --sp-6: 32px;
+      --sp-7: 48px;
+
+      /* Radii */
+      --r-sm: 6px;
+      --r-md: 10px;
+      --r-lg: 14px;
+      --r-xl: 20px;
+      --r-pill: 999px;
+    }
+    /* Top Stories shell gets atmospheric background + vertical padding;
+       lt-shell stays plain (inherits column width, no gradient). */
+    .landing-v2-shell {
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(45,212,191,0.06), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 30%, rgba(224,82,79,0.04), transparent 60%);
+      padding: var(--sp-5) 0 var(--sp-7);
+    }
+
+    /* Section header (mono label + meta) */
+    :is(.landing-v2-shell, .rovat-shell) .ts-section { padding: var(--sp-5) var(--sp-5) 0; max-width: 980px; margin: 0 auto; }
+    :is(.landing-v2-shell, .rovat-shell) .ts-section-header {
+      display: flex; align-items: baseline; gap: var(--sp-3);
+      margin-bottom: var(--sp-4);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .ts-section-icon {
+      color: var(--sphere-hu-econ); font-size: 14px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .ts-section-title {
+      font-family: var(--font-mono); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      color: var(--fg-1); font-weight: 600;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .ts-section-meta {
+      margin-left: auto; font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.15em; color: var(--fg-2); text-transform: uppercase;
+    }
+
+    /* Story list — hero (single column, full width) */
+    :is(.landing-v2-shell, .rovat-shell) .stories {
+      display: flex; flex-direction: column; gap: var(--sp-3);
+      margin-top: var(--sp-4);
+    }
+    /* 2-col sub-grid alatta — klasszikus echolot elrendezés */
+    :is(.landing-v2-shell, .rovat-shell) .stories-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: var(--sp-3); margin-top: var(--sp-3);
+    }
+    @media (max-width: 600px) {
+      :is(.landing-v2-shell, .rovat-shell) .stories-grid { grid-template-columns: 1fr; }
+    }
+
+    :is(.landing-v2-shell, .rovat-shell) .story {
+      position: relative;
+      display: block;
+      background: var(--bg-1);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-lg);
+      padding: 18px 18px 16px 22px;
+      overflow: hidden;
+      color: var(--fg-0);
+      text-decoration: none;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story:hover { border-color: var(--line); }
+    :is(.landing-v2-shell, .rovat-shell) .story:active { transform: scale(0.995); }
+
+    :is(.landing-v2-shell, .rovat-shell) .story .accent {
+      position: absolute;
+      left: 0; top: 14px; bottom: 14px;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+    }
+
+    :is(.landing-v2-shell, .rovat-shell) .story .meta-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; gap: var(--sp-3);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .sphere-tag {
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.12em; color: var(--fg-2); text-transform: uppercase;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots { display: inline-flex; align-items: center; }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 1.5px solid var(--bg-1);
+      margin-left: -6px;
+      background: linear-gradient(135deg, #3a4250, #1e242e);
+      display: inline-block;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot:first-child { margin-left: 0; }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot.s1 { background: linear-gradient(135deg, #e0524f, #8a2a28); }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot.s2 { background: linear-gradient(135deg, #5b9eff, #2a4ea0); }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot.s3 { background: linear-gradient(135deg, #f59e0b, #8a5806); }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot.s4 { background: linear-gradient(135deg, #2dd4bf, #117a6e); }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot.s5 { background: linear-gradient(135deg, #a78bfa, #4c2da8); }
+    :is(.landing-v2-shell, .rovat-shell) .source-stack .dots .src-dot.overflow {
+      background: var(--bg-3); color: var(--fg-1);
+      font-size: 9px; font-family: var(--font-mono); font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center;
+      letter-spacing: 0;
+    }
+
+    :is(.landing-v2-shell, .rovat-shell) .story-title-v2 {
+      font-family: var(--font-display);
+      color: var(--fg-0);
+      line-height: 1.2;
+      letter-spacing: -0.015em;
+      margin-bottom: var(--sp-2);
+      display: block;
+    }
+
+    :is(.landing-v2-shell, .rovat-shell) .story-lead-v2 {
+      color: var(--fg-1);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: var(--sp-3);
+    }
+
+    /* Political distribution bar (DISTINCT from existing .bias-bar) */
+    :is(.landing-v2-shell, .rovat-shell) .pol-bar {
+      display: flex; height: 28px; border-radius: var(--r-sm);
+      overflow: hidden;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.05em; margin-bottom: var(--sp-3);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .pol-bar .seg {
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.95); padding: 0 var(--sp-2);
+      white-space: nowrap;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .pol-bar .seg.l { background: var(--pol-l); }
+    :is(.landing-v2-shell, .rovat-shell) .pol-bar .seg.c { background: var(--pol-c); }
+    :is(.landing-v2-shell, .rovat-shell) .pol-bar .seg.r { background: var(--pol-r); }
+
+    /* Bottom row — time on left, reach in middle, actions on right */
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 {
+      display: flex; align-items: center; gap: var(--sp-3);
+      font-family: var(--font-mono); font-size: 10px;
+      color: var(--fg-2); letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 time { white-space: nowrap; }
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 .footer-reach {
+      margin-left: auto; display: inline-flex; align-items: center;
+      gap: var(--sp-2); text-transform: none; letter-spacing: 0.04em;
+      font-size: 11px; color: var(--fg-1);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 .footer-reach .reach-num {
+      color: var(--sphere-hu-econ); font-weight: 700; font-size: 12px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 .footer-reach .reach-label {
+      text-transform: uppercase; letter-spacing: 0.16em; font-size: 9px;
+      opacity: 0.7;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 .footer-reach .reach-window {
+      color: var(--fg-2); font-size: 10px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story-footer-v2 .footer-reach .reach-country {
+      font-size: 11px;
+    }
+
+    /* HERO variant — first card, much larger */
+    :is(.landing-v2-shell, .rovat-shell) .story.hero {
+      padding: 24px 22px 20px 26px;
+      background:
+        linear-gradient(180deg, rgba(224,82,79,0.05), transparent 40%),
+        var(--bg-2);
+      border: 1px solid var(--line);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.hero .accent { width: 4px; top: 18px; bottom: 18px; }
+    :is(.landing-v2-shell, .rovat-shell) .story.hero .story-title-v2 {
+      font-size: 28px; font-weight: 600; line-height: 1.15;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.hero .story-lead-v2 { font-size: 15px; }
+    :is(.landing-v2-shell, .rovat-shell) .story.hero .source-stack { font-size: 11px; color: var(--fg-1); }
+    :is(.landing-v2-shell, .rovat-shell) .story.hero .source-stack .src-count { color: var(--fg-0); font-weight: 600; }
+
+    /* SUB variant — smaller cards */
+    :is(.landing-v2-shell, .rovat-shell) .story.sub .story-title-v2 {
+      font-size: 19px; font-weight: 500; line-height: 1.25;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub .story-lead-v2 {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+      font-size: 13px; margin-bottom: var(--sp-3);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub .pol-bar { height: 22px; font-size: 10px; }
+
+    /* COMPACT sub variant — lépcsős méretcsökkentés a 4. sub után.
+       Cím-only kártya, nincs lead-szöveg, kisebb font + tighter pol-bar. */
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact {
+      padding: 12px 12px 12px 16px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .accent {
+      top: 10px; bottom: 10px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .meta-row {
+      margin-bottom: var(--sp-2);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .sphere-tag { font-size: 9px; }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .source-stack { font-size: 9px; }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .source-stack .dots .src-dot {
+      width: 12px; height: 12px; margin-left: -4px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .story-title-v2 {
+      font-size: 15px; font-weight: 500; line-height: 1.3;
+      margin-bottom: var(--sp-2);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .pol-bar {
+      height: 16px; font-size: 9px; margin-bottom: var(--sp-2);
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .story-footer-v2 {
+      font-size: 9px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .story-footer-v2 .footer-reach {
+      font-size: 10px;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .story-footer-v2 .footer-reach .reach-num {
+      font-size: 11px;
+    }
+
+    /* Entry fade-up animation */
+    @keyframes fadeUpV2 {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story { animation: fadeUpV2 0.5s ease-out both; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(1) { animation-delay: 0.06s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(2) { animation-delay: 0.12s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(3) { animation-delay: 0.18s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(4) { animation-delay: 0.24s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(5) { animation-delay: 0.30s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(6) { animation-delay: 0.36s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(7) { animation-delay: 0.42s; }
+    :is(.landing-v2-shell, .rovat-shell) .story:nth-child(8) { animation-delay: 0.48s; }
+
+    /* Responsive */
+    @media (max-width: 700px) {
+      :is(.landing-v2-shell, .rovat-shell) .ts-section { padding: var(--sp-4) var(--sp-4) 0; }
+      :is(.landing-v2-shell, .rovat-shell) .story { padding: 14px 14px 14px 18px; }
+      :is(.landing-v2-shell, .rovat-shell) .story.hero { padding: 18px 16px 16px 22px; }
+      :is(.landing-v2-shell, .rovat-shell) .story.hero .story-title-v2 { font-size: 24px; }
+    }
+
+    /* =====================================================================
+       LANDING V2 — HELYI TRENDING (lt-shell)
+       3 vizuálisan elkülönülő szekció — KULCSSZAVAK (Wikipedia top, sima
+       lista), HÍREK (Google News, kis kártyákban lead-del), SZFÉRA
+       VELOCITY (sphere név + ratio, sima lista). Az eredeti szélességet
+       megtartjuk — semmi extra padding a shell-en.
+       ===================================================================== */
+    .lt-shell .lt-section { margin-bottom: var(--sp-5); }
+    .lt-shell .lt-section:last-child { margin-bottom: 0; }
+    .lt-shell .lt-section-label {
+      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      color: var(--fg-2);
+      margin-bottom: var(--sp-3);
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px solid var(--line-soft);
+      display: flex; align-items: center; gap: var(--sp-2);
+    }
+    .lt-shell .lt-section-label .lt-icon {
+      color: var(--sphere-hu-econ); font-size: 11px;
+    }
+
+    /* Sima text-sor lista (Wiki, Velocity) — közeli az eredetihez, csak
+       v2 tipográfia. NEM kártya, csak border-bottom separator. */
+    .lt-shell .lt-list {
+      list-style: none; padding: 0; margin: 0;
+    }
+    .lt-shell .lt-row {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .lt-shell .lt-row:last-child { border-bottom: none; }
+    .lt-shell .lt-row a {
+      display: flex; align-items: baseline; gap: var(--sp-3);
+      padding: 8px 0;
+      text-decoration: none; color: var(--fg-0);
+      font-family: var(--font-body); font-size: 13px;
+      line-height: 1.35;
+      transition: color 0.15s;
+    }
+    .lt-shell .lt-row a:hover { color: var(--sphere-hu-econ); }
+    .lt-shell .lt-row-title {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .lt-shell .lt-row-meta {
+      font-family: var(--font-mono);
+      font-size: 11px; color: var(--fg-2);
+      white-space: nowrap; letter-spacing: 0.04em;
+    }
+    .lt-shell .lt-row-velocity a { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
+    .lt-shell .lt-row-ratio {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px; border-radius: var(--r-sm);
+      background: var(--bg-3); color: var(--fg-1);
+      letter-spacing: 0.04em;
+    }
+    .lt-shell .lt-row-ratio.status-spike {
+      background: rgba(224,82,79,0.18); color: var(--sphere-hu-pol);
+    }
+    .lt-shell .lt-row-ratio.status-rising {
+      background: rgba(245,158,11,0.18); color: var(--sphere-hu-soc);
+    }
+
+    /* HÍREK — kis kártyák lead-del (új v2 stílus a hírecskéknek) */
+    .lt-shell .lt-news-cards {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: var(--sp-2);
+    }
+    .lt-shell .lt-news-card {
+      background: var(--bg-1);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-md);
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .lt-shell .lt-news-card:hover { border-color: var(--line); }
+    .lt-shell .lt-news-card:active { transform: scale(0.995); }
+    .lt-shell .lt-news-card a {
+      display: block;
+      padding: 10px 12px;
+      text-decoration: none; color: var(--fg-0);
+    }
+    .lt-shell .lt-news-title {
+      font-family: var(--font-body);
+      font-size: 13px; font-weight: 600;
+      line-height: 1.3; margin: 0 0 4px 0;
+      color: var(--fg-0);
+    }
+    .lt-shell .lt-news-lead {
+      font-family: var(--font-body);
+      font-size: 11.5px; line-height: 1.4;
+      color: var(--fg-1);
+      margin: 0 0 6px 0;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .lt-shell .lt-news-host {
+      font-family: var(--font-mono);
+      font-size: 9px; color: var(--fg-2);
+      letter-spacing: 0.1em;
+      text-transform: lowercase;
+    }
+
+    .lt-shell .lt-empty {
+      color: var(--fg-3); font-style: italic;
+      padding: var(--sp-2) 0; list-style: none;
     }
 """
 
