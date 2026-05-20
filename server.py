@@ -1730,6 +1730,82 @@ async def api_echolot_live(request):
     return JSONResponse(result)
 
 
+@mcp.custom_route("/api/echolot/yt-debug/{video_id}", methods=["GET"])
+async def api_echolot_yt_debug(request):
+    """Diagnoszticus endpoint — pontosan jelenti mit lát a Railway-Python a YT
+    watch-page-en. Ezzel azonosítjuk hogy IP-block, consent-wall, TLS-fingerprint
+    vagy más a transcript-fetch-fail oka. NEM production endpoint, fejlesztési
+    eszköz; ha a baj kiderül + javul, törölhető.
+    """
+    import asyncio
+    video_id = request.path_params.get("video_id", "")
+    if not video_id or len(video_id) != 11:
+        return JSONResponse({"error": "invalid video_id"}, status_code=400)
+
+    def _probe():
+        import httpx, re, os
+        CHROME_UA = (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        )
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        # Verzió 1: NYERS fetch (mint a youtube-transcript-api lib csinálja)
+        results = {"video_id": video_id, "probes": []}
+        for label, kwargs in [
+            ("raw", {}),
+            ("with_chrome_ua", {"headers": {"User-Agent": CHROME_UA}}),
+            ("with_consent_cookies", {
+                "headers": {"User-Agent": CHROME_UA, "Accept-Language": "en-US,en;q=0.9"},
+                "cookies": {
+                    "CONSENT": "YES+cb.20240314-07-p0.en+FX+123",
+                    "SOCS": "CAESEwgDEgk2NjA1OTM5MjEaAmVuIAEaBgiA9NK6Bg",
+                },
+            }),
+        ]:
+            try:
+                with httpx.Client(timeout=15.0, follow_redirects=True, **kwargs) as c:
+                    r = c.get(url)
+                    html = r.text
+                results["probes"].append({
+                    "label": label,
+                    "status": r.status_code,
+                    "final_url": str(r.url),
+                    "length": len(html),
+                    "is_consent_wall": "consent.youtube.com" in str(r.url) or "ConsentUi" in html[:2000],
+                    "has_videoDetails": '"videoDetails"' in html,
+                    "has_captionTracks": '"captionTracks"' in html,
+                    "first_400": html[:400],
+                })
+            except Exception as e:
+                results["probes"].append({
+                    "label": label,
+                    "error": f"{type(e).__name__}: {str(e)[:200]}"
+                })
+        # Library próba is — mit ad valójában a youtube-transcript-api
+        try:
+            from youtube_transcript_api import YouTubeTranscriptApi
+            api = YouTubeTranscriptApi()
+            try:
+                tl = api.list(video_id)
+                results["lib_list"] = [
+                    {"lang": t.language_code, "name": t.language,
+                     "generated": t.is_generated} for t in tl
+                ]
+            except Exception as e:
+                results["lib_list_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+        except Exception as e:
+            results["lib_import_error"] = str(e)
+        # Environment
+        results["env"] = {
+            "YOUTUBE_PROXY_URL_set": bool(os.environ.get("YOUTUBE_PROXY_URL")),
+            "YOUTUBE_API_KEY_set": bool(os.environ.get("YOUTUBE_API_KEY")),
+        }
+        return results
+
+    result = await asyncio.to_thread(_probe)
+    return JSONResponse(result)
+
+
 @mcp.custom_route("/api/echolot/yt-transcript/{video_id}", methods=["GET"])
 async def api_echolot_yt_transcript(request):
     """YouTube transcript JSON endpoint — inline-expand panelhez a frontenden.
