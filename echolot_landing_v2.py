@@ -24,6 +24,7 @@ from echolot_i18n import t
 from echolot_dashboard import (
     _BASE_STYLES,
     _augment_block_html,
+    _augment_strip_css,
     _request_lang,
     _escape,
 )
@@ -2308,7 +2309,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>{_BASE_STYLES}{_LANDING_V2_EXTRA_CSS}</style>
+  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}</style>
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
