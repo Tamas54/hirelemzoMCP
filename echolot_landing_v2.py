@@ -29,6 +29,7 @@ from echolot_dashboard import (
 )
 from echolot_seo import public_origin, seo_head_html
 from echolot_local_trending import build_local_trending
+from echolot_youtube_trends import trending_videos as _yt_trending_videos
 from echolot_top_stories import cluster_top_stories
 from echolot_blindspot import find_political_blindspots, find_geo_blindspots
 from echolot_entity_trending import top_entities_24h
@@ -108,6 +109,35 @@ _SPHERE_COLOR_MAP: dict[str, str] = {
     "global_us": "var(--sphere-us)",
     "global_usa": "var(--sphere-us)",
 }
+
+
+# UI-language → YouTube `regionCode` (ISO 3166-1 alpha-2). Ha az echolot
+# nyelvváltó-rajza nem-támogatott YT-regiót adna, fallback "HU"-ra (mert a
+# fő közönség onnan jön).
+_LANG_TO_YT_REGION: dict[str, str] = {
+    "hu": "HU", "en": "US", "de": "DE", "fr": "FR", "es": "ES",
+    "it": "IT", "pl": "PL", "ru": "RU", "uk": "UA",
+    "ja": "JP", "ko": "KR", "zh": "CN", "pt": "BR", "tr": "TR",
+    "nl": "NL", "cs": "CZ",
+}
+
+
+def _lang_to_yt_region(lang: str | None) -> str:
+    if not lang:
+        return "HU"
+    return _LANG_TO_YT_REGION.get(lang.strip().lower(), "HU")
+
+
+def _format_views_compact(views: int) -> str:
+    """1234 → '1.2K', 1234567 → '1.2M', 1234567890 → '1.2B'."""
+    n = int(views or 0)
+    if n < 1000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n/1000:.1f}K".replace(".0K", "K")
+    if n < 1_000_000_000:
+        return f"{n/1_000_000:.1f}M".replace(".0M", "M")
+    return f"{n/1_000_000_000:.1f}B".replace(".0B", "B")
 
 
 def _sphere_color(sphere: str | None) -> str:
@@ -640,6 +670,77 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
     return "".join(cards)
 
 
+def _render_youtube_trending(videos: list[dict] | None, lang: str, region: str) -> str:
+    """YouTube trending videók panel — kis kártyák thumbnaillel.
+
+    `videos` az echolot_youtube_trends.trending_videos() eredménye (lehet
+    None ha nincs API-key vagy hiba). A felülvizsgált kártyák megegyezőek
+    a Helyi Trending hír-kártyák stílusával, csak a `lt-` prefix helyett
+    `yt-` osztályokkal.
+    """
+    if not videos:
+        return (
+            '<div class="yt-shell"><div class="yt-empty">'
+            'Nincs adat — YOUTUBE_API_KEY hiányzik vagy a YT API kvóta kimerült.'
+            '</div></div>'
+        )
+    cards = []
+    for v in videos[:8]:
+        title = v.get("title") or ""
+        url = v.get("url") or "#"
+        video_id = v.get("video_id") or ""
+        channel = v.get("channel") or ""
+        views = int(v.get("views") or 0)
+        thumb = v.get("thumbnail") or ""
+        # Description-snippet — 200 char-os preview a YT API-tól, 2 sorra
+        # CSS line-clamp-pal vágva. Plain-text only, escape elég.
+        description = (v.get("description") or "").strip()
+        views_html = _format_views_compact(views)
+        thumb_html = (
+            f'<img class="yt-thumb" src="{_escape(thumb)}" alt="" loading="lazy">'
+            if thumb else '<div class="yt-thumb yt-thumb-empty">▶</div>'
+        )
+        desc_html = (
+            f'<p class="yt-desc">{_escape(description)}</p>' if description else ""
+        )
+        # Transcript-actions: inline-expand gomb + új-tab ikon. A
+        # data-video-id-t a JS olvassa ki és a panelt alá renderelt
+        # ".yt-transcript-panel"-be feszíti.
+        actions_html = (
+            f'<div class="yt-actions">'
+            f'<button class="yt-transcript-btn" type="button" '
+            f'data-video-id="{_escape(video_id)}" '
+            f'aria-label="Leirat ki/be kapcsolása">▽ Leirat</button>'
+            f'<a class="yt-transcript-link" '
+            f'href="/transcript/{_escape(video_id)}" target="_blank" rel="noopener" '
+            f'title="Leirat megnyitása külön oldalon">↗</a>'
+            f'</div>'
+        ) if video_id else ""
+        cards.append(
+            f'<li class="yt-card">'
+            f'<a class="yt-main-link" href="{_escape(url)}" target="_blank" rel="noopener">'
+            f'{thumb_html}'
+            f'<div class="yt-card-body">'
+            f'<h4 class="yt-title">{_escape(title)}</h4>'
+            f'{desc_html}'
+            f'<span class="yt-meta">{_escape(channel)} · {views_html} megtekintés</span>'
+            f'</div>'
+            f'</a>'
+            f'{actions_html}'
+            f'<div class="yt-transcript-panel" data-for-video="{_escape(video_id)}" hidden></div>'
+            f'</li>'
+        )
+    region_label = _escape(region)
+    return f"""
+      <div class="yt-shell">
+        <div class="yt-section-label">
+          <span class="yt-icon">▶</span>YOUTUBE TRENDING · {region_label}
+        </div>
+        <ul class="yt-cards">{"".join(cards)}</ul>
+      </div>
+    """
+
+
 # ── Stylesheet az új blokkokhoz ───────────────────────────────────────
 
 _LANDING_V2_EXTRA_CSS = """
@@ -943,9 +1044,10 @@ _LANDING_V2_EXTRA_CSS = """
        dashboard / sphere / blindspot pages. Editorial / intelligence-terminal
        hybrid design — Newsreader serif headlines + JetBrains Mono labels.
        ===================================================================== */
-    /* Shared design tokens — all v2 panels (Top Stories + Helyi Trending + Rovat) */
+    /* Shared design tokens — all v2 panels (Top Stories + Helyi Trending + Rovat + YT) */
     .landing-v2-shell,
     .lt-shell,
+    .yt-shell,
     .rovat-shell {
       /* Base palette — deep slate, never pure black (premium feel) */
       --bg-0: #0a0d12;
@@ -1694,6 +1796,183 @@ _LANDING_V2_EXTRA_CSS = """
       background: #34e6cf;
       color: var(--bg-0);
     }
+
+    /* =====================================================================
+       YOUTUBE TRENDING PANEL — jobb landing-col, blindspot ALATT
+       Kis kártyák thumbnaillel; cím + csatorna · nézettség. A Helyi
+       Trending HÍREK kártyáihoz hasonló stílus, de thumbnail + view-count.
+       ===================================================================== */
+    .yt-shell { margin-top: var(--sp-5); }
+    .yt-shell .yt-section-label {
+      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      color: var(--fg-2);
+      margin-bottom: var(--sp-3);
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px solid var(--line-soft);
+      display: flex; align-items: center; gap: var(--sp-2);
+    }
+    .yt-shell .yt-icon {
+      color: var(--sphere-hu-pol); font-size: 11px;
+    }
+    .yt-shell .yt-cards {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: var(--sp-2);
+    }
+    .yt-shell .yt-card {
+      background: var(--bg-1);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-md);
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .yt-shell .yt-card:hover { border-color: var(--line); }
+    .yt-shell .yt-card:active { transform: scale(0.995); }
+    .yt-shell .yt-card a {
+      display: flex;
+      gap: var(--sp-2);
+      padding: 8px;
+      text-decoration: none;
+      color: var(--fg-0);
+      align-items: flex-start;
+    }
+    .yt-shell .yt-thumb {
+      flex-shrink: 0;
+      width: 80px;
+      height: 45px;
+      object-fit: cover;
+      border-radius: var(--r-sm);
+      background: var(--bg-0);
+    }
+    .yt-shell .yt-thumb-empty {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--sphere-hu-pol);
+      font-size: 16px;
+    }
+    .yt-shell .yt-card-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .yt-shell .yt-title {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin: 0;
+      color: var(--fg-0);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .yt-shell .yt-desc {
+      font-family: var(--font-body);
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--fg-1);
+      margin: 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .yt-shell .yt-meta {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--fg-2);
+      letter-spacing: 0.04em;
+      text-transform: lowercase;
+    }
+    /* Transcript-actions row a thumbnail-és-szöveg link ALATT */
+    .yt-shell .yt-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 4px 8px 8px 8px;
+      border-top: 1px solid var(--line-soft);
+      margin-top: 0;
+    }
+    .yt-shell .yt-transcript-btn {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--fg-2);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .yt-shell .yt-transcript-btn:hover {
+      border-color: var(--sphere-hu-econ);
+      color: var(--fg-0);
+      background: rgba(45,212,191,0.08);
+    }
+    .yt-shell .yt-transcript-btn.is-expanded {
+      border-color: var(--sphere-hu-econ);
+      color: var(--sphere-hu-econ);
+      background: rgba(45,212,191,0.12);
+    }
+    .yt-shell .yt-transcript-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      color: var(--fg-2);
+      text-decoration: none;
+      font-size: 11px;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .yt-shell .yt-transcript-link:hover {
+      border-color: var(--sphere-hu-econ);
+      color: var(--fg-0);
+      background: rgba(45,212,191,0.08);
+    }
+    /* Inline-expanded transcript panel — a kártyán belül, scrollozható */
+    .yt-shell .yt-transcript-panel {
+      max-height: 280px;
+      overflow-y: auto;
+      padding: var(--sp-3) var(--sp-3);
+      border-top: 1px solid var(--line-soft);
+      background: var(--bg-0);
+      font-family: var(--font-body);
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--fg-1);
+      white-space: pre-wrap;
+    }
+    .yt-shell .yt-transcript-panel[hidden] { display: none; }
+    .yt-shell .yt-transcript-panel.is-loading {
+      color: var(--fg-3); font-style: italic;
+    }
+    .yt-shell .yt-transcript-panel.is-error {
+      color: var(--sphere-hu-pol); font-style: italic;
+    }
+    /* Scrollbar styling */
+    .yt-shell .yt-transcript-panel::-webkit-scrollbar { width: 6px; }
+    .yt-shell .yt-transcript-panel::-webkit-scrollbar-thumb {
+      background: var(--line); border-radius: 3px;
+    }
+    .yt-shell .yt-transcript-panel::-webkit-scrollbar-track { background: transparent; }
+    .yt-shell .yt-empty {
+      color: var(--fg-3);
+      font-style: italic;
+      padding: var(--sp-3);
+      border: 1px dashed var(--line-soft);
+      border-radius: var(--r-md);
+      font-size: 12px;
+      line-height: 1.4;
+    }
 """
 
 
@@ -1716,6 +1995,15 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     except Exception as exc:
         log.warning("local_trending failed: %s", exc)
         local = {"wiki": [], "gnews": [], "velocity": [], "geo": {}}
+
+    # YouTube trending — region-aware. Ha nincs YOUTUBE_API_KEY env, None
+    # jön vissza és a renderelt panel "no-data" magyarázó-kártyát mutat.
+    yt_region = _lang_to_yt_region(lang)
+    try:
+        yt_videos = await _yt_trending_videos(region=yt_region, count=8, category="all")
+    except Exception as exc:
+        log.warning("youtube_trending failed (region=%s): %s", yt_region, exc)
+        yt_videos = None
 
     # min_sources lang-filtered query-re lazább (kevesebb forrás van nyelvenként):
     # 2 source elég hogy "story" legyen. Limit 13 = hero + 12-grid (6×2 sor).
@@ -1782,6 +2070,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     top_stories_html = _render_top_stories(stories, lang)
     local_trending_html = _render_local_trending(local, lang)
     blindspot_html = _render_blindspots(political_blind, geo_blind, lang)
+    yt_trending_html = _render_youtube_trending(yt_videos, lang, yt_region)
 
     title_html = _escape(t("landing.hero_title", lang))
     legacy_label = _escape(t("landing.legacy_view", lang))
@@ -1846,6 +2135,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
       {tv_panel_html}
       <h2>🔍 {section_blind}</h2>
       {blindspot_html}
+      {yt_trending_html}
     </div>
   </div>
 
@@ -1875,5 +2165,6 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   </div>
 
   <script src="/static/echolot-tv.js" defer></script>
+  <script src="/static/echolot-yt-transcript.js" defer></script>
 </body>
 </html>""", lang)

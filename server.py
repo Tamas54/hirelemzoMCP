@@ -1686,6 +1686,19 @@ async def static_echolot_tv_js(request):
     )
 
 
+@mcp.custom_route("/static/echolot-yt-transcript.js", methods=["GET"])
+async def static_echolot_yt_transcript_js(request):
+    """Vanilla JS: YouTube-trending kártyák inline transcript-expand-je."""
+    p = Path(__file__).parent / "static" / "echolot-yt-transcript.js"
+    if not p.is_file():
+        return PlainTextResponse("echolot-yt-transcript.js missing", status_code=500)
+    return Response(
+        p.read_bytes(),
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
 @mcp.custom_route("/api/echolot/channels", methods=["GET"])
 async def api_echolot_channels(request):
     """A Live TV panel 9 default csatornáját adja vissza JSON-ban."""
@@ -1715,6 +1728,372 @@ async def api_echolot_live(request):
             {"error": "unknown channel", "channel_id": channel_id}, status_code=404
         )
     return JSONResponse(result)
+
+
+@mcp.custom_route("/api/echolot/yt-transcript/{video_id}", methods=["GET"])
+async def api_echolot_yt_transcript(request):
+    """YouTube transcript JSON endpoint — inline-expand panelhez a frontenden.
+
+    Query params:
+        lang:        preferált nyelv-kód (pl. "hu", "en"). Default: "hu".
+        translate:   ha megadva, fordítás erre a nyelvre.
+
+    Returns:
+        {video_id, language_code, language, is_generated, plain_text, segments[]}
+        404 ha nincs elérhető transcript.
+    """
+    import asyncio
+    from echolot_youtube_transcript import fetch_transcript
+    video_id = request.path_params.get("video_id", "")
+    lang_pref = request.query_params.get("lang", "hu")
+    translate = request.query_params.get("translate")
+    if not video_id or len(video_id) != 11:
+        return JSONResponse(
+            {"error": "invalid video_id", "video_id": video_id}, status_code=400
+        )
+    try:
+        payload = await asyncio.to_thread(
+            fetch_transcript, video_id, lang_pref, translate_to=translate
+        )
+    except Exception as exc:
+        logger.exception("fetch_transcript(%s) failed", video_id)
+        return JSONResponse(
+            {"error": str(exc), "video_id": video_id}, status_code=500
+        )
+    if payload is None:
+        return JSONResponse(
+            {"error": "transcript unavailable", "video_id": video_id}, status_code=404
+        )
+    return JSONResponse(payload)
+
+
+@mcp.custom_route("/transcript/{video_id}", methods=["GET"])
+async def page_transcript(request):
+    """Dedikált full-page transcript view — új tabban megnyitható.
+
+    A YT-trending kártya `↗` ikonja vezet ide. A page-t v2 design tokenekkel
+    rendereljük; a transcript-ot szerveroldalon fetcheljük, hogy SEO-bar
+    is index-elhesse és JS nélkül is olvasható legyen.
+    """
+    import asyncio
+    from echolot_youtube_transcript import fetch_transcript, format_timestamp
+    from echolot_landing_v2 import _LANDING_V2_EXTRA_CSS
+    from html import escape as _esc
+    video_id = request.path_params.get("video_id", "")
+    if not video_id or len(video_id) != 11:
+        return PlainTextResponse("invalid video_id", status_code=400)
+    lang_pref = request.query_params.get("lang", "hu")
+    payload = await asyncio.to_thread(fetch_transcript, video_id, lang_pref)
+
+    yt_url = f"https://www.youtube.com/watch?v={_esc(video_id)}"
+    if payload is None:
+        body = f"""
+          <div class="tr-err">
+            <span class="tr-err-icon">⊘</span>
+            <div class="tr-err-text">
+              <strong>Ehhez a videóhoz nem érhető el transcript.</strong><br>
+              Lehet hogy a feltöltő letiltotta, vagy az adott régió blokkolja a timedtext-szervert.
+            </div>
+            <a class="tr-err-yt" href="{yt_url}" target="_blank" rel="noopener">↗ Megnyitás YouTube-on</a>
+          </div>
+        """
+        hero_eyebrow = "TRANSCRIPT · NEM ELÉRHETŐ"
+        hero_title = "Ez a videó nincs feliratozva"
+        lang_chip = ""
+        kind_chip = ""
+        total_chip = f'<span class="tr-chip mono">video_id · {_esc(video_id)}</span>'
+        segment_count = 0
+    else:
+        # Server-side render: timestamp + szöveg pairs, accent-bar a sor
+        # bal szélén hover-on, idő-ugró link a YT-re
+        rows = []
+        for s in payload.get("segments", []):
+            ts = format_timestamp(s.get("start", 0.0))
+            text = _esc(s.get("text") or "")
+            jump_url = f"{yt_url}&t={int(s.get('start', 0))}s"
+            rows.append(
+                f'<div class="tr-row">'
+                f'<a class="tr-ts" href="{jump_url}" target="_blank" rel="noopener" title="Ugrás a YouTube-on erre az időpontra">{ts}</a>'
+                f'<p class="tr-text">{text}</p>'
+                f'</div>'
+            )
+        body = (
+            '<div class="tr-rows">' + "".join(rows) + "</div>"
+            if rows else '<div class="tr-err"><span class="tr-err-icon">∅</span><div class="tr-err-text">A transcript üres.</div></div>'
+        )
+        lang_code = (payload.get("language_code") or "?").upper()
+        lang_full = _esc(payload.get("language") or "?")
+        is_gen = bool(payload.get("is_generated"))
+        kind_text = "AUTO-GENERATED" if is_gen else "MANUAL"
+        # Compute total duration from last segment
+        segs = payload.get("segments") or []
+        segment_count = len(segs)
+        total_sec = 0.0
+        if segs:
+            last = segs[-1]
+            total_sec = float(last.get("start", 0.0)) + float(last.get("duration", 0.0))
+        total_str = format_timestamp(total_sec) if total_sec else "—"
+        hero_eyebrow = "VIDEO TRANSCRIPT"
+        hero_title = lang_full
+        lang_chip = f'<span class="tr-chip tr-chip-lang mono">{_esc(lang_code)}</span>'
+        kind_chip = (
+            f'<span class="tr-chip tr-chip-{"auto" if is_gen else "manual"} mono">{kind_text}</span>'
+        )
+        total_chip = f'<span class="tr-chip mono">{segment_count} sor · {total_str}</span>'
+
+    title_h = f"Transcript · {video_id}"
+
+    html_page = f"""<!DOCTYPE html>
+<html lang="{_esc(lang_pref)}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d12">
+  <title>{_esc(title_h)} · Echolot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;500;600;700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* Tokenek a v2 design rendszerből — embedded ahelyett hogy a full
+       _LANDING_V2_EXTRA_CSS-t bekevernénk (ami sok grid-szabályt is
+       hozna). */
+    :root {{
+      --bg-0: #0a0d12;  --bg-1: #11151c;  --bg-2: #1a1f29;  --bg-3: #232a36;
+      --line: #2a323f;  --line-soft: #1c2230;
+      --fg-0: #f4f1ea;  --fg-1: #c9c4b8;  --fg-2: #8a8478;  --fg-3: #5a5448;
+      --sphere-hu-econ: #2dd4bf;  --sphere-hu-pol: #e0524f;  --sphere-hu-soc: #f59e0b;
+      --sphere-tech: #a78bfa;
+      --font-display: 'Newsreader', Georgia, serif;
+      --font-body: 'Inter Tight', -apple-system, system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+      --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+      --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px;
+    }}
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    html, body {{
+      background: var(--bg-0);
+      color: var(--fg-0);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+    }}
+    body {{
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(45,212,191,0.06), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 30%, rgba(224,82,79,0.04), transparent 60%),
+        var(--bg-0);
+    }}
+    a {{ color: inherit; text-decoration: none; }}
+    .mono {{ font-family: var(--font-mono); }}
+
+    /* ──── Top nav strip ──────────────────────────────────────── */
+    .tr-nav {{
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      background: rgba(10,13,18,0.78);
+      border-bottom: 1px solid var(--line-soft);
+      padding: 14px var(--sp-5);
+      display: flex; align-items: center; gap: var(--sp-3);
+    }}
+    .tr-logo {{
+      font-family: var(--font-display);
+      font-weight: 700; font-size: 18px;
+      letter-spacing: -0.02em;
+      color: var(--fg-0);
+      display: inline-flex; align-items: baseline; gap: var(--sp-2);
+    }}
+    .tr-logo .tr-logo-dot {{
+      width: 10px; height: 10px; border-radius: 50%;
+      background: conic-gradient(from 220deg, var(--sphere-hu-econ), var(--sphere-hu-pol), var(--sphere-tech), var(--sphere-hu-econ));
+      box-shadow: 0 0 8px rgba(45,212,191,0.4);
+      display: inline-block;
+      transform: translateY(1px);
+    }}
+    .tr-nav-meta {{
+      font-family: var(--font-mono);
+      font-size: 10px; letter-spacing: 0.18em;
+      color: var(--fg-2); text-transform: uppercase;
+    }}
+    .tr-nav-actions {{ margin-left: auto; display: flex; gap: var(--sp-2); }}
+    .tr-btn {{
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 7px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      color: var(--fg-1);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }}
+    .tr-btn:hover {{
+      border-color: var(--sphere-hu-econ);
+      color: var(--fg-0);
+      background: rgba(45,212,191,0.08);
+    }}
+    .tr-btn-primary {{
+      background: var(--sphere-hu-econ); color: var(--bg-0); border-color: var(--sphere-hu-econ);
+    }}
+    .tr-btn-primary:hover {{ background: #34e6cf; color: var(--bg-0); }}
+
+    /* ──── Hero szekció a tetején ──────────────────────────────── */
+    .tr-shell {{
+      max-width: 820px;
+      margin: 0 auto;
+      padding: var(--sp-7) var(--sp-5) var(--sp-7);
+    }}
+    .tr-hero {{
+      padding-bottom: var(--sp-5);
+      margin-bottom: var(--sp-6);
+      border-bottom: 1px solid var(--line-soft);
+    }}
+    .tr-eyebrow {{
+      font-family: var(--font-mono);
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.22em;
+      color: var(--sphere-hu-econ);
+      text-transform: uppercase;
+      margin-bottom: var(--sp-3);
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+    }}
+    .tr-eyebrow::before {{
+      content: '◆'; color: var(--sphere-hu-econ); font-size: 10px;
+    }}
+    .tr-title {{
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 38px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--fg-0);
+      margin-bottom: var(--sp-4);
+    }}
+    .tr-chips {{
+      display: flex; flex-wrap: wrap; gap: var(--sp-2);
+    }}
+    .tr-chip {{
+      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--bg-2);
+      color: var(--fg-1);
+      border: 1px solid var(--line-soft);
+    }}
+    .tr-chip-lang {{ background: rgba(45,212,191,0.12); color: var(--sphere-hu-econ); border-color: rgba(45,212,191,0.3); }}
+    .tr-chip-manual {{ background: rgba(167,139,250,0.12); color: var(--sphere-tech); border-color: rgba(167,139,250,0.3); }}
+    .tr-chip-auto {{ background: rgba(245,158,11,0.12); color: var(--sphere-hu-soc); border-color: rgba(245,158,11,0.3); }}
+
+    /* ──── Transcript-rows ─────────────────────────────────────── */
+    .tr-rows {{ display: flex; flex-direction: column; gap: 0; }}
+    .tr-row {{
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: var(--sp-4);
+      padding: 10px var(--sp-3);
+      border-left: 2px solid transparent;
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      transition: background 0.12s, border-color 0.12s;
+    }}
+    .tr-row:hover {{
+      background: var(--bg-1);
+      border-left-color: var(--sphere-hu-econ);
+    }}
+    .tr-ts {{
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--fg-2);
+      letter-spacing: 0.03em;
+      padding-top: 4px;
+      transition: color 0.12s;
+      white-space: nowrap;
+    }}
+    .tr-row:hover .tr-ts {{ color: var(--sphere-hu-econ); }}
+    .tr-text {{
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--fg-0);
+      letter-spacing: -0.005em;
+    }}
+
+    /* ──── Error state ─────────────────────────────────────────── */
+    .tr-err {{
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: var(--sp-5);
+      background: var(--bg-1);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-lg);
+      border-left: 3px solid var(--sphere-hu-pol);
+    }}
+    .tr-err-icon {{
+      font-size: 32px;
+      color: var(--sphere-hu-pol);
+      flex-shrink: 0;
+    }}
+    .tr-err-text {{ flex: 1; color: var(--fg-1); line-height: 1.5; }}
+    .tr-err-text strong {{ color: var(--fg-0); display: block; margin-bottom: 4px; }}
+    .tr-err-yt {{
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border: 1px solid var(--sphere-hu-pol);
+      border-radius: var(--r-sm);
+      color: var(--sphere-hu-pol);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }}
+    .tr-err-yt:hover {{
+      background: var(--sphere-hu-pol);
+      color: var(--bg-0);
+    }}
+
+    /* ──── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 700px) {{
+      .tr-shell {{ padding: var(--sp-5) var(--sp-4) var(--sp-6); }}
+      .tr-title {{ font-size: 28px; }}
+      .tr-row {{ grid-template-columns: 56px 1fr; gap: var(--sp-3); padding: 8px 10px; }}
+      .tr-text {{ font-size: 15px; }}
+      .tr-nav {{ padding: 12px var(--sp-4); }}
+      .tr-err {{ flex-direction: column; align-items: flex-start; }}
+    }}
+  </style>
+</head>
+<body>
+  <nav class="tr-nav">
+    <a class="tr-logo" href="/?lang={_esc(lang_pref)}">
+      <span class="tr-logo-dot"></span>echolot
+    </a>
+    <span class="tr-nav-meta">VIDEO TRANSCRIPT</span>
+    <div class="tr-nav-actions">
+      <a class="tr-btn" href="/?lang={_esc(lang_pref)}">← Vissza</a>
+      <a class="tr-btn tr-btn-primary" href="{yt_url}" target="_blank" rel="noopener">↗ YouTube</a>
+    </div>
+  </nav>
+  <main class="tr-shell">
+    <div class="tr-hero">
+      <div class="tr-eyebrow">{_esc(hero_eyebrow)}</div>
+      <h1 class="tr-title">{_esc(hero_title)}</h1>
+      <div class="tr-chips">{lang_chip}{kind_chip}{total_chip}</div>
+    </div>
+    {body}
+  </main>
+</body>
+</html>"""
+    return HTMLResponse(html_page)
 
 
 @mcp.custom_route("/api/news", methods=["GET"])
