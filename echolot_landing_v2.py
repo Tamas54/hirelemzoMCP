@@ -31,7 +31,7 @@ from echolot_seo import public_origin, seo_head_html
 from echolot_local_trending import build_local_trending
 from echolot_youtube_trends import trending_videos as _yt_trending_videos
 from echolot_top_stories import cluster_top_stories
-from echolot_blindspot import find_political_blindspots, find_geo_blindspots
+from echolot_blindspot import find_political_blindspots
 from echolot_entity_trending import top_entities_24h
 try:
     import echolot_domain_intel as _edi
@@ -721,8 +721,16 @@ def _humanize_geo_sphere(sphere: str | None) -> str:
     return _GEO_SPHERE_LABEL.get(key, sphere.replace("regional_", "").replace("_", " "))
 
 
-def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str:
-    """Blindspot panel — politikai + geo aszimmetria."""
+def _render_blindspots(political: list[dict], lang: str) -> str:
+    """Blindspot panel — csak politikai (L/R) aszimmetria.
+
+    Kommandant ux-feedback 2026-05-20: a geo-blindspot ("csak orosz sajtó"
+    stb.) magyar olvasónak nem hoz értéket — orosz/kínai/iráni-only
+    sztorik nagyrészt állami propaganda, zajos. A geo-loop levéve, az
+    `_humanize_geo_sphere` helper és a regional-mapping ott marad
+    dead-code-ként a jövőbeli "B opció" (amit a magyar sajtó nem ír)
+    feature-höz.
+    """
     cards = []
     for p in political[:3]:
         # FIX: a backend "title" mezőt ad vissza (NEM "lead_title"); szóval
@@ -748,24 +756,12 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
             {_render_reach_badge(p.get("source_ids"), p.get("first_published"), p.get("latest_published"))}
           </a>
         """)
-    for g in geo[:2]:
-        title = (
-            g.get("lead_title")
-            or g.get("title")
-            or (g.get("sample_titles") or [""])[0]
-            or "?"
-        )
-        url = g.get("lead_url") or "#"
-        dom = g.get("dominant_geo") or ""
-        dom_label = _humanize_geo_sphere(dom)
-        cards.append(f"""
-          <a href="{_escape(url)}" target="_blank" rel="noopener" class="blindspot-card blindspot-geo">
-            <div class="blindspot-tag">Csak {_escape(dom_label)}</div>
-            <div class="blindspot-title">{_escape(title)}</div>
-            <div class="blindspot-meta">{g.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
-            {_render_reach_badge(g.get("source_ids"), g.get("first_published"), g.get("latest_published"))}
-          </a>
-        """)
+    # GEO-LOOP LEVÉVE (2026-05-20 Kommandant ux-feedback)
+    # A geo-blindspot (csak orosz/kínai/iráni sajtó) magyar olvasónak nem
+    # hoz értéket. A `_humanize_geo_sphere` és `_GEO_SPHERE_LABEL` benne
+    # marad mint dead-code a jövőbeli "amit a magyar sajtó nem ír"
+    # reverse-blindspot feature-höz.
+
     if not cards:
         # Magyarázó kártya, NEM csak egy "nincs találat" rideg üzenet.
         # Ha a blindspot detektor nem talál egyoldalas sztorit, AZ IS
@@ -2227,6 +2223,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     # Blindspot detector — lazább küszöbök + globális fallback. Az eredeti
     # min_sources=3 HU-ra túl szűk volt (gyakran üresedett). Most: 2 source
     # elég, és ha még lang-szűrt nem hoz semmit → globálisan próbáljuk.
+    # GEO-blindspot LEVÉVE: a "csak orosz/kínai sajtó" jellegű sztorik nagyrészt
+    # állami propaganda, magyar olvasónak zaj. Lásd _render_blindspots docstring.
     try:
         political_blind = find_political_blindspots(db_path, hours=24, min_sources=2, limit=3, lang=lang)
         if not political_blind:
@@ -2235,14 +2233,6 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     except Exception as exc:
         log.warning("political_blindspots failed: %s", exc)
         political_blind = []
-    try:
-        geo_blind = find_geo_blindspots(db_path, hours=24, min_sources=2, limit=2, lang=lang)
-        if not geo_blind:
-            log.info("geo_blindspots: 0 HU-hit, globális fallback")
-            geo_blind = find_geo_blindspots(db_path, hours=24, min_sources=2, limit=2, lang=None)
-    except Exception as exc:
-        log.warning("geo_blindspots failed: %s", exc)
-        geo_blind = []
 
     try:
         entities = top_entities_24h(db_path, hours=24, limit=15, lang=lang)
@@ -2285,7 +2275,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     bias_legend = _render_bias_legend(lang)
     top_stories_html = _render_top_stories(stories, lang)
     local_trending_html = _render_local_trending(local, lang)
-    blindspot_html = _render_blindspots(political_blind, geo_blind, lang)
+    blindspot_html = _render_blindspots(political_blind, lang)
     yt_trending_html = _render_youtube_trending(yt_videos, lang, yt_region)
 
     title_html = _escape(t("landing.hero_title", lang))
