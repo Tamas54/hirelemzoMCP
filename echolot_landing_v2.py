@@ -384,7 +384,10 @@ def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
     """
     is_compact = "compact" in variant
     title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
-    lead = "" if is_compact else (s.get("lead_summary") or "")
+    # Kommandant kérés (UX-feedback #16): minden top sztorinál legyen lead,
+    # legalább ~200 char. Compact mode is kap lead-et, csak rövidebb fonttal
+    # és tighter clamp-pal.
+    lead = (s.get("lead_summary") or "")
     url = s.get("lead_url") or "#"
     n_sources = int(s.get("source_count") or 0)
     bias = s.get("bias_dist") or {"L": 0, "C": 0, "R": 0}
@@ -643,20 +646,49 @@ def _render_rovat(stories: list[dict], lang: str) -> str:
 
 
 def _render_bias_legend(lang: str) -> str:
-    """Bias-bar magyarázó legend — L/C/R swatch + hover-info."""
+    """Bias-bar magyarázó legend — L/C/R swatch + kattintásra expand magyarázat.
+
+    `<details>`/`<summary>` natív elem-mel, zero JS. A summary tartalma az
+    eredeti vízszintes legend; az alatta lévő paragrafus kibomlik a `?`
+    gombra (vagy bárhol a summary-ra) kattintva.
+    """
     label = _escape(t("landing.bias.label", lang))
     lbl_l = _escape(t("landing.bias.left", lang))
     lbl_c = _escape(t("landing.bias.center", lang))
     lbl_r = _escape(t("landing.bias.right", lang))
-    help_text = _escape(t("landing.bias.help", lang))
     return f"""
-      <div class="bias-legend">
-        <span class="bias-legend-label">{label}</span>
-        <span class="bias-legend-item"><span class="bias-legend-swatch l"></span>{lbl_l} (L)</span>
-        <span class="bias-legend-item"><span class="bias-legend-swatch c"></span>{lbl_c} (C)</span>
-        <span class="bias-legend-item"><span class="bias-legend-swatch r"></span>{lbl_r} (R)</span>
-        <span class="bias-legend-help" title="{help_text}">?</span>
-      </div>
+      <details class="bias-legend-details">
+        <summary class="bias-legend">
+          <span class="bias-legend-label">{label}</span>
+          <span class="bias-legend-item"><span class="bias-legend-swatch l"></span>{lbl_l} (L)</span>
+          <span class="bias-legend-item"><span class="bias-legend-swatch c"></span>{lbl_c} (C)</span>
+          <span class="bias-legend-item"><span class="bias-legend-swatch r"></span>{lbl_r} (R)</span>
+          <span class="bias-legend-help" aria-hidden="true">?</span>
+        </summary>
+        <div class="bias-legend-explain">
+          <p>
+            <strong>Hogyan soroljuk be a forrásokat?</strong>
+            Minden hírforráshoz tartozik egy <em>lean</em>-érték (balliberális / központi / konzervatív / kormánypropaganda /
+            közszolgálati / elemző / ellenzéki), amit szerkesztett, manuálisan karbantartott táblázatból veszünk —
+            nem AI dönti el. Magyar források esetében a publikus megnyilvánulások, tulajdonosi háttér és az eddigi
+            tartalmi tendencia alapján; nemzetközi forrásoknál általában a globálisan elfogadott besorolásokat
+            (Ground News, AllSides, Media Bias/Fact Check, AKO Media Bias Index) követjük.
+          </p>
+          <p>
+            <strong>L / C / R aggregáció:</strong>
+            Egy sztori politikai megoszlása a forrásai <em>lean</em>-értékeinek darabszáma alapján számít.
+            A "központi" rovatba a központi, közszolgálati és elemző besorolásúak kerülnek; a "balliberális"-ba
+            csak az egyértelműen baloldali források; a "konzervatív / jobboldali"-ba a konzervatív + kormánypropaganda
+            (állami média) együttese (autoritárius rezsim állami médiája = R, Ground News logika szerint).
+          </p>
+          <p>
+            <strong>Mit nem mond a sáv?</strong>
+            NEM minőségi értékelés. NEM a sztori "igaza" — csak a fedezet politikai eloszlása. Egy 100% L-sáv
+            jelenthet jó vagy rossz sztorit egyaránt; csak azt jelzi hogy csak baloldali források írnak róla.
+            A teljes módszertan: <a href="/dashboard?tab=modszertan&lang={lang}">→ Módszertan</a>.
+          </p>
+        </div>
+      </details>
     """
 
 
@@ -692,7 +724,20 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
           </a>
         """)
     if not cards:
-        return f'<div class="empty">{_escape(t("msg.no_results", lang))}</div>'
+        # Magyarázó kártya, NEM csak egy "nincs találat" rideg üzenet.
+        # Ha a blindspot detektor nem talál egyoldalas sztorit, AZ IS
+        # információ — azt jelenti, hogy a jelenlegi főhírek mindkét
+        # oldal sajtójában szerepelnek (Kommandant ux-feedback #20).
+        return """
+          <div class="blindspot-explain">
+            <p><strong>Most nincs egyoldalas sztori.</strong></p>
+            <p>Ezen a panelen olyan hírek jelennek meg, amelyeket csak az egyik politikai oldal sajtója hoz
+            (csak balliberális vagy csak konzervatív források ≥70%-ban). Most NEM talált ilyet a detektor —
+            ez azt jelenti, hogy a jelenlegi főhírek <em>mindkét oldal sajtójában szerepelnek</em>, vagyis a
+            spektrum egészét érintik. Ha ez változik (pl. egy téma "blackout"-ot kap az egyik oldalon), itt
+            jelenik meg.</p>
+          </div>
+        """
     return "".join(cards)
 
 
@@ -889,6 +934,45 @@ _LANDING_V2_EXTRA_CSS = """
     }
     .bias-legend-help:hover { color: var(--primary); border-color: var(--primary); }
 
+    /* <details>/<summary> wrapper a bias-legend körül — kattintásra
+       kibomlik a magyarázó panel. */
+    .bias-legend-details {
+      max-width: 1500px; margin: 0.6rem auto 0;
+    }
+    .bias-legend-details > summary.bias-legend {
+      margin: 0;
+      list-style: none;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .bias-legend-details > summary.bias-legend::-webkit-details-marker { display: none; }
+    .bias-legend-details > summary.bias-legend::marker { content: ""; }
+    .bias-legend-details > summary.bias-legend:hover {
+      border-color: rgba(20,184,166,0.3);
+    }
+    .bias-legend-details[open] > summary.bias-legend {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      border-color: rgba(20,184,166,0.3);
+    }
+    .bias-legend-details[open] .bias-legend-help { color: var(--primary); border-color: var(--primary); }
+    .bias-legend-explain {
+      max-width: 1500px;
+      padding: 0.85rem 1rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-top: 0;
+      border-radius: 0 0 6px 6px;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    .bias-legend-explain p { margin: 0 0 0.7rem 0; }
+    .bias-legend-explain p:last-child { margin-bottom: 0; }
+    .bias-legend-explain strong { color: var(--text); font-weight: 600; }
+    .bias-legend-explain em { font-style: italic; color: var(--text); }
+    .bias-legend-explain a { color: var(--primary); text-decoration: underline; }
+
     .bias-bar {
       display: flex; height: 18px; border-radius: 4px; overflow: hidden;
       font-size: 0.55rem; font-family: 'JetBrains Mono', monospace;
@@ -969,6 +1053,20 @@ _LANDING_V2_EXTRA_CSS = """
     .local-list .status-rising { background: rgba(245,158,11,0.2); color: #fcd34d; }
     .local-list .status-normal { color: var(--text-dim); }
     .local-list .empty { color: var(--text-dim); font-style: italic; }
+
+    .blindspot-explain {
+      background: var(--bg-card);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: var(--text-dim);
+    }
+    .blindspot-explain p { margin: 0 0 0.5rem 0; }
+    .blindspot-explain p:last-child { margin-bottom: 0; }
+    .blindspot-explain strong { color: var(--text); font-weight: 600; }
+    .blindspot-explain em { font-style: italic; color: var(--text); }
 
     .blindspot-card.blindspot-r { border-left: 3px solid #1d4ed8; }
     .blindspot-card.blindspot-l { border-left: 3px solid #b91c1c; }
@@ -1302,9 +1400,9 @@ _LANDING_V2_EXTRA_CSS = """
       font-size: 19px; font-weight: 500; line-height: 1.25;
     }
     :is(.landing-v2-shell, .rovat-shell) .story.sub .story-lead-v2 {
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
       overflow: hidden;
-      font-size: 13px; margin-bottom: var(--sp-3);
+      font-size: 13px; line-height: 1.5; margin-bottom: var(--sp-3);
     }
     :is(.landing-v2-shell, .rovat-shell) .story.sub .pol-bar { height: 22px; font-size: 10px; }
 
@@ -1326,7 +1424,20 @@ _LANDING_V2_EXTRA_CSS = """
     }
     :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .story-title-v2 {
       font-size: 15px; font-weight: 500; line-height: 1.3;
+      margin-bottom: var(--sp-1);
+    }
+    /* Compact lead — kisebb font + 3-soros clamp; Kommandant: minden
+       sztorinál kell lead min ~200 charig (a 3 sor 12px-en ~150-200 char
+       a tipikus szélességen) */
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .story-lead-v2 {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--fg-1);
       margin-bottom: var(--sp-2);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .pol-bar {
       height: 16px; font-size: 9px; margin-bottom: var(--sp-2);
@@ -2070,14 +2181,22 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         log.warning("top_stories failed: %s", exc)
         stories = []
 
+    # Blindspot detector — lazább küszöbök + globális fallback. Az eredeti
+    # min_sources=3 HU-ra túl szűk volt (gyakran üresedett). Most: 2 source
+    # elég, és ha még lang-szűrt nem hoz semmit → globálisan próbáljuk.
     try:
-        # Blindspot lang-filtered: 5→3 min_sources (kevesebb adat nyelvenként)
-        political_blind = find_political_blindspots(db_path, hours=24, min_sources=3, limit=3, lang=lang)
+        political_blind = find_political_blindspots(db_path, hours=24, min_sources=2, limit=3, lang=lang)
+        if not political_blind:
+            log.info("political_blindspots: 0 HU-hit, globális fallback")
+            political_blind = find_political_blindspots(db_path, hours=24, min_sources=2, limit=3, lang=None)
     except Exception as exc:
         log.warning("political_blindspots failed: %s", exc)
         political_blind = []
     try:
         geo_blind = find_geo_blindspots(db_path, hours=24, min_sources=2, limit=2, lang=lang)
+        if not geo_blind:
+            log.info("geo_blindspots: 0 HU-hit, globális fallback")
+            geo_blind = find_geo_blindspots(db_path, hours=24, min_sources=2, limit=2, lang=None)
     except Exception as exc:
         log.warning("geo_blindspots failed: %s", exc)
         geo_blind = []
