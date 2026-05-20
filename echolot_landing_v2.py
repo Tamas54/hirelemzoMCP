@@ -1955,8 +1955,23 @@ _LANDING_V2_EXTRA_CSS = """
     .yt-shell .yt-transcript-panel.is-loading {
       color: var(--fg-3); font-style: italic;
     }
+    /* "Nincs leirat" — normál eset, sok YT-videónak nincs feliratja.
+       Neutral szürke, NEM piros — nem hiba. */
+    .yt-shell .yt-transcript-panel.is-unavailable {
+      color: var(--fg-2);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: lowercase;
+      text-align: center;
+      padding: 14px var(--sp-3);
+      white-space: normal;
+    }
+    /* Tényleges hiba — pol-pink, mint az eddig is. */
     .yt-shell .yt-transcript-panel.is-error {
-      color: var(--sphere-hu-pol); font-style: italic;
+      color: var(--sphere-hu-pol);
+      font-style: italic;
+      background: rgba(224,82,79,0.04);
     }
     /* Scrollbar styling */
     .yt-shell .yt-transcript-panel::-webkit-scrollbar { width: 6px; }

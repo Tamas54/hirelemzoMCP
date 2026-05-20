@@ -49,18 +49,31 @@
     return pad(m) + ':' + pad(sec);
   }
 
+  function clearPanelStates(panel) {
+    panel.classList.remove('is-loading', 'is-error', 'is-unavailable');
+  }
+
   async function fetchAndRender(panel, videoId) {
+    clearPanelStates(panel);
     panel.classList.add('is-loading');
-    panel.classList.remove('is-error');
     panel.textContent = 'Leirat betöltése…';
     panel.removeAttribute('hidden');
     try {
       var url = API_PREFIX + '/yt-transcript/' + encodeURIComponent(videoId) + '?lang=hu';
       var r = await fetch(url);
       if (r.status === 404) {
-        panel.classList.remove('is-loading');
+        // Normál eset — sok YT-videónak nincs felirata. Nem hiba, csak info.
+        clearPanelStates(panel);
+        panel.classList.add('is-unavailable');
+        panel.textContent = '— nincs leirat ehhez a videóhoz';
+        panel.dataset.fetched = 'unavailable';
+        return;
+      }
+      if (r.status === 503) {
+        // Backend timeout — Railway egress lassú vagy YT-blokk
+        clearPanelStates(panel);
         panel.classList.add('is-error');
-        panel.textContent = 'Ehhez a videóhoz nem érhető el transcript (kikapcsolva vagy region-blocked).';
+        panel.textContent = '⊘ A leirat-szerver nem válaszolt időben — próbáld újra később.';
         panel.dataset.fetched = 'error';
         return;
       }
@@ -69,9 +82,10 @@
       renderTranscript(panel, payload);
       panel.dataset.fetched = '1';
     } catch (e) {
-      panel.classList.remove('is-loading');
+      clearPanelStates(panel);
       panel.classList.add('is-error');
-      panel.textContent = 'Hiba a betöltéskor: ' + (e && e.message);
+      var msg = (e && e.message) || 'ismeretlen';
+      panel.textContent = '⊘ Hiba a betöltéskor: ' + msg;
       panel.dataset.fetched = 'error';
     }
   }
@@ -91,7 +105,7 @@
       // Megnyitás — ha még nem fetcheltünk, indítjuk; ha igen, csak láthatóvá
       btn.classList.add('is-expanded');
       btn.textContent = '△ Bezár';
-      if (panel.dataset.fetched === '1' || panel.dataset.fetched === 'error') {
+      if (panel.dataset.fetched === '1' || panel.dataset.fetched === 'unavailable' || panel.dataset.fetched === 'error') {
         panel.removeAttribute('hidden');
       } else {
         fetchAndRender(panel, btn.dataset.videoId);

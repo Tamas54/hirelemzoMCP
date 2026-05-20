@@ -1739,8 +1739,9 @@ async def api_echolot_yt_transcript(request):
         translate:   ha megadva, fordítás erre a nyelvre.
 
     Returns:
-        {video_id, language_code, language, is_generated, plain_text, segments[]}
-        404 ha nincs elérhető transcript.
+        200 + {video_id, language_code, language, is_generated, plain_text, segments[]}
+        404 ha nincs elérhető transcript (normál eset — sok videónak nincs feliratja).
+        503 ha a backend nem ért válaszhoz időben (Railway-edge timeout előtt érjen visszakönny).
     """
     import asyncio
     from echolot_youtube_transcript import fetch_transcript
@@ -1751,9 +1752,19 @@ async def api_echolot_yt_transcript(request):
         return JSONResponse(
             {"error": "invalid video_id", "video_id": video_id}, status_code=400
         )
+    # Hard timeout (12s) — a Railway edge-proxy 30s után kapcsolatot bont,
+    # ami a böngészőben NetworkError-ként jelenik meg. Ennél hamarabb
+    # adjunk vissza strukturált 503-at hogy a frontend jól tudja kezelni.
     try:
-        payload = await asyncio.to_thread(
-            fetch_transcript, video_id, lang_pref, translate_to=translate
+        payload = await asyncio.wait_for(
+            asyncio.to_thread(fetch_transcript, video_id, lang_pref, translate_to=translate),
+            timeout=12.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("transcript timeout for %s (lang=%s)", video_id, lang_pref)
+        return JSONResponse(
+            {"error": "transcript fetch timed out", "video_id": video_id, "reason": "timeout"},
+            status_code=503,
         )
     except Exception as exc:
         logger.exception("fetch_transcript(%s) failed", video_id)
@@ -1762,7 +1773,9 @@ async def api_echolot_yt_transcript(request):
         )
     if payload is None:
         return JSONResponse(
-            {"error": "transcript unavailable", "video_id": video_id}, status_code=404
+            {"error": "transcript unavailable", "video_id": video_id,
+             "reason": "no_captions_or_geoblocked"},
+            status_code=404,
         )
     return JSONResponse(payload)
 
