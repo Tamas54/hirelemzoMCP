@@ -692,15 +692,52 @@ def _render_bias_legend(lang: str) -> str:
     """
 
 
+_GEO_SPHERE_LABEL: dict[str, str] = {
+    # Technikai sphere-nevekhez emberi-olvasható magyar címke
+    "regional_russian": "orosz sajtó",
+    "regional_chinese": "kínai sajtó",
+    "regional_arabic": "arab sajtó",
+    "regional_iranian": "iráni sajtó",
+    "regional_indian": "indiai sajtó",
+    "regional_turkish": "török sajtó",
+    "regional_us": "amerikai sajtó",
+    "regional_uk": "brit sajtó",
+    "regional_german": "német sajtó",
+    "regional_french": "francia sajtó",
+    "regional_spanish": "spanyol sajtó",
+    "regional_italian": "olasz sajtó",
+    "regional_balkan": "balkán sajtó",
+    "regional_african": "afrikai sajtó",
+    "regional_latam": "latin-amerikai sajtó",
+    "regional_japanese": "japán sajtó",
+    "regional_korean": "koreai sajtó",
+}
+
+
+def _humanize_geo_sphere(sphere: str | None) -> str:
+    if not sphere:
+        return "?"
+    key = sphere.strip().lower()
+    return _GEO_SPHERE_LABEL.get(key, sphere.replace("regional_", "").replace("_", " "))
+
+
 def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str:
     """Blindspot panel — politikai + geo aszimmetria."""
     cards = []
     for p in political[:3]:
-        title = p.get("lead_title") or (p.get("sample_titles") or [""])[0] or "?"
+        # FIX: a backend "title" mezőt ad vissza (NEM "lead_title"); szóval
+        # mindkettőt megnézzük fallback-sorrendben (Kommandant: "?"-eket lát).
+        title = (
+            p.get("lead_title")
+            or p.get("title")
+            or (p.get("sample_titles") or [""])[0]
+            or "?"
+        )
         url = p.get("lead_url") or "#"
         bias = p.get("bias_dist", {})
         side = p.get("dominant_side", "?")
-        side_label = "Right blindspot" if side == "R" else "Left blindspot"
+        # Magyar címkék — angol "Right/Left Blindspot" helyett
+        side_label = "Csak jobbról" if side == "R" else "Csak balról"
         side_class = "blindspot-r" if side == "R" else "blindspot-l"
         cards.append(f"""
           <a href="{_escape(url)}" target="_blank" rel="noopener" class="blindspot-card {side_class}">
@@ -712,12 +749,18 @@ def _render_blindspots(political: list[dict], geo: list[dict], lang: str) -> str
           </a>
         """)
     for g in geo[:2]:
-        title = g.get("lead_title") or (g.get("sample_titles") or [""])[0] or "?"
+        title = (
+            g.get("lead_title")
+            or g.get("title")
+            or (g.get("sample_titles") or [""])[0]
+            or "?"
+        )
         url = g.get("lead_url") or "#"
-        dom = g.get("dominant_geo") or "?"
+        dom = g.get("dominant_geo") or ""
+        dom_label = _humanize_geo_sphere(dom)
         cards.append(f"""
           <a href="{_escape(url)}" target="_blank" rel="noopener" class="blindspot-card blindspot-geo">
-            <div class="blindspot-tag">Geo blindspot · only {_escape(dom)}</div>
+            <div class="blindspot-tag">Csak {_escape(dom_label)}</div>
             <div class="blindspot-title">{_escape(title)}</div>
             <div class="blindspot-meta">{g.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
             {_render_reach_badge(g.get("source_ids"), g.get("first_published"), g.get("latest_published"))}
