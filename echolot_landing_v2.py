@@ -219,7 +219,7 @@ def _render_entity_chip_row(entities: list[dict], lang: str) -> str:
         return ""
     return f"""
       <div class="entity-row">
-        <div class="entity-row-label">📈 {_escape(t('group.world', lang))} · 24h</div>
+        <div class="entity-row-label">Legkeresettebb kulcsszavak · 24h</div>
         <div class="entity-chips">{''.join(chips)}</div>
       </div>
     """
@@ -557,18 +557,34 @@ def _render_local_trending(local: dict, lang: str) -> str:
             f'</a></li>'
         )
 
-    # ── Sphere velocity — sima text-sor (mint az eredeti) ────────────
+    # ── Sphere velocity — opció C: mindig mutatunk valamit ────────────
+    # Ha van mérhető velocity ratio: "sphere · 1.5×" (status-szal színezve).
+    # Ha nincs baseline (ratio=None): fallback a current_count cikkek számára:
+    # "sphere · 247 cikk" — kevésbé "intelligens", de informatív és nem üres.
+    # Skip csak akkor, ha current_count is 0 (semmi cikk a window-ban).
     vel_blob = local.get("velocity") or {}
     if isinstance(vel_blob, dict):
         vel_results = vel_blob.get("results") or vel_blob.get("spheres") or []
     else:
         vel_results = vel_blob or []
     vel_items = []
-    for v in (vel_results or [])[:6]:
+    for v in (vel_results or []):
         sphere = v.get("sphere") or ""
+        if not sphere:
+            continue
         ratio = v.get("velocity_ratio")
-        ratio_s = f"{ratio:.1f}×" if ratio is not None else "—"
-        status = v.get("status", "normal")
+        current_count = int(v.get("current_count") or 0)
+        # Skip ha semmi friss aktivitás — "ez halott" jelzés értelmetlen
+        if current_count == 0:
+            continue
+        if ratio is not None and ratio > 0:
+            # Van mérhető velocity → ratio kijelzés
+            ratio_s = f"{ratio:.1f}×"
+            status = v.get("status", "normal")
+        else:
+            # Nincs baseline (vagy 0) → count fallback
+            ratio_s = f"{current_count} cikk"
+            status = "count"
         vel_items.append(
             f'<li class="lt-row lt-row-velocity">'
             f'<a href="/dashboard/sphere/{_escape(sphere)}?lang={lang}">'
@@ -576,8 +592,20 @@ def _render_local_trending(local: dict, lang: str) -> str:
             f'<span class="lt-row-ratio status-{_escape(status)}">{_escape(ratio_s)}</span>'
             f'</a></li>'
         )
+        if len(vel_items) >= 6:
+            break
 
     empty = '<li class="lt-empty">—</li>'
+    # Velocity szekciót csak akkor mutatjuk, ha van mérhető spike
+    velocity_section_html = (
+        f"""
+        <div class="lt-section">
+          <div class="lt-section-label"><span class="lt-icon">◆</span>MOST PÖRGŐ TÉMÁK · 24H</div>
+          <ul class="lt-list">{''.join(vel_items)}</ul>
+        </div>
+        """
+        if vel_items else ""
+    )
     return f"""
       <div class="lt-shell">
         <div class="lt-section">
@@ -586,12 +614,10 @@ def _render_local_trending(local: dict, lang: str) -> str:
         </div>
         <div class="lt-section">
           <div class="lt-section-label"><span class="lt-icon">◆</span>HÍREK · MA</div>
+          <small class="lt-section-sub">a legfontosabb magyar hír-főcímek ma — eltér a Top sztoriktól, mert nem klaszterezett</small>
           <ul class="lt-news-cards">{''.join(gnews_items) or empty}</ul>
         </div>
-        <div class="lt-section">
-          <div class="lt-section-label"><span class="lt-icon">◆</span>SZFÉRA VELOCITY</div>
-          <ul class="lt-list">{''.join(vel_items) or empty}</ul>
-        </div>
+        {velocity_section_html}
       </div>
     """
 
@@ -1360,6 +1386,15 @@ _LANDING_V2_EXTRA_CSS = """
     .lt-shell .lt-section-label .lt-icon {
       color: var(--sphere-hu-econ); font-size: 11px;
     }
+    .lt-shell .lt-section-sub {
+      display: block;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-style: italic;
+      color: var(--fg-2);
+      margin: -8px 0 var(--sp-3) 0;
+      line-height: 1.4;
+    }
 
     /* Sima text-sor lista (Wiki, Velocity) — közeli az eredetihez, csak
        v2 tipográfia. NEM kártya, csak border-bottom separator. */
@@ -1401,6 +1436,10 @@ _LANDING_V2_EXTRA_CSS = """
     }
     .lt-shell .lt-row-ratio.status-rising {
       background: rgba(245,158,11,0.18); color: var(--sphere-hu-soc);
+    }
+    .lt-shell .lt-row-ratio.status-count {
+      background: var(--bg-3); color: var(--fg-2);
+      font-weight: 400;
     }
 
     /* HÍREK — kis kártyák lead-del (új v2 stílus a hírecskéknek) */
@@ -2139,16 +2178,16 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 
   <div class="landing-grid">
     <div class="landing-col">
-      <h2>📰 {section_top}</h2>
+      <h2>{section_top}</h2>
       {top_stories_html}
     </div>
     <div class="landing-col">
-      <h2>🌍 {section_local} · {_escape(local.get('geo', {}).get('gnews', ''))}</h2>
+      <h2>{section_local} · {_escape(local.get('geo', {}).get('gnews', ''))}</h2>
       {local_trending_html}
     </div>
     <div class="landing-col">
       {tv_panel_html}
-      <h2>🔍 {section_blind}</h2>
+      <h2>Egyoldalas hírek</h2>
       {blindspot_html}
       {yt_trending_html}
     </div>
@@ -2156,19 +2195,19 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 
   <div class="rovatok-grid">
     <div class="rovat-col">
-      <h2>💻 {section_tech}</h2>
+      <h2>{section_tech}</h2>
       {tech_html}
     </div>
     <div class="rovat-col">
-      <h2>💰 {section_economy}</h2>
+      <h2>{section_economy}</h2>
       {economy_html}
     </div>
     <div class="rovat-col">
-      <h2>⚽ {section_sport}</h2>
+      <h2>{section_sport}</h2>
       {sport_html}
     </div>
     <div class="rovat-col">
-      <h2>✨ {section_tabloid}</h2>
+      <h2>{section_tabloid}</h2>
       {tabloid_html}
     </div>
   </div>

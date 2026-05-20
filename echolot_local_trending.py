@@ -187,10 +187,10 @@ async def _safe_velocity(db_path: str, sphere_substr: str, limit: int) -> dict:
         raw = await asyncio.to_thread(
             _velocity_fn,
             db_path,
-            6,    # window_hours
-            48,   # baseline_offset_hours
-            24,   # baseline_window_hours
-            2,    # min_baseline
+            24,   # window_hours — 24h-s ablak (volt 6h, túl szűk volt HU-DB-re)
+            72,   # baseline_offset_hours — 3 nappal vissza (volt 48h)
+            48,   # baseline_window_hours — 48h-s baseline (volt 24h, stabilabb átlag)
+            1,    # min_baseline — laza (volt 2)
             max(limit * 5, 50),  # over-fetch then filter
         )
     except TypeError:
@@ -199,7 +199,7 @@ async def _safe_velocity(db_path: str, sphere_substr: str, limit: int) -> dict:
             raw = await asyncio.to_thread(
                 _velocity_fn,
                 db_path=db_path,
-                window_hours=6,
+                window_hours=24,
                 limit=max(limit * 5, 50),
             )
         except Exception as exc:

@@ -29,6 +29,7 @@ Payload-shape
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Optional
 
@@ -36,6 +37,12 @@ log = logging.getLogger("echolot.youtube_transcript")
 
 CACHE_TTL_SEC = 24 * 60 * 60   # 24 óra — transcript ritkán változik
 _cache: dict[tuple[str, Optional[str]], tuple[float, Optional[dict]]] = {}
+
+# Worldmonitor-style proxy env-var. Format: "http://user:pass@host:port" vagy
+# "http://host:port". Ha nincs beállítva, közvetlen request megy a YouTube
+# timedtext-szerveréhez — DC-IP-ket (Railway, Fly, Vercel egyaránt) ez sok
+# esetben blokkolja vagy üresíti, ezért production-on proxy kell.
+YOUTUBE_PROXY_URL: Optional[str] = os.environ.get("YOUTUBE_PROXY_URL") or None
 
 
 def _select_transcript(transcript_list, lang_preference: Optional[str]):
