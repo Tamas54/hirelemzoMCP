@@ -45,18 +45,24 @@ def _augment_strip_css() -> str:
     at the very top of the original LANDING_HTML."""
     return """
     .echolot-augment {
-      max-width: 1100px; width: 100%; margin: 1rem auto 0;
+      max-width: 1500px; width: 100%; margin: 1rem auto 0;
       display: flex; align-items: center; justify-content: space-between;
       gap: 1rem; flex-wrap: wrap; padding: 0 1.5rem;
       position: relative; z-index: 5;
     }
-    .echolot-augment nav { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    /* Több gap, hogy a tabok ne tűnjenek egymásra-másztnak (Kommandant
+       ux-feedback #25). Plus a `display: inline-block` mind az <a>-knak,
+       hogy ha a flex-wrap se kéne, akkor is külön sorba mennek. */
+    .echolot-augment nav { display: flex; gap: 0.7rem; flex-wrap: wrap; }
     .echolot-augment .augment-tab {
       background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
-      color: #8a9499; padding: 0.32rem 0.85rem; border-radius: 999px;
-      font-size: 0.74rem; text-decoration: none; transition: all 0.2s;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #8a9499; padding: 0.45rem 1.1rem; border-radius: 999px;
+      font-size: 0.78rem; text-decoration: none; transition: all 0.2s;
       font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      display: inline-block;
     }
     .echolot-augment .augment-tab:hover,
     .echolot-augment .augment-tab.active {
@@ -67,6 +73,50 @@ def _augment_strip_css() -> str:
       background: rgba(255,255,255,0.04); color: #e8eef0;
       border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
       padding: 0.3rem 0.6rem; font-family: inherit; font-size: 0.78rem;
+    }
+
+    /* Dashboard intro + chip-row a kereső fölött (#24) */
+    .dash-intro {
+      max-width: 880px; margin: 1.5rem auto 1rem; padding: 0 1.5rem;
+    }
+    .dash-intro-title {
+      font-size: 1.4rem; font-weight: 700; margin: 0 0 0.6rem 0;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .dash-intro-text {
+      font-size: 0.95rem; line-height: 1.55; color: var(--text-dim);
+      margin: 0;
+    }
+    .dash-intro-text strong { color: var(--text); font-weight: 600; }
+    .dash-chip-row {
+      max-width: 1100px; margin: 1rem auto 0.75rem; padding: 0 1.5rem;
+    }
+    .dash-chip-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem; letter-spacing: 0.15em;
+      color: var(--text-dim); text-transform: uppercase;
+      margin-bottom: 0.55rem;
+    }
+    .dash-chips {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .dash-chip {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.4rem 0.85rem; border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text); font-size: 0.82rem;
+      text-decoration: none; transition: all 0.15s;
+    }
+    .dash-chip:hover {
+      background: rgba(20,184,166,0.15);
+      border-color: rgba(20,184,166,0.4);
+      color: #14b8a6;
+    }
+    .dash-chip-n {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem; color: var(--text-dim);
     }
     .echolot-search-form {
       max-width: 1100px; width: calc(100% - 3rem);
@@ -561,12 +611,15 @@ def _page_shell(
 </html>"""
 
 
-def render_dashboard(request) -> tuple[str, str]:
+def render_dashboard(request, top_entities: list[dict] | None = None) -> tuple[str, str]:
     """Return (html, lang) for the main page (= divergence tab).
 
     If ?query=... is set in the URL (e.g. when the user submits the
     search form on the landing page), trigger an automatic search on
     page load — saves a click and supports shareable links.
+
+    `top_entities`: opcionális lista (Kommandant ux-feedback #24) —
+    a felkapott kulcsszó-chip-eket teszi a kereső FÖLÉ, gyors-tippnek.
     """
     lang = _request_lang(request)
     query = (request.query_params.get("query") or "").strip()
@@ -588,7 +641,44 @@ def render_dashboard(request) -> tuple[str, str]:
     else:
         results_block = f'<div id="results"><p class="text-sm text-[color:var(--text-dim)]">{_escape(t("msg.empty_query", lang))}</p></div>'
 
+    # Felkapott kulcsszó-chip-ek a kereső FÖLÉ (Kommandant ux-feedback #24).
+    # Kattintásra előtölti a search-formot, ami HTMX-szel azonnal indítja
+    # a narratíva-eltérés-elemzést.
+    chips_html = ""
+    if top_entities:
+        chip_links = []
+        for e in top_entities[:20]:
+            name = (e.get("name") or "").strip()
+            if not name:
+                continue
+            cnt = e.get("article_count", 0)
+            chip_links.append(
+                f'<a href="/dashboard?query={quote(name)}&lang={lang}" class="dash-chip">'
+                f'{_escape(name)}<span class="dash-chip-n">{cnt}</span></a>'
+            )
+        if chip_links:
+            chips_html = f"""
+            <div class="dash-chip-row">
+              <div class="dash-chip-label">Felkapott kulcsszó · próbáld egyiket</div>
+              <div class="dash-chips">{''.join(chip_links)}</div>
+            </div>
+            """
+
+    intro_html = f"""
+    <div class="dash-intro">
+      <h1 class="dash-intro-title">Narratíva-eltérés keresés</h1>
+      <p class="dash-intro-text">
+        Adj meg egy témát vagy nevet — megnézzük, hogy a különböző szférák (politikai oldalak, médiatípusok,
+        közszolgálati vs. kereskedelmi) <strong>hogyan tudósítják ugyanazt a sztorit</strong>. A kép arra
+        ad választ: hol szöveg-eltérés van, hol szelektív figyelem, hol kihagyott szempont. Az alábbi
+        kulcsszavak a leggyakrabban említett friss téma — bármelyikre kattintva azonnal indul az elemzés.
+      </p>
+    </div>
+    """
+
     body = f"""
+    {intro_html}
+    {chips_html}
     <form hx-get="/dashboard/divergence"
           hx-target="#results"
           hx-indicator="#search-spinner"

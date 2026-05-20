@@ -2827,7 +2827,19 @@ fetch('/api/stats')
 @mcp.custom_route("/dashboard", methods=["GET"])
 async def dashboard(request):
     """New-style polished dashboard (divergence search front-and-center)."""
-    page, lang = render_dashboard(request)
+    import asyncio
+    from echolot_entity_trending import top_entities_24h
+    # Felkapott kulcsszó-chip-ek a kereső fölé (Kommandant ux-feedback #24).
+    # Globálisan (lang=None) szedjük a 20 leg-mentioned-et — gyors-indítás-tipp
+    # a felhasználónak. Threadbe csomagolva, hogy ne blokkolja az event-loopot.
+    try:
+        top_entities = await asyncio.to_thread(
+            top_entities_24h, str(DB_PATH), 24, 20, None
+        )
+    except Exception as exc:
+        logger.warning("dashboard top_entities: %s", exc)
+        top_entities = []
+    page, lang = render_dashboard(request, top_entities=top_entities)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
