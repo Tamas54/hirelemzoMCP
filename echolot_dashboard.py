@@ -975,6 +975,7 @@ def render_health_page(request, compute_health_fn, db_path) -> tuple[str, str]:
 def render_trending_page(request, compute_velocity_fn, db_path,
                           wiki_top_movers_fn=None,
                           google_trends_fn=None,
+                          gnews_geo="HU",
                           wiki_pageviews_fn=None,
                           wiki_pageviews_lang="en",
                           youtube_trends_fn=None,
@@ -996,12 +997,18 @@ def render_trending_page(request, compute_velocity_fn, db_path,
         return _page_shell(lang, "trending", body, request=request,
                            seo_path="/dashboard/trending",
                            seo_description=t("seo.page.trending.description", lang)), lang
+    # A spheres velocity tábla LENT marad (Kommandant kérés 2026-05-21);
+    # csak akkor van értelme ha van baseline. NO_BASELINE státuszú sorokat
+    # ki is szűrjük, ne ismétlődjön az "üres jelzés".
     rows = []
     for s in report.get("spheres", []):
         status = s.get("status", "normal")
-        # map velocity status to the green/yellow/red palette
+        if status == "no_baseline":
+            # Kommandant kérés: baseline nélkül a tábla nem hordoz információt,
+            # ezeket kihagyjuk. Marad spike/rising/normal/quiet.
+            continue
         color = {"spike": "red", "rising": "yellow", "normal": "green",
-                 "quiet": "yellow", "no_baseline": "yellow"}.get(status, "yellow")
+                 "quiet": "yellow"}.get(status, "yellow")
         ratio = s.get("velocity_ratio")
         ratio_s = f"{ratio:.2f}×" if ratio is not None else "—"
         rows.append(f"""
@@ -1053,10 +1060,14 @@ def render_trending_page(request, compute_velocity_fn, db_path,
               </div>
             """
 
-    # Optional Google News trending panel (free, no API key)
+    # "Trending news" panel — backend forrása Google News RSS, de a user
+    # kérése (2026-05-21): NE legyen kiírva hogy "Google News RSS-ből
+    # tudjuk". Cím: lokalizált "Trending news". Geo a `lang`-tól függ
+    # (gnews_geo paraméter, server.py adja). Query-param `?geo=` továbbra
+    # is felülírja kísérleti célokra.
     google_panel = ""
     if google_trends_fn is not None:
-        geo = (request.query_params.get("geo") or "HU").upper()
+        geo = (request.query_params.get("geo") or gnews_geo or "HU").upper()
         try:
             items = google_trends_fn(geo=geo, limit=15)
         except Exception:
@@ -1076,16 +1087,16 @@ def render_trending_page(request, compute_velocity_fn, db_path,
                     <td class="py-2 text-sm">{title_html}</td>
                     <td class="py-2 text-sm text-[color:var(--text-dim)]">{_escape(src)}</td>
                   </tr>""")
+            news_title = _escape(t("dashboard.trending.news_title", lang))
+            news_sub = _escape(t("dashboard.trending.news_subtitle", lang))
             google_panel = f"""
-              <h3 class="text-lg font-semibold mt-10 mb-2">Google News — {_escape(geo)}</h3>
-              <p class="text-xs text-[color:var(--text-dim)] mb-4">
-                Top stories trending right now in {_escape(geo)} · via Google News RSS
-              </p>
+              <h3 class="text-lg font-semibold mt-10 mb-2">{news_title}</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">{news_sub}</p>
               <div class="overflow-x-auto">
                 <table class="w-full text-left">
                   <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
                     <tr><th class="py-2">Story</th>
-                        <th class="py-2">Source</th></tr>
+                        <th class="py-2">{_escape(t('article.source', lang))}</th></tr>
                   </thead>
                   <tbody>{''.join(g_rows)}</tbody>
                 </table>
@@ -1116,11 +1127,11 @@ def render_trending_page(request, compute_velocity_fn, db_path,
                     </td>
                     <td class="py-2 text-sm font-mono text-[color:var(--primary)] text-right">{int(views):,}</td>
                   </tr>""")
+            wiki_title_lbl = _escape(t("dashboard.trending.wiki_title", lang))
+            wiki_sub_lbl = _escape(t("dashboard.trending.wiki_subtitle", lang))
             pageviews_panel = f"""
-              <h3 class="text-lg font-semibold mt-10 mb-2">Wikipedia top — {_escape(wiki_pageviews_lang)}.wikipedia</h3>
-              <p class="text-xs text-[color:var(--text-dim)] mb-4">
-                Most-read articles yesterday · daily pageviews via Wikimedia API
-              </p>
+              <h3 class="text-lg font-semibold mt-10 mb-2">{wiki_title_lbl} — {_escape(wiki_pageviews_lang)}.wikipedia</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">{wiki_sub_lbl}</p>
               <div class="overflow-x-auto">
                 <table class="w-full text-left">
                   <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
@@ -1158,36 +1169,53 @@ def render_trending_page(request, compute_velocity_fn, db_path,
                       <div class="text-xs font-mono text-[color:var(--primary)] mt-1">{views:,} views</div>
                     </div>
                   </a>""")
+            yt_title_lbl = _escape(t("dashboard.trending.yt_title", lang))
+            yt_sub_lbl = _escape(t("dashboard.trending.yt_subtitle", lang))
             youtube_panel = f"""
-              <h3 class="text-lg font-semibold mt-10 mb-2">YouTube trending — {_escape(youtube_region)}</h3>
-              <p class="text-xs text-[color:var(--text-dim)] mb-4">
-                Most-popular videos right now · via YouTube Data API v3
-              </p>
+              <h3 class="text-lg font-semibold mt-2 mb-2">{yt_title_lbl} — {_escape(youtube_region)}</h3>
+              <p class="text-xs text-[color:var(--text-dim)] mb-4">{yt_sub_lbl}</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {''.join(yt_cards)}
               </div>
             """
 
+    # Velocity-tábla: külön panel a body VÉGÉN. Ha 0 érdemi (spike/rising)
+    # sor van, csak egy halvány "no signal" hint marad; egyébként a tábla.
+    sphere_title_lbl = _escape(t("dashboard.trending.spheres_title", lang))
+    sphere_sub_lbl = _escape(t("dashboard.trending.spheres_subtitle", lang))
+    if rows:
+        velocity_panel = f"""
+          <h3 class="text-lg font-semibold mt-10 mb-2">{sphere_title_lbl}</h3>
+          <p class="text-xs text-[color:var(--text-dim)] mb-4">
+            {sphere_sub_lbl} · {report.get('window_hours', 6)}h vs {report.get('baseline_window', '?')}
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
+                <tr><th class="py-2">{_escape(t('tab.spheres', lang))}</th>
+                    <th class="py-2">current</th>
+                    <th class="py-2">baseline</th>
+                    <th class="py-2">ratio</th>
+                    <th class="py-2">status</th></tr>
+              </thead>
+              <tbody>{''.join(rows)}</tbody>
+            </table>
+          </div>
+        """
+    else:
+        velocity_panel = ""
+
+    # Kommandant 2026-05-21 sorrend-kérés:
+    #   1) YouTube trending  (TOP — vizuálisan vonzó)
+    #   2) Trending news      (Google News, "via X" nélkül)
+    #   3) Wikipedia top      (daily pageviews)
+    #   4) Sphere velocity    (LENT — baseline esetén)
+    #   5) Wiki top-movers    (legalulra, ritkán népesedik)
     body = f"""
-      <h2 class="text-lg font-semibold mb-1">{_escape(t('tab.trending', lang))}</h2>
-      <p class="text-xs text-[color:var(--text-dim)] mb-4">
-        {report.get('window_hours', 6)}h vs {report.get('baseline_window', '?')}
-      </p>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left">
-          <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
-            <tr><th class="py-2">{_escape(t('tab.spheres', lang))}</th>
-                <th class="py-2">current</th>
-                <th class="py-2">baseline</th>
-                <th class="py-2">ratio</th>
-                <th class="py-2">status</th></tr>
-          </thead>
-          <tbody>{''.join(rows)}</tbody>
-        </table>
-      </div>
+      {youtube_panel}
       {google_panel}
       {pageviews_panel}
-      {youtube_panel}
+      {velocity_panel}
       {wiki_panel}
     """
     return _page_shell(lang, "trending", body, request=request,

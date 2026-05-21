@@ -2962,10 +2962,18 @@ async def dashboard_trending(request):
     except Exception as exc:
         logger.warning("dashboard wiki pageviews: %s", exc)
 
-    # YouTube trending (only if key configured)
-    youtube_region = (request.query_params.get("yt_region") or "HU").upper()
+    # YouTube trending + Google News trending — régió a request lang-jából.
+    # Kommandant 2026-05-21: az english felhasználó ne lássa a magyar
+    # YT/Google trendinget, és vica versa. Query-param `?yt_region=` és
+    # `?geo=` továbbra is felülírja kísérleti célokra.
+    from echolot_landing_v2 import _lang_to_yt_region as _lang_yt
+    youtube_region = (request.query_params.get("yt_region") or "").upper()
+    if not youtube_region or youtube_region not in YT_REGIONS:
+        youtube_region = _lang_yt(lang_for_wiki)
     if youtube_region not in YT_REGIONS:
         youtube_region = "HU"
+    # Google News geo követi ugyanazt a térképet — YT_REGIONS ≈ ISO-2 country.
+    gnews_geo = _lang_yt(lang_for_wiki)
     youtube_cached = None
     if youtube_enabled():
         try:
@@ -2982,10 +2990,22 @@ async def dashboard_trending(request):
     def youtube_fn(region: str = "HU", count: int = 12):
         return youtube_cached or []
 
+    # Wrap compute_sphere_velocity to use a wider baseline (7 days) — a
+    # 24h baseline gyakran üres frissen indult scraperen vagy alacsony
+    # volumenű szférákban, ezért minden sor NO_BASELINE-t mutatott.
+    def velocity_fn(db, window_hours=6, baseline_offset_hours=24, limit=30):
+        return compute_sphere_velocity(
+            db, window_hours=window_hours,
+            baseline_offset_hours=baseline_offset_hours,
+            baseline_window_hours=168,  # 7 days, stabilabb baseline
+            limit=limit,
+        )
+
     page, lang = render_trending_page(
-        request, compute_sphere_velocity, DB_PATH,
+        request, velocity_fn, DB_PATH,
         wiki_top_movers_fn=wiki_fn,
         google_trends_fn=gnews_trending,
+        gnews_geo=gnews_geo,
         wiki_pageviews_fn=wiki_pageviews_fn,
         wiki_pageviews_lang=lang_for_wiki,
         youtube_trends_fn=youtube_fn,
