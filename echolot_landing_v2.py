@@ -473,37 +473,51 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") ->
     """
 
 
-def _render_tv_panel() -> str:
+def _render_tv_panel(lang: str = "hu") -> str:
     """Live TV viewer mount-pont a jobb landing-col tetején, a Vakfolt FÖLÖTT.
 
     Phase 1.x (2026-05-18): a Gemini deep-research javasolta a jobb felső
     1fr pozíciót a bal oszlop mély-olvasási zónájának védelmére. Auto-play
     marad (Kommandant döntés), de prominens minimize + mute kontrol.
     A logikát a /static/echolot-tv.js viszi.
+
+    Kommandant kérés (2026-05-21): hangsúlyosabb header — piros pulzáló
+    LIVE badge a `▶` ikon helyett, nagyobb cím, lang-aware label (Live TV
+    angolul, Live TV németül stb.). A pulse-animációt CSS-ben adjuk meg
+    (_LANDING_V2_EXTRA_CSS, `.tv-live-badge` osztály).
     """
-    return """
+    title_txt = _escape(t("landing.tv.title", lang))
+    live_txt = _escape(t("landing.tv.live_badge", lang))
+    ch_label = _escape(t("landing.tv.channels", lang))
+    popout_title = _escape(t("landing.tv.popout", lang))
+    fs_title = _escape(t("landing.tv.fullscreen", lang))
+    col_title = _escape(t("landing.tv.collapse", lang))
+    offline_txt = _escape(t("landing.tv.offline", lang))
+    return f"""
       <div class="landing-v2-shell tv-panel-wrap">
-        <section class="ts-section">
-          <div class="ts-section-header">
-            <span class="ts-section-icon">▶</span>
-            <span class="ts-section-title">Élő TV</span>
-            <span class="ts-section-meta" id="tv-header-meta">HLS + YT · 9 csatorna</span>
+        <section class="ts-section tv-section-hl">
+          <div class="ts-section-header tv-section-header-hl">
+            <span class="tv-live-badge" aria-hidden="true">
+              <span class="tv-live-dot"></span>{live_txt}
+            </span>
+            <span class="ts-section-title tv-section-title-hl">{title_txt}</span>
+            <span class="ts-section-meta" id="tv-header-meta">HLS + YT · 9 {ch_label}</span>
             <button id="tv-popout-btn" class="tv-popout-btn" type="button"
-              aria-label="TV panel kiemelése floating ablakba"
-              title="Kiemelés (drag-able, resizable)">↗</button>
+              aria-label="{popout_title}"
+              title="{popout_title}">↗</button>
             <button id="tv-fullscreen-btn" class="tv-fullscreen-btn" type="button"
-              aria-label="Teljes képernyő" title="Teljes képernyő (Esc kilép)">⛶</button>
+              aria-label="{fs_title}" title="{fs_title}">⛶</button>
             <button id="tv-collapse-btn" class="tv-collapse-btn" type="button"
-              aria-label="TV panel lekicsinyítése" title="Lekicsinyít / kibont">▽</button>
+              aria-label="{col_title}" title="{col_title}">▽</button>
           </div>
           <div class="echolot-tv" id="tv-root">
-            <div class="tv-tabs" id="tv-tabs" role="tablist" aria-label="Live TV csatornák"></div>
+            <div class="tv-tabs" id="tv-tabs" role="tablist" aria-label="{title_txt}"></div>
             <div class="tv-player-wrap">
               <video id="tv-video" controls playsinline muted autoplay></video>
               <iframe id="tv-iframe"
                 allow="autoplay; encrypted-media; picture-in-picture"
                 allowfullscreen></iframe>
-              <div class="tv-offline" id="tv-offline" hidden>Csatorna offline</div>
+              <div class="tv-offline" id="tv-offline" hidden>{offline_txt}</div>
             </div>
             <div class="tv-meta">
               <span id="tv-channel-name" class="tv-channel-name"></span>
@@ -2216,6 +2230,63 @@ _LANDING_V2_EXTRA_CSS = """
       font-size: 12px;
       line-height: 1.4;
     }
+
+    /* ─── Live TV panel hangsúly-fokozás (Kommandant kérés 2026-05-21) ──
+       Cél: a felhasználó AZONNAL észrevegye hogy van élő TV. Piros
+       pulzáló LIVE badge + színezett keret a `.ts-section`-ön. */
+    .tv-section-hl {
+      border-color: rgba(239, 68, 68, 0.55) !important;
+      box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.18),
+                  0 0 22px rgba(239, 68, 68, 0.18);
+      background:
+        linear-gradient(135deg,
+          rgba(239, 68, 68, 0.05) 0%,
+          transparent 40%),
+        var(--bg-1, rgba(255,255,255,0.02));
+    }
+    .tv-section-header-hl {
+      gap: 10px;
+      padding-bottom: 4px;
+    }
+    .tv-section-title-hl {
+      font-size: 17px !important;
+      font-weight: 700 !important;
+      color: var(--text) !important;
+      letter-spacing: 0.01em;
+    }
+    .tv-live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      padding: 3px 10px 3px 8px;
+      border-radius: 4px;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.45);
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tv-live-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 6px rgba(255,255,255,0.9);
+      animation: tv-live-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes tv-live-pulse {
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%      { opacity: 0.35; transform: scale(0.72); }
+    }
+    /* A "tv-panel-wrap" szekció hover-en intenzívebb glow — a user
+       odamozdul az egérrel, jelezzük hogy interaktív. */
+    .tv-panel-wrap .tv-section-hl:hover {
+      box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.28),
+                  0 0 30px rgba(239, 68, 68, 0.28);
+    }
 """
 
 
@@ -2334,7 +2405,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     economy_html = _render_rovat(economy_stories, lang)
 
     # Live TV panel — bal landing-col, Top Stories ALATT (Kommandant döntés)
-    tv_panel_html = _render_tv_panel()
+    tv_panel_html = _render_tv_panel(lang)
 
     return (f"""<!DOCTYPE html>
 <html lang="{lang}">
