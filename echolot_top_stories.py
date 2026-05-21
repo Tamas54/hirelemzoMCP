@@ -104,6 +104,9 @@ MIN_TOKENS_FOR_SHINGLE = 4   # rövid címeknél token-Jaccard, nem shingle
 MAX_TOKENS_PER_TITLE = 20    # cap a normalizált tokeneknél (zaj-csökkentés)
 
 _cache: dict[tuple, tuple[float, list[dict]]] = {}
+# Cluster-by-ID cache a /story/<id> detail-route gyors lookup-jához.
+# Kulcs: cluster_id ("a<min_article_id>" vagy "h<hash>"), érték: (timestamp, cluster_dict).
+_by_id_cache: dict[str, tuple[float, dict]] = {}
 
 # ---------------------------------------------------------------------------
 # Normalizáció
@@ -432,11 +435,26 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
     latest_lead: str | None = None
     any_lead: str | None = None  # first non-empty lead seen (fallback)
 
+    # Per-source article-data for the in-site /story/<id> detail page.
+    # Egy source-onként az ELSŐ (legkorábbi) cikket tartjuk meg, hogy a detail
+    # oldalon ne duplikálódjon ugyanaz a publisher (pl. ha 2 cikket írt róla).
+    per_source: dict[str, dict[str, Any]] = {}
+    # Stabil cluster_id seed: a cluster article_id-jainak lexikografikus minimuma
+    # (az article_id TEXT, 24-hex string — string-min így is determinisztikus
+    # a cluster tartalmától függetlenül attól, hogy mikor futott a clustering).
+    min_article_id_str: str | None = None
+
     for i in idxs:
         a = articles[i]
         sid = a.get("source_id") or ""
         article_spheres = _parse_spheres(a.get("article_spheres"))
         source_spheres = _parse_spheres(a.get("source_spheres"))
+
+        aid = a.get("article_id")
+        if aid:
+            aid_s = str(aid)
+            if min_article_id_str is None or aid_s < min_article_id_str:
+                min_article_id_str = aid_s
         # bias source-szinten számoljuk (egy source egy "szavazat")
         if sid and sid not in seen_sources:
             seen_sources.add(sid)
@@ -482,6 +500,23 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
             latest_title = a.get("title")
             latest_lead = lead_txt
 
+        # Per-source article record (egy source → a LEGKORÁBBI cikkje a clusterben).
+        if sid:
+            existing = per_source.get(sid)
+            ts_for_pick = ts or ""
+            if existing is None or (ts_for_pick and ts_for_pick < (existing.get("published_at") or "9999")):
+                per_source[sid] = {
+                    "article_id": a.get("article_id"),
+                    "title": a.get("title") or "",
+                    "lead": (a.get("lead") or "").strip(),
+                    "url": a.get("url") or "",
+                    "source_id": sid,
+                    "source_name": a.get("source_name") or sid,
+                    "source_lean": a.get("source_lean") or "",
+                    "published_at": ts,
+                    "language": a.get("language") or "",
+                }
+
     # Fallback: ha NINCS article-szintű sphere a clusterben (régi cikkek),
     # akkor a source-spheres válik a sphere_set-té.
     if not sphere_set:
@@ -498,7 +533,27 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
     # Lead-summary: prefer LATEST article's lead, fall back to EARLIEST, then
     # any non-empty lead found in cluster. Empty string if no lead anywhere.
     lead_summary = latest_lead or earliest_lead or any_lead or ""
+
+    # Per-source article-listát publikálási idő szerint rendezzük (legkorábbi
+    # elöl — így a detail oldalon az "első forrás" van a tetején).
+    cluster_articles = sorted(
+        per_source.values(),
+        key=lambda x: x.get("published_at") or "9999",
+    )
+
+    # Stabil cluster_id: a cluster legkisebb article_id-jának első 12 karaktere
+    # ("a" prefix-szel). Article_id 24-hex string a DB-ben, így rövidített prefix
+    # is gyakorlatilag ütközés-mentes. Ha valami miatt nincs article_id, fallback
+    # a sorted source_ids első 4-ének hash-e.
+    if min_article_id_str:
+        cluster_id = "a" + min_article_id_str[:12]
+    else:
+        import hashlib
+        seed = ":".join(sorted(seen_sources)[:4])
+        cluster_id = "h" + hashlib.md5(seed.encode("utf-8")).hexdigest()[:10]
+
     return {
+        "cluster_id": cluster_id,
         "title": latest_title or earliest_title or (sample_titles[0] if sample_titles else ""),
         "lead_title": latest_title or earliest_title or "",
         "lead_summary": lead_summary,
@@ -513,6 +568,7 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         "first_published": earliest_ts or "",
         "latest_published": latest_ts or "",
         "sample_titles": sample_titles,
+        "articles": cluster_articles,
     }
 
 
@@ -620,6 +676,12 @@ def cluster_top_stories(
     out = out[:limit]
 
     _cache[cache_key] = (now, out)
+    # ID → cluster mapping a /story/<id> detail-route lookup-hoz.
+    # Minden visszaadott cluster bekerül a globális by-id cache-be.
+    for c in out:
+        cid = c.get("cluster_id")
+        if cid:
+            _by_id_cache[cid] = (now, c)
     logger.info(
         "top_stories: returning %d clusters (min_sources=%d, limit=%d), total %.2fs",
         len(out),
@@ -630,11 +692,39 @@ def cluster_top_stories(
     return out
 
 
+def get_cluster_by_id(
+    db_path: str,
+    cluster_id: str,
+    hours: int = 24,
+) -> dict | None:
+    """Visszaadja a cluster_id-vel jelölt cluster-t a `/story/<id>` route-nak.
+
+    Először a by-id cache-ből próbálja (amit a `cluster_top_stories` tölt fel).
+    Cache-miss esetén egy fresh fetch + clustering futtat 24h-ra (min_sources=1,
+    így a single-source clusterek is megjelennek), és újra keresi az ID-t.
+    """
+    now = time.time()
+    cached = _by_id_cache.get(cluster_id)
+    if cached and (now - cached[0]) < CACHE_TTL:
+        return cached[1]
+
+    # Cache-miss → fresh full clustering (lang=None, min_sources=1, nagy limit).
+    # Ez frissíti a `_by_id_cache`-t az új clusterekkel.
+    cluster_top_stories(
+        db_path, hours=hours, min_sources=1, limit=500, lang=None
+    )
+    cached = _by_id_cache.get(cluster_id)
+    if cached:
+        return cached[1]
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Convenience: cache-bust
 
 def clear_cache() -> None:
     _cache.clear()
+    _by_id_cache.clear()
 
 
 if __name__ == "__main__":

@@ -3008,6 +3008,33 @@ async def landing(request):
     return resp
 
 
+@mcp.custom_route("/story/{cluster_id}", methods=["GET"])
+async def story_detail(request):
+    """In-site story detail page: a top-story cluster MINDEN forrását
+    listázza (cikk-cím, lead, source-név, lean badge, publikálási idő).
+    Az URL stabil: a cluster_id a cluster legkisebb article_id-jából
+    származik (lásd echolot_top_stories.get_cluster_by_id)."""
+    from echolot_top_stories import get_cluster_by_id
+    from echolot_story_detail import render_story_detail_page
+    from echolot_dashboard import _request_lang
+
+    cluster_id = request.path_params["cluster_id"]
+    lang = _request_lang(request)
+    cluster = get_cluster_by_id(str(DB_PATH), cluster_id, hours=24)
+    if not cluster:
+        # 24h cache-miss → 48h ablak fallback (régebbi sztori is megnyitható)
+        cluster = get_cluster_by_id(str(DB_PATH), cluster_id, hours=48)
+    if not cluster:
+        return HTMLResponse(
+            f"<h1>Story not found</h1><p><a href='/?lang={lang}'>← Vissza</a></p>",
+            status_code=404,
+        )
+    page = render_story_detail_page(cluster, lang, request=request)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 @mcp.custom_route("/landing-classic", methods=["GET"])
 async def landing_classic(request):
     """The previous main landing page (LANDING_HTML augmented with

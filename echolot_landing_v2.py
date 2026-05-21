@@ -375,13 +375,18 @@ def _render_v2_footer_reach(
     )
 
 
-def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
+def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") -> str:
     """Render a single story card in the v2 mockup style.
 
     ``variant`` is 'hero', 'sub', or 'sub compact'. The hero gets a
     larger headline + full lead, regular sub gets a 19px headline +
     2-line lead clamp, compact sub drops the lead entirely and uses a
     15px headline + tighter pol-bar.
+
+    Kommandant kérés (2026-05-21): a kártya MOST a saját /story/<id> oldalra
+    visz (nem külső cikkre); így a user az Echolot oldalon marad és látja
+    az összes forrást saját dizájnban. Plus az "első forrás" abszolút
+    időpontja is megjelenik a footerben (pl. "4ó (06:12)").
     """
     is_compact = "compact" in variant
     title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
@@ -389,18 +394,51 @@ def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
     # legalább ~200 char. Compact mode is kap lead-et, csak rövidebb fonttal
     # és tighter clamp-pal.
     lead = (s.get("lead_summary") or "")
-    url = s.get("lead_url") or "#"
+    cluster_id = s.get("cluster_id") or ""
+    # In-site detail-link; fallback az eredeti lead_url-ra ha valami miatt
+    # nincs cluster_id (régi cache-elt rekord).
+    if cluster_id:
+        href = f"/story/{cluster_id}?lang={lang}"
+        link_attrs = ''  # same-tab nav, az oldalon marad
+    else:
+        href = s.get("lead_url") or "#"
+        link_attrs = ' target="_blank" rel="noopener"'
     n_sources = int(s.get("source_count") or 0)
     bias = s.get("bias_dist") or {"L": 0, "C": 0, "R": 0}
     spheres = s.get("sphere_set") or []
     sphere = spheres[0] if spheres else ""
     accent = _sphere_color(sphere)
 
-    # Relative age (from latest_published). Fall back to first_published.
-    age_html = ""
-    latest = s.get("latest_published")
+    # FIRST-published meta — Kommandant kérés (2026-05-21): a kártyán látszódjon
+    # a hír legkorábbi forrásának időpontja "4ó (06:12)" formátumban
+    # (relatív + abszolút együtt).
+    first_meta_html = ""
     first = s.get("first_published")
-    if latest:
+    latest = s.get("latest_published")
+    if first:
+        try:
+            dt_f = datetime.fromisoformat(first)
+            now_f = datetime.now(timezone.utc) if dt_f.tzinfo else datetime.now()
+            rel = _fmt_age(dt_f, now_f)
+            # Helyi-idő HH:MM (vagy MM-DD HH:MM ha régebbi)
+            now_local = datetime.now()
+            dt_local = dt_f.astimezone() if dt_f.tzinfo else dt_f
+            if dt_local.date() == now_local.date():
+                clock = dt_local.strftime("%H:%M")
+            elif dt_local.year == now_local.year:
+                clock = dt_local.strftime("%m-%d %H:%M")
+            else:
+                clock = dt_local.strftime("%Y-%m-%d")
+            first_meta_html = (
+                f'<time class="story-first-meta" datetime="{_escape(first)}" '
+                f'title="első forrás">↪ {_escape(rel)} ({_escape(clock)})</time>'
+            )
+        except (ValueError, TypeError):
+            first_meta_html = ""
+
+    # Legacy "latest" age — most másodlagos jelzés; a first-meta a fő.
+    age_html = ""
+    if latest and not first_meta_html:
         try:
             dt = datetime.fromisoformat(latest)
             now = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
@@ -415,7 +453,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
     footer_reach = _render_v2_footer_reach(s.get("source_ids"), first, latest)
 
     return f"""
-      <a href="{_escape(url)}" target="_blank" rel="noopener" class="story {variant}">
+      <a href="{_escape(href)}"{link_attrs} class="story {variant}">
         <span class="accent" style="background: {accent}"></span>
         <div class="meta-row">
           <span class="sphere-tag" style="color: {accent}">{_escape(sphere)}</span>
@@ -428,7 +466,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str) -> str:
         {lead_html}
         {_render_pol_bar(bias)}
         <div class="story-footer-v2">
-          {age_html}
+          {first_meta_html or age_html}
           {footer_reach}
         </div>
       </a>
@@ -492,12 +530,12 @@ def _render_top_stories(stories: list[dict], lang: str) -> str:
     src_label = _escape(t("article.source", lang)).lower()
     section_label = _escape(t("landing.section.top_stories", lang))
 
-    hero_html = _render_story_v2(stories[0], "hero", src_label)
+    hero_html = _render_story_v2(stories[0], "hero", src_label, lang)
     # Lépcsős méretcsökkentés: első 4 sub-medium, utána sub-compact (cím-only)
     sub_cards = []
     for i, s in enumerate(stories[1:13]):
         variant = "sub" if i < 4 else "sub compact"
-        sub_cards.append(_render_story_v2(s, variant, src_label))
+        sub_cards.append(_render_story_v2(s, variant, src_label, lang))
     sub_html = (
         f'<div class="stories-grid">{"".join(sub_cards)}</div>' if sub_cards else ""
     )
@@ -637,7 +675,7 @@ def _render_rovat(stories: list[dict], lang: str) -> str:
         return f'<div class="empty">{_escape(t("landing.empty_panel", lang))}</div>'
     src_label = _escape(t("article.source", lang)).lower()
     cards = [
-        _render_story_v2(s, "sub compact", src_label) for s in stories[:6]
+        _render_story_v2(s, "sub compact", src_label, lang) for s in stories[:6]
     ]
     return f"""
       <div class="rovat-shell">
