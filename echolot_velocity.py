@@ -86,15 +86,27 @@ def compute_sphere_velocity(
         #
         # json_each unpacks the spheres_json list so each article counts in
         # every sphere it belongs to.
+        # FONTOS: a fetched_at tárolva mint "YYYY-MM-DDTHH:MM:SS.ffffff+00:00",
+        # a cutoff strftime output "YYYY-MM-DDTHH:MM:SS" — suffix nélkül. A
+        # `>=` esetén a tárolt érték lexikografikusan nagyobb a hozzáadott
+        # ".ffffff+00:00" miatt → OK. DE `a.fetched_at < cutoff` SOSEM lesz
+        # True ugyanezen okból (".ffffff..." > "" lexikografikusan), így a
+        # baseline felső határa kibukik és minden szféra NO_BASELINE státuszt
+        # kapott. Fix: a fetched_at-ot is strftime-mal trim-eljük az
+        # összehasonlítás előtt, így mindkét oldal pontosan azonos formátum.
         rows = conn.execute(f"""
             SELECT je.value AS sphere,
-                   SUM(CASE WHEN a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{window_hours} hours')
+                   SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                                 >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{window_hours} hours')
                             THEN 1 ELSE 0 END) AS current_count,
-                   SUM(CASE WHEN a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_start} hours')
-                              AND a.fetched_at <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_end} hours')
+                   SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                                 >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_start} hours')
+                              AND strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                                 <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_end} hours')
                             THEN 1 ELSE 0 END) AS baseline_count
             FROM articles a, json_each(a.spheres_json) je
-            WHERE a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_offset_hours + baseline_window_hours + 1} hours')
+            WHERE strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                  >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_offset_hours + baseline_window_hours + 1} hours')
             GROUP BY je.value
         """).fetchall()
     finally:
