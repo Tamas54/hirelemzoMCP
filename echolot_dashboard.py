@@ -50,6 +50,14 @@ def _augment_strip_css() -> str:
       gap: 1rem; flex-wrap: wrap; padding: 0 1.5rem;
       position: relative; z-index: 5;
     }
+    /* Desktop: a .top-actions (legacy + dashboard gombok) position:absolute
+       fedi a nav-strip jobb szélét, ezért a strip extra jobb-paddinget kap,
+       hogy a lang-select balrább csússzon és látható maradjon a gombok ALATT
+       legyen helyett azok ALÓL kibújjon. (Mobilon a top-actions static lesz,
+       ott nincs ütközés.) */
+    @media (min-width: 701px) {
+      .echolot-augment { padding-right: 17rem; }
+    }
     /* Több gap, hogy a tabok ne tűnjenek egymásra-másztnak (Kommandant
        ux-feedback #25). Plus a `display: inline-block` mind az <a>-knak,
        hogy ha a flex-wrap se kéne, akkor is külön sorba mennek. */
