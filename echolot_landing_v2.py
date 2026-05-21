@@ -2337,9 +2337,11 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     # állami propaganda, magyar olvasónak zaj. Lásd _render_blindspots docstring.
     try:
         political_blind = find_political_blindspots(db_path, hours=24, min_sources=2, limit=3, lang=lang)
-        if not political_blind:
-            log.info("political_blindspots: 0 HU-hit, globális fallback")
-            political_blind = find_political_blindspots(db_path, hours=24, min_sources=2, limit=3, lang=None)
+        # Kommandant kérés 2026-05-21: NINCS globális fallback. Ha pl. a
+        # HU-szűrt blindspot üres, akkor üresen marad — ne keveredjenek be
+        # orosz/kínai/stb. cikkek a magyar olvasónak (cirill betűs címek a
+        # "Csak jobbról" panelben → user-confusion, zaj). A panel
+        # _render_blindspots-ban graceful-en kezeli az üres listát.
     except Exception as exc:
         log.warning("political_blindspots failed: %s", exc)
         political_blind = []
