@@ -2974,6 +2974,33 @@ async def dashboard_trending(request):
                 "  AND strftime('%Y-%m-%dT%H:%M:%S', fetched_at) "
                 "      <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-24 hours')"
             ).fetchone()[0]
+            # Same windows but using published_at + julianday (timezone-aware).
+            out["published_total_non_null"] = con.execute(
+                "SELECT COUNT(*) FROM articles WHERE published_at IS NOT NULL"
+            ).fetchone()[0]
+            out["pub_count_last_6h"] = con.execute(
+                "SELECT COUNT(*) FROM articles "
+                "WHERE published_at IS NOT NULL "
+                "  AND (julianday('now') - julianday(published_at)) * 24 <= 6"
+            ).fetchone()[0]
+            out["pub_count_24h_to_192h"] = con.execute(
+                "SELECT COUNT(*) FROM articles "
+                "WHERE published_at IS NOT NULL "
+                "  AND (julianday('now') - julianday(published_at)) * 24 > 24 "
+                "  AND (julianday('now') - julianday(published_at)) * 24 <= 192"
+            ).fetchone()[0]
+            out["pub_sample"] = [
+                r[0] for r in con.execute(
+                    "SELECT published_at FROM articles "
+                    "WHERE published_at IS NOT NULL "
+                    "ORDER BY published_at DESC LIMIT 5"
+                )
+            ]
+            out["pub_oldest_in_recent"] = con.execute(
+                "SELECT MIN(published_at) FROM articles "
+                "WHERE published_at IS NOT NULL "
+                "  AND (julianday('now') - julianday(published_at)) * 24 <= 192"
+            ).fetchone()[0]
             con.close()
         except Exception as exc:
             out["db_error"] = repr(exc)
