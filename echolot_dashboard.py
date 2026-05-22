@@ -999,16 +999,21 @@ def render_trending_page(request, compute_velocity_fn, db_path,
                            seo_description=t("seo.page.trending.description", lang)), lang
     # A spheres velocity tábla LENT marad (Kommandant kérés 2026-05-21);
     # csak akkor van értelme ha van baseline. NO_BASELINE státuszú sorokat
-    # ki is szűrjük, ne ismétlődjön az "üres jelzés".
+    # alapesetben kiszűrjük. KIVÉTEL: ha minden sor no_baseline (fresh DB
+    # Railway dev-deploy után, nincs persistent volume), akkor inkább
+    # mutassuk meg current_count szerint sorbarakva, fejezetben egy hint-tel
+    # — jobb mint az üres szekció.
+    all_spheres = report.get("spheres", [])
+    has_any_baseline = any(s.get("status") != "no_baseline" for s in all_spheres)
     rows = []
-    for s in report.get("spheres", []):
+    for s in all_spheres:
         status = s.get("status", "normal")
-        if status == "no_baseline":
-            # Kommandant kérés: baseline nélkül a tábla nem hordoz információt,
-            # ezeket kihagyjuk. Marad spike/rising/normal/quiet.
+        if status == "no_baseline" and has_any_baseline:
+            # Van értelmes baseline-adat máshol → no_baseline sorokat kihagyjuk.
+            # Ha azonban MINDEN sor no_baseline, akkor inkább megmutatjuk.
             continue
         color = {"spike": "red", "rising": "yellow", "normal": "green",
-                 "quiet": "yellow"}.get(status, "yellow")
+                 "quiet": "yellow", "no_baseline": "yellow"}.get(status, "yellow")
         ratio = s.get("velocity_ratio")
         ratio_s = f"{ratio:.2f}×" if ratio is not None else "—"
         rows.append(f"""
@@ -1021,6 +1026,7 @@ def render_trending_page(request, compute_velocity_fn, db_path,
               <span class="status-{color} px-2 py-0.5 rounded text-[10px] uppercase">{status}</span>
             </td>
           </tr>""")
+    fresh_db_hint = (not has_any_baseline) and bool(rows)
     # Optional Wikipedia top-movers panel
     wiki_panel = ""
     if wiki_top_movers_fn is not None:
@@ -1184,11 +1190,20 @@ def render_trending_page(request, compute_velocity_fn, db_path,
     sphere_title_lbl = _escape(t("dashboard.trending.spheres_title", lang))
     sphere_sub_lbl = _escape(t("dashboard.trending.spheres_subtitle", lang))
     if rows:
+        # Fresh-DB esetén másodlagos hint a sub alá — "baseline gyűlik".
+        hint_html = ""
+        if fresh_db_hint:
+            hint_html = (
+                '<p class="text-xs text-yellow-400/80 mb-3">'
+                + _escape(t("dashboard.trending.spheres_fresh_db_hint", lang))
+                + '</p>'
+            )
         velocity_panel = f"""
           <h3 class="text-lg font-semibold mt-10 mb-2">{sphere_title_lbl}</h3>
           <p class="text-xs text-[color:var(--text-dim)] mb-4">
             {sphere_sub_lbl} · {report.get('window_hours', 6)}h vs {report.get('baseline_window', '?')}
           </p>
+          {hint_html}
           <div class="overflow-x-auto">
             <table class="w-full text-left">
               <thead class="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--text-dim)]">
