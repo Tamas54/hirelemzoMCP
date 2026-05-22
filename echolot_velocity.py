@@ -68,70 +68,38 @@ def compute_sphere_velocity(
     """
     baseline_end = baseline_offset_hours
     baseline_start = baseline_offset_hours + baseline_window_hours
-    adaptive_note: str | None = None
 
     conn = _connect(db_path)
     try:
-        # Two filtering rules baked in here:
-        #   1) We compare on fetched_at, not published_at. published_at carries
-        #      mixed source timezones (+10:00, +02:00, Z) that older SQLite
-        #      datetime() builds (Railway image) can't normalize. fetched_at
-        #      is UTC ISO set by the scraper, and "what's spiking right now"
-        #      is more honestly about ingest cadence than about source-side
-        #      publication time anyway.
-        #   2) Both sides of the comparison are normalized via
-        #      strftime('%Y-%m-%dT%H:%M:%S', ...). fetched_at is stored as
-        #      "YYYY-MM-DDTHH:MM:SS.ffffff+00:00" — datetime('now') alone would
-        #      give "YYYY-MM-DD HH:MM:SS" (space, no T), which loses to the
-        #      stored format lexicographically. strftime forces T on both sides.
+        # We bucket on PUBLISHED_AT (article release time), not fetched_at
+        # (scraper ingest time). Reason: on Railway dev-mode the DB has no
+        # persistent volume — every deploy starts with an empty file. With
+        # fetched_at the baseline window [24h..192h ago] would be empty for
+        # 24h+ after each deploy. published_at carries the source's real
+        # release timestamp (often hours-to-days old when first scraped),
+        # so the baseline window is meaningful immediately after deploy.
         #
-        # json_each unpacks the spheres_json list so each article counts in
-        # every sphere it belongs to.
-        def _run_query(b_end: float, b_start: float):
-            # b_start = how many hours back the baseline window opens (older)
-            # b_end   = how many hours back the baseline window closes (newer)
-            return conn.execute(f"""
-                SELECT je.value AS sphere,
-                       SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                                     >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{window_hours} hours')
-                                THEN 1 ELSE 0 END) AS current_count,
-                       SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                                     >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{b_start} hours')
-                                  AND strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                                     <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{b_end} hours')
-                                THEN 1 ELSE 0 END) AS baseline_count
-                FROM articles a, json_each(a.spheres_json) je
-                WHERE strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                      >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{b_start + 1} hours')
-                GROUP BY je.value
-            """).fetchall()
-
-        rows = _run_query(baseline_end, baseline_start)
-
-        # Adaptive fallback for fresh databases (Railway dev mode: no
-        # persistent volume → every deploy starts from 0). If the requested
-        # baseline window pulled in nothing usable, retry with whatever older
-        # data we actually have: baseline = [now - window_hours .. DB oldest].
-        # This keeps the "rising vs earlier" idea while degrading gracefully
-        # when the requested 7-day window is empty.
-        if not any((r["baseline_count"] or 0) >= min_baseline for r in rows):
-            span_hours = conn.execute(
-                "SELECT (julianday('now') - julianday(MIN(fetched_at))) * 24.0 "
-                "FROM articles"
-            ).fetchone()[0]
-            if span_hours and span_hours > window_hours * 2:
-                # Need at least 2× current window so baseline has room to differ.
-                # Leave a tiny margin off the oldest edge to avoid edge dropoff.
-                new_end = float(window_hours)          # baseline closes at end of current window
-                new_start = float(span_hours) - 0.1    # baseline opens at oldest available data
-                rows = _run_query(new_end, new_start)
-                baseline_end = new_end
-                baseline_start = new_start
-                baseline_window_hours = new_start - new_end
-                adaptive_note = (
-                    f"adaptive baseline: DB has only ~{span_hours:.1f}h of data "
-                    f"(deploy reset?), baseline = oldest..now-{window_hours}h"
-                )
+        # Timezone handling: published_at values come in mixed offsets
+        # (+02:00, +10:00, Z, etc.). SQLite 3.46's julianday() normalizes
+        # all of them to UTC, so `(julianday('now') - julianday(p)) * 24`
+        # gives a clean hours-difference number we can threshold.
+        #
+        # json_each unpacks the spheres_json list so each article counts
+        # in every sphere it belongs to.
+        rows = conn.execute(f"""
+            SELECT je.value AS sphere,
+                   SUM(CASE WHEN (julianday('now') - julianday(a.published_at)) * 24 <= {window_hours}
+                              AND (julianday('now') - julianday(a.published_at)) * 24 >= 0
+                            THEN 1 ELSE 0 END) AS current_count,
+                   SUM(CASE WHEN (julianday('now') - julianday(a.published_at)) * 24 >  {baseline_end}
+                              AND (julianday('now') - julianday(a.published_at)) * 24 <= {baseline_start}
+                            THEN 1 ELSE 0 END) AS baseline_count
+            FROM articles a, json_each(a.spheres_json) je
+            WHERE a.published_at IS NOT NULL
+              AND (julianday('now') - julianday(a.published_at)) * 24 <= {baseline_start + 1}
+              AND (julianday('now') - julianday(a.published_at)) * 24 >= 0
+            GROUP BY je.value
+        """).fetchall()
     finally:
         conn.close()
 
@@ -171,9 +139,8 @@ def compute_sphere_velocity(
         "baseline_window": f"{baseline_end}-{baseline_start}h ago, {baseline_window_hours}h wide",
         "baseline_window_hours": baseline_window_hours,
         "min_baseline": min_baseline,
-        "metric": "fetched_at (ingest cadence)",
-        "note": "compares scraper ingest rate, not source publication rate",
-        "adaptive_note": adaptive_note,
+        "metric": "published_at (source release time, julianday-normalized)",
+        "note": "compares source-side publication rate; works on fresh DBs since articles carry historical published_at",
         "spheres_evaluated": len(out),
         "spheres": out[:limit],
     }
