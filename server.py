@@ -2939,6 +2939,53 @@ async def dashboard_health(request):
 
 @mcp.custom_route("/dashboard/trending", methods=["GET"])
 async def dashboard_trending(request):
+    # Diagnostic short-circuit: ?debug=velocity dumps the raw report +
+    # DB-side fetched_at samples + cutoff strings, so we can see on
+    # Railway exactly why the spheres table comes back empty.
+    if request.query_params.get("debug") == "velocity":
+        import sqlite3 as _sq3
+        out = {"sqlite_version": _sq3.sqlite_version, "db_path": str(DB_PATH)}
+        try:
+            con = _sq3.connect(str(DB_PATH))
+            con.row_factory = _sq3.Row
+            out["total_articles"] = con.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
+            out["newest_fetched_at"] = con.execute("SELECT MAX(fetched_at) FROM articles").fetchone()[0]
+            out["oldest_fetched_at"] = con.execute("SELECT MIN(fetched_at) FROM articles").fetchone()[0]
+            out["sample_fetched_at"] = [
+                r[0] for r in con.execute(
+                    "SELECT fetched_at FROM articles ORDER BY fetched_at DESC LIMIT 3"
+                )
+            ]
+            out["cutoffs"] = {
+                "now":   con.execute("SELECT strftime('%Y-%m-%dT%H:%M:%S', 'now')").fetchone()[0],
+                "-6h":   con.execute("SELECT strftime('%Y-%m-%dT%H:%M:%S', 'now', '-6 hours')").fetchone()[0],
+                "-24h":  con.execute("SELECT strftime('%Y-%m-%dT%H:%M:%S', 'now', '-24 hours')").fetchone()[0],
+                "-192h": con.execute("SELECT strftime('%Y-%m-%dT%H:%M:%S', 'now', '-192 hours')").fetchone()[0],
+            }
+            out["count_last_6h"] = con.execute(
+                "SELECT COUNT(*) FROM articles "
+                "WHERE strftime('%Y-%m-%dT%H:%M:%S', fetched_at) "
+                "    >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-6 hours')"
+            ).fetchone()[0]
+            out["count_24h_to_192h"] = con.execute(
+                "SELECT COUNT(*) FROM articles "
+                "WHERE strftime('%Y-%m-%dT%H:%M:%S', fetched_at) "
+                "      >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-192 hours') "
+                "  AND strftime('%Y-%m-%dT%H:%M:%S', fetched_at) "
+                "      <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-24 hours')"
+            ).fetchone()[0]
+            con.close()
+        except Exception as exc:
+            out["db_error"] = repr(exc)
+        try:
+            out["report"] = compute_sphere_velocity(
+                DB_PATH, window_hours=6, baseline_offset_hours=24,
+                baseline_window_hours=168, limit=30,
+            )
+        except Exception as exc:
+            out["report_error"] = repr(exc)
+        return JSONResponse(out)
+
     # Pre-fetch async data sources in this async route, then pass cached
     # results to the sync render helper.
     await _ensure_wiki_db_async()
