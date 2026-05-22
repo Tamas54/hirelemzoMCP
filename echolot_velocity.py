@@ -68,6 +68,7 @@ def compute_sphere_velocity(
     """
     baseline_end = baseline_offset_hours
     baseline_start = baseline_offset_hours + baseline_window_hours
+    adaptive_note: str | None = None
 
     conn = _connect(db_path)
     try:
@@ -86,29 +87,51 @@ def compute_sphere_velocity(
         #
         # json_each unpacks the spheres_json list so each article counts in
         # every sphere it belongs to.
-        # FONTOS: a fetched_at tárolva mint "YYYY-MM-DDTHH:MM:SS.ffffff+00:00",
-        # a cutoff strftime output "YYYY-MM-DDTHH:MM:SS" — suffix nélkül. A
-        # `>=` esetén a tárolt érték lexikografikusan nagyobb a hozzáadott
-        # ".ffffff+00:00" miatt → OK. DE `a.fetched_at < cutoff` SOSEM lesz
-        # True ugyanezen okból (".ffffff..." > "" lexikografikusan), így a
-        # baseline felső határa kibukik és minden szféra NO_BASELINE státuszt
-        # kapott. Fix: a fetched_at-ot is strftime-mal trim-eljük az
-        # összehasonlítás előtt, így mindkét oldal pontosan azonos formátum.
-        rows = conn.execute(f"""
-            SELECT je.value AS sphere,
-                   SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                                 >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{window_hours} hours')
-                            THEN 1 ELSE 0 END) AS current_count,
-                   SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                                 >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_start} hours')
-                              AND strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                                 <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_end} hours')
-                            THEN 1 ELSE 0 END) AS baseline_count
-            FROM articles a, json_each(a.spheres_json) je
-            WHERE strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
-                  >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{baseline_offset_hours + baseline_window_hours + 1} hours')
-            GROUP BY je.value
-        """).fetchall()
+        def _run_query(b_end: float, b_start: float):
+            # b_start = how many hours back the baseline window opens (older)
+            # b_end   = how many hours back the baseline window closes (newer)
+            return conn.execute(f"""
+                SELECT je.value AS sphere,
+                       SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                                     >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{window_hours} hours')
+                                THEN 1 ELSE 0 END) AS current_count,
+                       SUM(CASE WHEN strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                                     >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{b_start} hours')
+                                  AND strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                                     <  strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{b_end} hours')
+                                THEN 1 ELSE 0 END) AS baseline_count
+                FROM articles a, json_each(a.spheres_json) je
+                WHERE strftime('%Y-%m-%dT%H:%M:%S', a.fetched_at)
+                      >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-{b_start + 1} hours')
+                GROUP BY je.value
+            """).fetchall()
+
+        rows = _run_query(baseline_end, baseline_start)
+
+        # Adaptive fallback for fresh databases (Railway dev mode: no
+        # persistent volume → every deploy starts from 0). If the requested
+        # baseline window pulled in nothing usable, retry with whatever older
+        # data we actually have: baseline = [now - window_hours .. DB oldest].
+        # This keeps the "rising vs earlier" idea while degrading gracefully
+        # when the requested 7-day window is empty.
+        if not any((r["baseline_count"] or 0) >= min_baseline for r in rows):
+            span_hours = conn.execute(
+                "SELECT (julianday('now') - julianday(MIN(fetched_at))) * 24.0 "
+                "FROM articles"
+            ).fetchone()[0]
+            if span_hours and span_hours > window_hours * 2:
+                # Need at least 2× current window so baseline has room to differ.
+                # Leave a tiny margin off the oldest edge to avoid edge dropoff.
+                new_end = float(window_hours)          # baseline closes at end of current window
+                new_start = float(span_hours) - 0.1    # baseline opens at oldest available data
+                rows = _run_query(new_end, new_start)
+                baseline_end = new_end
+                baseline_start = new_start
+                baseline_window_hours = new_start - new_end
+                adaptive_note = (
+                    f"adaptive baseline: DB has only ~{span_hours:.1f}h of data "
+                    f"(deploy reset?), baseline = oldest..now-{window_hours}h"
+                )
     finally:
         conn.close()
 
@@ -150,6 +173,7 @@ def compute_sphere_velocity(
         "min_baseline": min_baseline,
         "metric": "fetched_at (ingest cadence)",
         "note": "compares scraper ingest rate, not source publication rate",
+        "adaptive_note": adaptive_note,
         "spheres_evaluated": len(out),
         "spheres": out[:limit],
     }
