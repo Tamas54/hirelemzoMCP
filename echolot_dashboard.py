@@ -38,6 +38,7 @@ from echolot_ai_discovery import (
     schema_org_data_catalog_html,
 )
 from echolot_news_render import render_initial_news_html
+from echolot_charts import hourly_volume_svg, polit_spectrum_svg
 
 
 def _augment_strip_css() -> str:
@@ -1204,16 +1205,59 @@ def render_trending_page(request, compute_velocity_fn, db_path,
     else:
         velocity_panel = ""
 
+    # Charts panel (Kommandant 2026-05-22): 24h volume timeline + lean-stack
+    # bar. Both bucket on published_at via julianday() so they work on a
+    # fresh DB. Failures are silent — chart panel just stays empty.
+    charts_panel = ""
+    try:
+        hv_svg = hourly_volume_svg(db_path, hours=24, top_n=5)
+    except Exception:
+        hv_svg = ""
+    try:
+        ps_svg = polit_spectrum_svg(db_path, hours=24, top_n=10)
+    except Exception:
+        ps_svg = ""
+    if hv_svg or ps_svg:
+        hv_block = (
+            f'<div class="card p-4 bg-white/[0.02] border border-[color:var(--border)] '
+            f'rounded-lg">'
+            f'<h4 class="text-sm font-semibold mb-1">'
+            f'{_escape(t("dashboard.trending.chart_hourly_title", lang))}</h4>'
+            f'<p class="text-xs text-[color:var(--text-dim)] mb-3">'
+            f'{_escape(t("dashboard.trending.chart_hourly_sub", lang))}</p>'
+            f'{hv_svg}</div>'
+        ) if hv_svg else ""
+        ps_block = (
+            f'<div class="card p-4 bg-white/[0.02] border border-[color:var(--border)] '
+            f'rounded-lg">'
+            f'<h4 class="text-sm font-semibold mb-1">'
+            f'{_escape(t("dashboard.trending.chart_spectrum_title", lang))}</h4>'
+            f'<p class="text-xs text-[color:var(--text-dim)] mb-3">'
+            f'{_escape(t("dashboard.trending.chart_spectrum_sub", lang))}</p>'
+            f'{ps_svg}</div>'
+        ) if ps_svg else ""
+        charts_panel = f"""
+          <h3 class="text-lg font-semibold mt-10 mb-4">
+            {_escape(t("dashboard.trending.charts_section_title", lang))}
+          </h3>
+          <div class="grid grid-cols-1 gap-4">
+            {hv_block}
+            {ps_block}
+          </div>
+        """
+
     # Kommandant 2026-05-21 sorrend-kérés:
     #   1) YouTube trending  (TOP — vizuálisan vonzó)
     #   2) Trending news      (Google News, "via X" nélkül)
     #   3) Wikipedia top      (daily pageviews)
-    #   4) Sphere velocity    (LENT — baseline esetén)
-    #   5) Wiki top-movers    (legalulra, ritkán népesedik)
+    #   4) Charts             (24h timeline + polit-spectrum)
+    #   5) Sphere velocity    (baseline esetén)
+    #   6) Wiki top-movers    (legalulra, ritkán népesedik)
     body = f"""
       {youtube_panel}
       {google_panel}
       {pageviews_panel}
+      {charts_panel}
       {velocity_panel}
       {wiki_panel}
     """
