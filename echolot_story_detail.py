@@ -79,9 +79,20 @@ _ORIG_LBL = {
     "fr": "Article original", "ru": "Оригинал статьи", "uk": "Оригінал статті",
 }
 
+# "Forrás összes híre" — a forrás belső gyűjtőoldalára (/source/<id>) mutató link.
+_SRC_ALL_LBL = {
+    "hu": "Forrás összes híre", "en": "All news from source",
+    "de": "Alle Nachrichten der Quelle", "fr": "Toutes les actus de la source",
+    "ru": "Все новости источника", "uk": "Усі новини джерела",
+}
+
 
 def _orig_label(lang: str) -> str:
     return _ORIG_LBL.get(lang, _ORIG_LBL["hu"])
+
+
+def _src_all_label(lang: str) -> str:
+    return _SRC_ALL_LBL.get(lang, _SRC_ALL_LBL["hu"])
 
 
 def _render_lean_badge(lean: str | None) -> str:
@@ -101,7 +112,8 @@ def _render_source_card(article: dict, lang: str) -> str:
     title = article.get("title") or ""
     lead = (article.get("lead") or "").strip()
     url = article.get("url") or "#"
-    src_name = article.get("source_name") or article.get("source_id") or ""
+    src_id = article.get("source_id") or ""
+    src_name = article.get("source_name") or src_id or ""
     lean = article.get("source_lean") or ""
     ts = article.get("published_at") or ""
     ts_combined = _fmt_combined(ts)
@@ -109,18 +121,39 @@ def _render_source_card(article: dict, lang: str) -> str:
     lead_html = (
         f'<p class="src-card-lead">{_escape(lead)}</p>' if lead else ""
     )
+
+    # FENT: a forrás neve belső link a forrás-kártyára (aznapi hírei).
+    src_href = f"/source/{_escape(src_id)}?lang={lang}" if src_id else ""
+    if src_href:
+        name_html = (
+            f'<a href="{src_href}" class="src-card-name src-card-name-link">'
+            f'{_escape(src_name)}</a>'
+        )
+    else:
+        name_html = f'<span class="src-card-name">{_escape(src_name)}</span>'
+
+    # LENT: az "Eredeti cikk" mellett a "Forrás összes híre" belső link.
+    src_all_html = (
+        f'<a href="{src_href}" class="src-card-link src-card-link-internal">'
+        f'{_escape(_src_all_label(lang))} →</a>'
+        if src_href else ""
+    )
+
     return f"""
       <article class="src-card">
         <header class="src-card-head">
           {_render_lean_badge(lean)}
-          <span class="src-card-name">{_escape(src_name)}</span>
+          {name_html}
           <time class="src-card-time" datetime="{_escape(ts)}">{_escape(ts_combined)}</time>
         </header>
         <h3 class="src-card-title">{_escape(title)}</h3>
         {lead_html}
-        <a href="{_escape(url)}" target="_blank" rel="noopener" class="src-card-link">
-          {_escape(_orig_label(lang))} ↗
-        </a>
+        <div class="src-card-actions">
+          <a href="{_escape(url)}" target="_blank" rel="noopener" class="src-card-link">
+            {_escape(_orig_label(lang))} ↗
+          </a>
+          {src_all_html}
+        </div>
       </article>
     """
 
@@ -249,6 +282,21 @@ _STORY_DETAIL_CSS = """
       color: var(--fg-2);
       margin: 0 0 10px 0;
     }
+    .src-card-name-link {
+      color: var(--text);
+      text-decoration: none;
+      transition: color .15s ease;
+    }
+    .src-card-name-link:hover {
+      color: var(--accent, #6cb6ff);
+      text-decoration: underline;
+    }
+    .src-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
     .src-card-link {
       display: inline-block;
       color: var(--accent, #6cb6ff);
@@ -257,6 +305,8 @@ _STORY_DETAIL_CSS = """
       letter-spacing: 0.03em;
     }
     .src-card-link:hover { text-decoration: underline; }
+    .src-card-link-internal { color: var(--fg-2); }
+    .src-card-link-internal:hover { color: var(--text); }
 
     .lean-badge {
       display: inline-flex;

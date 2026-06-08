@@ -3129,6 +3129,43 @@ async def story_detail(request):
     return resp
 
 
+@mcp.custom_route("/source/{source_id}", methods=["GET"])
+async def source_page(request):
+    """In-site forrás-oldal: egy adott FORRÁS (pl. Telex, 24.hu) híreit
+    listázza egy konfigurálható időablakban (?days=1|3|7). A story-detail
+    forrás-kártyájáról jutunk ide (forrás-név / 'Forrás összes híre' link)."""
+    from echolot_source_page import (
+        DEFAULT_WINDOW_DAYS,
+        SOURCE_WINDOW_DAYS,
+        query_source,
+        query_source_articles,
+        render_source_page,
+    )
+    from echolot_dashboard import _request_lang
+
+    source_id = request.path_params["source_id"]
+    lang = _request_lang(request)
+
+    try:
+        days = int(request.query_params.get("days", str(DEFAULT_WINDOW_DAYS)))
+    except (ValueError, TypeError):
+        days = DEFAULT_WINDOW_DAYS
+    if days not in SOURCE_WINDOW_DAYS:
+        days = DEFAULT_WINDOW_DAYS
+
+    source = query_source(str(DB_PATH), source_id)
+    if not source:
+        return HTMLResponse(
+            f"<h1>Source not found</h1><p><a href='/?lang={lang}'>← Vissza</a></p>",
+            status_code=404,
+        )
+    articles = query_source_articles(str(DB_PATH), source_id, days)
+    page = render_source_page(source, articles, days, lang)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 @mcp.custom_route("/landing-classic", methods=["GET"])
 async def landing_classic(request):
     """The previous main landing page (LANDING_HTML augmented with
