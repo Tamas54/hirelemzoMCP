@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Időjárás — Echolot widget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #14b8a6;           /* teal — Echolot accent */
+    --primary-soft: rgba(20,184,166,0.12);
+    --bg: #070a0f;
+    --card: rgba(15,20,28,0.72);
+    --card-2: rgba(255,255,255,0.035);
+    --line: rgba(255,255,255,0.08);
+    --line-strong: rgba(255,255,255,0.16);
+    --text: #e7edf1;
+    --text-dim: #8b96a0;
+    --text-faint: #5c656e;
+    --warn: #f2b34b;
+    --rain: #5fa8e6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(20,184,166,0.10), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(95,168,230,0.08), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: 32px 16px;
+  }
+  /* beágyazott (iframe) mód: tömör, a kerethez méreteződik → nincs scrollbar */
+  body.embedded { min-height: 0; padding: 0; display: block; background: transparent; }
+  body.embedded .ww { max-width: none; border: none; border-radius: 0; box-shadow: none; backdrop-filter: none; }
+
+  /* ── widget shell ─────────────────────────────────── */
+  .ww {
+    width: 100%; max-width: 300px;
+    background: var(--card);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px 16px 10px;
+    box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── header / location ────────────────────────────── */
+  .ww-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .ww-pin { width: 14px; height: 14px; color: var(--primary); flex-shrink: 0; }
+  .ww-loc { font-size: 14px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.2;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ww-loc .sub { color: var(--text-dim); font-weight: 400; }
+  .ww-refresh { margin-left: auto; background: none; border: none; cursor: pointer;
+                color: var(--text-faint); width: 26px; height: 26px; border-radius: 8px;
+                display: grid; place-items: center; transition: color .15s, background .15s; }
+  .ww-refresh:hover { color: var(--text); background: var(--card-2); }
+  .ww-refresh svg { width: 15px; height: 15px; }
+  .ww-refresh.spin svg { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── current block ────────────────────────────────── */
+  .ww-current { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+  .ww-icon { width: 56px; height: 56px; flex-shrink: 0; }
+  .ww-temp { font-size: 42px; font-weight: 300; line-height: 0.9; letter-spacing: -0.02em;
+             font-variant-numeric: tabular-nums; }
+  .ww-temp .deg { font-size: 20px; color: var(--text-dim); vertical-align: top; }
+  .ww-cond-wrap { margin-top: 2px; }
+  .ww-cond { font-size: 15px; font-weight: 500; }
+  .ww-feels { font-size: 13px; color: var(--text-dim); margin-top: 1px; }
+
+  /* ── stat chips ───────────────────────────────────── */
+  .ww-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px;
+              margin: 12px 0 2px; }
+  .ww-stat { background: var(--card-2); border: 1px solid var(--line);
+             border-radius: 12px; padding: 9px 10px; text-align: center; }
+  .ww-stat .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
+                line-height: 1.1; }
+  .ww-stat .k { font-size: 10px; color: var(--text-dim); text-transform: uppercase;
+                letter-spacing: 0.08em; margin-top: 3px; }
+
+  /* ── hourly strip ─────────────────────────────────── */
+  .ww-section-lbl { font-size: 10px; color: var(--text-faint); text-transform: uppercase;
+                    letter-spacing: 0.12em; margin: 14px 0 7px; }
+  /* lenyitható "további napok" — alapból icipici, kattintásra teljes előrejelzés */
+  .ww-expand-bar { display: flex; align-items: center; justify-content: center; gap: 7px;
+    width: 100%; margin-top: 12px; padding: 7px; background: var(--card-2);
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    color: var(--text-dim); font-size: 12px; font-weight: 500; letter-spacing: 0.03em;
+    font-family: inherit; transition: color .15s, background .15s; }
+  .ww-expand-bar:hover { color: var(--text); background: var(--bg-3, rgba(255,255,255,0.05)); }
+  .ww-expand-bar .ww-chev2 { font-size: 10px; transition: transform .25s ease; }
+  .ww-expand { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
+  .is-expanded .ww-expand { max-height: 1600px; }
+  .is-expanded .ww-expand-bar .ww-chev2 { transform: rotate(180deg); }
+  .is-expanded .ww-expand-bar { margin-bottom: 4px; }
+  .ww-hours { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;
+              scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  .ww-hours::-webkit-scrollbar { height: 4px; }
+  .ww-hours::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+  .ww-hour { flex: 0 0 auto; width: 52px; text-align: center; padding: 8px 4px;
+             border-radius: 10px; transition: background .15s; }
+  .ww-hour:hover { background: var(--card-2); }
+  .ww-hour .h { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .ww-hour svg { width: 26px; height: 26px; margin: 4px 0; }
+  .ww-hour .t { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ww-hour .p { font-size: 10px; color: var(--rain); font-variant-numeric: tabular-nums;
+                min-height: 13px; }
+
+  /* ── daily strip ──────────────────────────────────── */
+  .ww-days { display: flex; flex-direction: column; gap: 2px; }
+  .ww-day { display: flex; align-items: center; gap: 12px; padding: 7px 4px;
+            border-radius: 10px; transition: background .15s; }
+  .ww-day:hover { background: var(--card-2); }
+  .ww-day .d { font-size: 13px; width: 46px; color: var(--text); font-weight: 500; }
+  .ww-day svg { width: 24px; height: 24px; flex-shrink: 0; }
+  .ww-day .dp { font-size: 11px; color: var(--rain); width: 34px;
+                font-variant-numeric: tabular-nums; }
+  .ww-day { cursor: pointer; }
+  .ww-day .range { margin-left: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ww-day .range .lo { color: var(--text-dim); }
+  .ww-day .chev { margin-left: 8px; color: var(--text-faint); font-size: 10px; transition: transform .25s ease; }
+  .ww-day-wrap { border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .ww-day-wrap:last-child { border-bottom: none; }
+  .ww-day-wrap.open .chev { transform: rotate(180deg); }
+  .ww-day-detail { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+  .ww-day-wrap.open .ww-day-detail { max-height: 260px; }
+  .ddrow { display: flex; justify-content: space-between; align-items: center;
+           padding: 5px 6px 5px 50px; font-size: 12px; color: var(--text-dim); }
+  .ddrow b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ddrow:first-child { padding-top: 8px; }
+  .ddrow:last-child { padding-bottom: 8px; }
+
+  /* ── footer ───────────────────────────────────────── */
+  .ww-foot { display: flex; justify-content: space-between; align-items: center;
+             margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line);
+             font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+             color: var(--text-faint); letter-spacing: 0.04em; }
+  .ww-foot a { color: var(--text-faint); text-decoration: none; }
+  .ww-foot a:hover { color: var(--text-dim); }
+
+  /* ── states ───────────────────────────────────────── */
+  .ww-msg { text-align: center; padding: 40px 12px; color: var(--text-dim); font-size: 14px; }
+  .ww-msg .spinner { width: 28px; height: 28px; border: 2px solid var(--line);
+                     border-top-color: var(--primary); border-radius: 50%;
+                     animation: spin .8s linear infinite; margin: 0 auto 14px; }
+  .ww-body { animation: fadeIn .5s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* icon animations */
+  .i-sun { animation: sunspin 40s linear infinite; transform-origin: center; }
+  @keyframes sunspin { to { transform: rotate(360deg); } }
+  .i-drop { animation: drop 1.4s ease-in infinite; }
+  .i-drop2 { animation: drop 1.4s ease-in .5s infinite; }
+  @keyframes drop { 0% { opacity: 0; transform: translateY(-2px); }
+                    30% { opacity: 1; } 100% { opacity: 0; transform: translateY(5px); } }
+</style>
+</head>
+<body>
+
+<div class="ww" id="ww">
+  <div class="ww-msg" id="loading">
+    <div class="spinner"></div>
+    Helymeghatározás…
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// Echolot weather widget — helyérzékeny, kulcs nélkül (Open-Meteo)
+// Hely-lánc: böngésző-geolokáció → IP (ipwho.is) → Budapest default
+// ─────────────────────────────────────────────────────────────
+
+// Echolot 10 UI-nyelve: hu, en, de, es, zh, fr, pl, ru, uk, it
+const I18N = {
+  hu: { locating:'Helymeghatározás…', loading:'Időjárás betöltése…', error:'Nem sikerült betölteni az időjárást.',
+    feels:'Hőérzet', wind:'Szél', humidity:'Páratartalom', precip:'Csapadék', hourly:'Óránként', daily:'Napi előrejelzés',
+    updated:'Frissítve', today:'Ma', rainchance:'Eső esélye', preciptotal:'Csapadék', windmax:'Szél', humidday:'Páratartalom',
+    uv:'UV-index', sunrise:'Napkelte', sunset:'Napnyugta', days:['Vas','Hét','Kedd','Sze','Csüt','Pén','Szo'],
+    cond:{clear:'Derült', mclear:'Túlnyomóan derült', partly:'Részben felhős', cloudy:'Borult', fog:'Köd', drizzle:'Szitálás', rain:'Eső', snow:'Havazás', thunder:'Zivatar'} },
+  en: { locating:'Locating…', loading:'Loading weather…', error:'Could not load the weather.',
+    feels:'Feels like', wind:'Wind', humidity:'Humidity', precip:'Precip', hourly:'Hourly', daily:'Daily forecast',
+    updated:'Updated', today:'Today', rainchance:'Rain chance', preciptotal:'Precipitation', windmax:'Wind', humidday:'Humidity',
+    uv:'UV index', sunrise:'Sunrise', sunset:'Sunset', days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    cond:{clear:'Clear', mclear:'Mainly clear', partly:'Partly cloudy', cloudy:'Overcast', fog:'Fog', drizzle:'Drizzle', rain:'Rain', snow:'Snow', thunder:'Thunderstorm'} },
+  de: { locating:'Standort…', loading:'Wetter wird geladen…', error:'Wetter konnte nicht geladen werden.',
+    feels:'Gefühlt', wind:'Wind', humidity:'Luftfeuchte', precip:'Niederschlag', hourly:'Stündlich', daily:'Tagesvorhersage',
+    updated:'Aktualisiert', today:'Heute', rainchance:'Regenrisiko', preciptotal:'Niederschlag', windmax:'Wind', humidday:'Luftfeuchte',
+    uv:'UV-Index', sunrise:'Sonnenaufgang', sunset:'Sonnenuntergang', days:['So','Mo','Di','Mi','Do','Fr','Sa'],
+    cond:{clear:'Klar', mclear:'Überwiegend klar', partly:'Teilweise bewölkt', cloudy:'Bedeckt', fog:'Nebel', drizzle:'Nieselregen', rain:'Regen', snow:'Schnee', thunder:'Gewitter'} },
+  es: { locating:'Localizando…', loading:'Cargando el tiempo…', error:'No se pudo cargar el tiempo.',
+    feels:'Sensación', wind:'Viento', humidity:'Humedad', precip:'Precip.', hourly:'Por horas', daily:'Pronóstico diario',
+    updated:'Actualizado', today:'Hoy', rainchance:'Prob. lluvia', preciptotal:'Precipitación', windmax:'Viento', humidday:'Humedad',
+    uv:'Índice UV', sunrise:'Amanecer', sunset:'Atardecer', days:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
+    cond:{clear:'Despejado', mclear:'Mayormente despejado', partly:'Parcialmente nublado', cloudy:'Nublado', fog:'Niebla', drizzle:'Llovizna', rain:'Lluvia', snow:'Nieve', thunder:'Tormenta'} },
+  zh: { locating:'定位中…', loading:'正在加载天气…', error:'无法加载天气。',
+    feels:'体感', wind:'风', humidity:'湿度', precip:'降水', hourly:'逐小时', daily:'每日预报',
+    updated:'更新', today:'今天', rainchance:'降雨概率', preciptotal:'降水量', windmax:'风速', humidday:'湿度',
+    uv:'紫外线', sunrise:'日出', sunset:'日落', days:['周日','周一','周二','周三','周四','周五','周六'],
+    cond:{clear:'晴', mclear:'大致晴朗', partly:'局部多云', cloudy:'阴', fog:'雾', drizzle:'毛毛雨', rain:'雨', snow:'雪', thunder:'雷暴'} },
+  fr: { locating:'Localisation…', loading:'Chargement de la météo…', error:'Impossible de charger la météo.',
+    feels:'Ressenti', wind:'Vent', humidity:'Humidité', precip:'Précip.', hourly:'Par heure', daily:'Prévisions',
+    updated:'Mis à jour', today:"Auj.", rainchance:'Risque pluie', preciptotal:'Précipitations', windmax:'Vent', humidday:'Humidité',
+    uv:'Indice UV', sunrise:'Lever', sunset:'Coucher', days:['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'],
+    cond:{clear:'Dégagé', mclear:'Plutôt dégagé', partly:'Partiellement nuageux', cloudy:'Couvert', fog:'Brouillard', drizzle:'Bruine', rain:'Pluie', snow:'Neige', thunder:'Orage'} },
+  pl: { locating:'Lokalizowanie…', loading:'Ładowanie pogody…', error:'Nie udało się załadować pogody.',
+    feels:'Odczuwalna', wind:'Wiatr', humidity:'Wilgotność', precip:'Opady', hourly:'Godzinowo', daily:'Prognoza dzienna',
+    updated:'Zaktualizowano', today:'Dziś', rainchance:'Szansa deszczu', preciptotal:'Opady', windmax:'Wiatr', humidday:'Wilgotność',
+    uv:'Indeks UV', sunrise:'Wschód', sunset:'Zachód', days:['Nie','Pon','Wt','Śr','Czw','Pt','Sob'],
+    cond:{clear:'Bezchmurnie', mclear:'Przeważnie bezchmurnie', partly:'Częściowe zachmurzenie', cloudy:'Pochmurno', fog:'Mgła', drizzle:'Mżawka', rain:'Deszcz', snow:'Śnieg', thunder:'Burza'} },
+  ru: { locating:'Определение…', loading:'Загрузка погоды…', error:'Не удалось загрузить погоду.',
+    feels:'Ощущается', wind:'Ветер', humidity:'Влажность', precip:'Осадки', hourly:'По часам', daily:'Прогноз по дням',
+    updated:'Обновлено', today:'Сегодня', rainchance:'Вероятн. дождя', preciptotal:'Осадки', windmax:'Ветер', humidday:'Влажность',
+    uv:'УФ-индекс', sunrise:'Восход', sunset:'Закат', days:['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],
+    cond:{clear:'Ясно', mclear:'Преимущественно ясно', partly:'Переменная облачность', cloudy:'Пасмурно', fog:'Туман', drizzle:'Морось', rain:'Дождь', snow:'Снег', thunder:'Гроза'} },
+  uk: { locating:'Визначення…', loading:'Завантаження погоди…', error:'Не вдалося завантажити погоду.',
+    feels:'Відчувається', wind:'Вітер', humidity:'Вологість', precip:'Опади', hourly:'Погодинно', daily:'Прогноз по днях',
+    updated:'Оновлено', today:'Сьогодні', rainchance:'Ймовірн. дощу', preciptotal:'Опади', windmax:'Вітер', humidday:'Вологість',
+    uv:'УФ-індекс', sunrise:'Схід', sunset:'Захід', days:['Нд','Пн','Вт','Ср','Чт','Пт','Сб'],
+    cond:{clear:'Ясно', mclear:'Переважно ясно', partly:'Мінлива хмарність', cloudy:'Похмуро', fog:'Туман', drizzle:'Мряка', rain:'Дощ', snow:'Сніг', thunder:'Гроза'} },
+  it: { locating:'Localizzazione…', loading:'Caricamento meteo…', error:'Impossibile caricare il meteo.',
+    feels:'Percepita', wind:'Vento', humidity:'Umidità', precip:'Precip.', hourly:'Orario', daily:'Previsioni',
+    updated:'Aggiornato', today:'Oggi', rainchance:'Prob. pioggia', preciptotal:'Precipitazioni', windmax:'Vento', humidday:'Umidità',
+    uv:'Indice UV', sunrise:'Alba', sunset:'Tramonto', days:['Dom','Lun','Mar','Mer','Gio','Ven','Sab'],
+    cond:{clear:'Sereno', mclear:'Prevalentemente sereno', partly:'Parzialmente nuvoloso', cloudy:'Coperto', fog:'Nebbia', drizzle:'Pioggerella', rain:'Pioggia', snow:'Neve', thunder:'Temporale'} }
+};
+const LANG = (new URLSearchParams(location.search).get('lang') || 'hu');
+const T = I18N[LANG] || I18N.hu;
+const LOCALE = {hu:'hu-HU', en:'en-GB', de:'de-DE', es:'es-ES', zh:'zh-CN', fr:'fr-FR', pl:'pl-PL', ru:'ru-RU', uk:'uk-UA', it:'it-IT'}[LANG] || 'hu-HU';
+// "Előrejelzés" felirat a lenyitó sávhoz
+const MORE = {hu:'Előrejelzés', en:'Forecast', de:'Vorhersage', es:'Pronóstico', zh:'预报', fr:'Prévisions', pl:'Prognoza', ru:'Прогноз', uk:'Прогноз', it:'Previsioni'};
+const moreLbl = MORE[LANG] || MORE.hu;
+// Beágyazott (iframe) mód: a szülő landingnek elküldjük a tényleges magasságot,
+// hogy az iframe pontosan a tartalomra méreteződjön → nincs belső scrollbar.
+const EMBEDDED = window.self !== window.top;
+if (EMBEDDED && document.body) document.body.classList.add('embedded');
+function postHeight() {
+  if (!EMBEDDED) return;
+  try { parent.postMessage({ type: 'ww-h', h: document.body.scrollHeight }, '*'); } catch (_) {}
+}
+
+// WMO weather-code → {group, label}
+function wmo(code) {
+  const c = T.cond;
+  if (code === 0) return ['clear', c.clear];
+  if (code === 1) return ['clear', c.mclear];
+  if (code === 2) return ['partly', c.partly];
+  if (code === 3) return ['cloudy', c.cloudy];
+  if (code === 45 || code === 48) return ['fog', c.fog];
+  if (code >= 51 && code <= 57) return ['drizzle', c.drizzle];
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return ['rain', c.rain];
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ['snow', c.snow];
+  if (code >= 95) return ['thunder', c.thunder];
+  return ['cloudy', c.cloudy];
+}
+
+// ── SVG ikonok (csoportonként, nappal/éjjel a clear/partly-nál) ──
+function icon(group, isDay = true, cls = '') {
+  const sun = isDay
+    ? `<circle class="i-sun" cx="32" cy="32" r="11" fill="#f2b34b"/>
+       <g class="i-sun" stroke="#f2b34b" stroke-width="2.4" stroke-linecap="round">
+         ${[0,45,90,135,180,225,270,315].map(a=>{const r=a*Math.PI/180;
+           const x1=32+Math.cos(r)*17,y1=32+Math.sin(r)*17,x2=32+Math.cos(r)*22,y2=32+Math.sin(r)*22;
+           return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;}).join('')}
+       </g>`
+    : `<path d="M40 22a14 14 0 1 0 12 20 11 11 0 0 1-12-20z" fill="#cdd6ff"/>`;
+  const cloud = (x=0,y=0,s=1,col='#aeb8c2') =>
+    `<g transform="translate(${x},${y}) scale(${s})">
+       <path d="M20 40a10 10 0 0 1 1-20 13 13 0 0 1 25 3 8 8 0 0 1-2 17z" fill="${col}"/>
+     </g>`;
+  const drops = (col='#5fa8e6') =>
+    `<g stroke="${col}" stroke-width="3" stroke-linecap="round">
+       <line class="i-drop"  x1="24" y1="46" x2="22" y2="52"/>
+       <line class="i-drop2" x1="33" y1="46" x2="31" y2="52"/>
+       <line class="i-drop"  x1="42" y1="46" x2="40" y2="52"/>
+     </g>`;
+  const flakes = (col='#cfe6f2') =>
+    `<g fill="${col}">
+       <circle class="i-drop" cx="24" cy="49" r="2.2"/>
+       <circle class="i-drop2" cx="33" cy="50" r="2.2"/>
+       <circle class="i-drop" cx="42" cy="49" r="2.2"/>
+     </g>`;
+  let inner = '';
+  switch (group) {
+    case 'clear':   inner = sun; break;
+    case 'partly':  inner = `<g transform="translate(-6,-6) scale(0.85)">${sun}</g>${cloud(8,14,1)}`; break;
+    case 'cloudy':  inner = cloud(6,8,1.05,'#9aa4ae') + cloud(2,16,0.8,'#7e8892'); break;
+    case 'fog':     inner = cloud(6,4,1,'#9aa4ae') +
+                      `<g stroke="#9aa4ae" stroke-width="2.6" stroke-linecap="round" opacity="0.8">
+                         <line x1="16" y1="46" x2="48" y2="46"/><line x1="20" y1="52" x2="44" y2="52"/></g>`; break;
+    case 'drizzle': inner = cloud(6,4,1) + drops('#7fb8e6'); break;
+    case 'rain':    inner = cloud(6,2,1) + drops(); break;
+    case 'snow':    inner = cloud(6,2,1,'#b8c2cc') + flakes(); break;
+    case 'thunder': inner = cloud(6,2,1,'#8089a0') +
+                      `<path d="M32 44l-6 9h6l-4 9 12-13h-7l4-5z" fill="#f2b34b"/>`; break;
+    default:        inner = cloud(6,8,1);
+  }
+  return `<svg class="${cls}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+
+// ── hely-lánc ──────────────────────────────────────────────
+async function resolveLocation() {
+  // 0) explicit lat/lon URL-paraméter (a deluxe nézet előrejelzés-paneljéből)
+  const qp = new URLSearchParams(location.search);
+  if (qp.has('lat') && qp.has('lon')) {
+    const lat = parseFloat(qp.get('lat')), lon = parseFloat(qp.get('lon'));
+    if (isFinite(lat) && isFinite(lon)) return { lat, lon, src: 'pin' };
+  }
+  // 1) böngésző-geolokáció (pontos, de engedélyhez kötött)
+  const geo = await new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => res({ lat: p.coords.latitude, lon: p.coords.longitude, src: 'gps' }),
+      () => res(null),
+      { timeout: 6000, maximumAge: 600000 }
+    );
+  });
+  if (geo) return geo;
+  // 2) IP-alapú (ingyen, kulcs nélkül, CORS-OK)
+  try {
+    const r = await fetch('https://ipwho.is/');
+    const d = await r.json();
+    if (d && d.success !== false && d.latitude)
+      return { lat: d.latitude, lon: d.longitude, src: 'ip', city: d.city, country: d.country };
+  } catch (_) {}
+  // 3) végső fallback — Budapest
+  return { lat: 47.4979, lon: 19.0402, src: 'default', city: 'Budapest', country: 'Magyarország' };
+}
+
+// ── hely-név (reverse geocode, ha nincs az IP-ből) ─────────
+async function placeName(loc) {
+  if (loc.city) return { city: loc.city, country: loc.country || '' };
+  try {
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${loc.lat}&longitude=${loc.lon}&localityLanguage=${LANG}`);
+    const d = await r.json();
+    return { city: d.city || d.locality || d.principalSubdivision || '—', country: d.countryName || '' };
+  } catch (_) {
+    return { city: `${loc.lat.toFixed(2)}, ${loc.lon.toFixed(2)}`, country: '' };
+  }
+}
+
+// ── Open-Meteo lekérés ─────────────────────────────────────
+async function fetchWeather(loc) {
+  const u = new URL('https://api.open-meteo.com/v1/forecast');
+  u.search = new URLSearchParams({
+    latitude: loc.lat, longitude: loc.lon,
+    current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m,precipitation',
+    hourly: 'temperature_2m,weather_code,precipitation_probability',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,uv_index_max,relative_humidity_2m_mean,sunrise,sunset',
+    timezone: 'auto', forecast_days: '7'
+  }).toString();
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('weather fetch failed');
+  return r.json();
+}
+
+// ── render ─────────────────────────────────────────────────
+function pinSVG() {
+  return `<svg class="ww-pin" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>`;
+}
+function refreshSVG() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>`;
+}
+
+function render(w, place, loc) {
+  const cur = w.current;
+  const [grp, label] = wmo(cur.weather_code);
+  const isDay = cur.is_day !== 0;
+
+  // óránként: a jelen órától 8 lépés.
+  // Open-Meteo (timezone=auto) offset nélküli, a forrás-helyszín zónájában
+  // értett string-eket ad ('2026-06-08T12:00'). NE a böngésző órájához
+  // hasonlítsunk (az más zónában lehet), hanem a current.time stringhez —
+  // azonos formátumú stringek összevetése zóna-független.
+  const nowIdx = w.hourly.time.findIndex(t => t >= w.current.time);
+  const startIdx = nowIdx < 0 ? 0 : nowIdx + 1;
+  const hours = [];
+  for (let i = startIdx; i < startIdx + 8 && i < w.hourly.time.length; i++) {
+    const hh = parseInt(w.hourly.time[i].slice(11, 13), 10); // helyi óra a forrás-helyszínen
+    const [hg] = wmo(w.hourly.weather_code[i]);
+    const hDay = hh >= 6 && hh < 20;
+    hours.push(`<div class="ww-hour">
+      <div class="h">${String(hh).padStart(2,'0')}:00</div>
+      ${icon(hg, hDay)}
+      <div class="t">${Math.round(w.hourly.temperature_2m[i])}°</div>
+      <div class="p">${w.hourly.precipitation_probability[i] >= 10 ? w.hourly.precipitation_probability[i]+'%' : ''}</div>
+    </div>`);
+  }
+
+  // napi — lenyitható sorok (kattintásra részletek: eső esélye, páratartalom, szél, UV, napkelte/nyugta)
+  const fmtTime = (iso) => (iso || '').slice(11, 16);
+  const dd = w.daily;
+  const dayRows = dd.time.map((t, i) => {
+    const d = new Date(t + 'T12:00'); // dél, hogy a getDay() ne csússzon zónától
+    const lbl = i === 0 ? T.today : T.days[d.getDay()];
+    const [dg] = wmo(dd.weather_code[i]);
+    const pp = dd.precipitation_probability_max[i];
+    const detail = `<div class="ww-day-detail">
+      <div class="ddrow"><span>${T.rainchance}</span><b>${pp == null ? '–' : pp + '%'}</b></div>
+      <div class="ddrow"><span>${T.preciptotal}</span><b>${dd.precipitation_sum[i]} mm</b></div>
+      <div class="ddrow"><span>${T.windmax}</span><b>${Math.round(dd.wind_speed_10m_max[i])} km/h</b></div>
+      <div class="ddrow"><span>${T.humidday}</span><b>${dd.relative_humidity_2m_mean[i]}%</b></div>
+      <div class="ddrow"><span>${T.uv}</span><b>${Math.round(dd.uv_index_max[i])}</b></div>
+      <div class="ddrow"><span>☀ ${T.sunrise}</span><b>${fmtTime(dd.sunrise[i])}</b></div>
+      <div class="ddrow"><span>☾ ${T.sunset}</span><b>${fmtTime(dd.sunset[i])}</b></div>
+    </div>`;
+    return `<div class="ww-day-wrap">
+      <div class="ww-day" data-day="${i}" role="button" tabindex="0">
+        <span class="d">${lbl}</span>
+        ${icon(dg, true)}
+        <span class="dp">${pp >= 10 ? pp + '%' : ''}</span>
+        <span class="range"><b>${Math.round(dd.temperature_2m_max[i])}°</b> <span class="lo">${Math.round(dd.temperature_2m_min[i])}°</span></span>
+        <span class="chev">▾</span>
+      </div>
+      ${detail}
+    </div>`;
+  }).join('');
+
+  const upd = new Date().toLocaleTimeString(LOCALE, {hour:'2-digit', minute:'2-digit'});
+
+  const startExpanded = new URLSearchParams(location.search).get('expanded') === '1';
+  document.getElementById('ww').innerHTML = `
+    <div class="ww-body${startExpanded ? ' is-expanded' : ''}">
+      <div class="ww-head">
+        ${pinSVG()}
+        <div class="ww-loc">${escapeHTML(place.city)}<span class="sub">${place.country ? ', '+escapeHTML(place.country) : ''}</span></div>
+        <button class="ww-refresh" id="refresh" title="Frissítés">${refreshSVG()}</button>
+      </div>
+
+      <div class="ww-current">
+        <div class="ww-icon">${icon(grp, isDay)}</div>
+        <div>
+          <div class="ww-temp">${Math.round(cur.temperature_2m)}<span class="deg">°C</span></div>
+        </div>
+      </div>
+      <div class="ww-cond-wrap">
+        <div class="ww-cond">${label}</div>
+        <div class="ww-feels">${T.feels}: ${Math.round(cur.apparent_temperature)}°</div>
+      </div>
+
+      <div class="ww-stats">
+        <div class="ww-stat"><div class="v">${Math.round(cur.wind_speed_10m)} <span style="font-size:11px;color:var(--text-dim)">km/h</span></div><div class="k">${T.wind}</div></div>
+        <div class="ww-stat"><div class="v">${cur.relative_humidity_2m}<span style="font-size:11px;color:var(--text-dim)">%</span></div><div class="k">${T.humidity}</div></div>
+        <div class="ww-stat"><div class="v">${cur.precipitation} <span style="font-size:11px;color:var(--text-dim)">mm</span></div><div class="k">${T.precip}</div></div>
+      </div>
+
+      <button class="ww-expand-bar" id="ww-expand-bar">${escapeHTML(moreLbl)} <span class="ww-chev2">▾</span></button>
+      <div class="ww-expand">
+        <div class="ww-section-lbl">${T.hourly}</div>
+        <div class="ww-hours">${hours.join('')}</div>
+        <div class="ww-section-lbl">${T.daily}</div>
+        <div class="ww-days">${dayRows}</div>
+      </div>
+
+      <div class="ww-foot">
+        <span>${T.updated} ${upd} · ${loc.src.toUpperCase()}</span>
+        <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>
+      </div>
+    </div>`;
+
+  document.getElementById('refresh').onclick = () => run(true);
+  document.querySelectorAll('.ww-day').forEach(el =>
+    el.addEventListener('click', () => { el.parentElement.classList.toggle('open'); setTimeout(postHeight, 320); }));
+  const eb = document.getElementById('ww-expand-bar');
+  if (eb) eb.addEventListener('click', () => { document.querySelector('.ww-body').classList.toggle('is-expanded'); setTimeout(postHeight, 430); });
+  postHeight();
+  setTimeout(postHeight, 300);   // ikonok/fontok beállása után pontosítunk
+}
+
+function escapeHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function showMsg(text, spinner = false) {
+  document.getElementById('ww').innerHTML =
+    `<div class="ww-msg">${spinner ? '<div class="spinner"></div>' : ''}${escapeHTML(text)}</div>`;
+}
+
+// ── fő futás ───────────────────────────────────────────────
+let _loc = null;
+async function run(refreshOnly = false) {
+  try {
+    if (!refreshOnly) showMsg(T.locating, true);
+    const loc = refreshOnly && _loc ? _loc : await resolveLocation();
+    _loc = loc;
+    if (!refreshOnly) showMsg(T.loading, true);
+    const [w, place] = await Promise.all([fetchWeather(loc), placeName(loc)]);
+    render(w, place, loc);
+  } catch (e) {
+    showMsg(T.error);
+    console.error(e);
+  }
+}
+run();
+</script>
+</body>
+</html>

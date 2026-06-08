@@ -3271,6 +3271,53 @@ async def landing_legacy(request):
 
 
 # ---------------------------------------------------------------------------
+# Időjárás — kis helyérzékeny widget (landingre ágyazva) + Élő Föld glóbusz (fül)
+# A fájlok kliensoldaliak (Open-Meteo / NASA GIBS / RainViewer / Celestrak),
+# a ?lang/?lat/?lon/?expanded paramokat a kliens JS olvassa — elég statikusan
+# kiszolgálni. Repcsi/hajó réteghez Worker kell (lásd weather/WORKER-DEPLOY.md).
+# ---------------------------------------------------------------------------
+WEATHER_DIR = Path(__file__).resolve().parent / "weather"
+
+
+@mcp.custom_route("/weather", methods=["GET"])
+async def weather_earth(request):
+    """Élő Föld — funkcionális időjárás-glóbusz (élő felhő/radar/műhold/repülő + forecast)."""
+    try:
+        return HTMLResponse((WEATHER_DIR / "live-earth.html").read_text(encoding="utf-8"),
+                            headers={"Cache-Control": "no-store"})
+    except OSError:
+        return HTMLResponse("<h1>Weather view unavailable</h1>", status_code=404)
+
+
+@mcp.custom_route("/weather/widget", methods=["GET"])
+async def weather_widget(request):
+    """Kis helyérzékeny időjárás-widget (landing-embed + a Föld-nézet forecast-panele)."""
+    try:
+        return HTMLResponse((WEATHER_DIR / "index.html").read_text(encoding="utf-8"),
+                            headers={"Cache-Control": "no-store"})
+    except OSError:
+        return HTMLResponse("<h1>Weather widget unavailable</h1>", status_code=404)
+
+
+@mcp.custom_route("/weather/flights", methods=["GET"])
+async def weather_flights(request):
+    """OpenSky states/all szerveroldali proxy — a repülő-réteg így KÜLÖN WORKER NÉLKÜL
+    működik: a böngészőből az OpenSky CORS-zárt, de a backend szabadon lekérheti és
+    same-origin adja vissza. bbox: lamin/lomin/lamax/lomax."""
+    import httpx
+    p = request.query_params
+    params = {k: p[k] for k in ("lamin", "lomin", "lamax", "lomax") if p.get(k)}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as c:
+            r = await c.get("https://opensky-network.org/api/states/all",
+                            params=params, headers={"User-Agent": "echolot-weather"})
+        data = r.json() if r.status_code == 200 else {"states": []}
+        return JSONResponse(data, status_code=r.status_code, headers={"Cache-Control": "no-store"})
+    except Exception as e:
+        return JSONResponse({"error": str(e), "states": []}, status_code=502)
+
+
+# ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
 # DB schema is owned by scraper.py; just confirm the file is reachable.

@@ -2393,6 +2393,12 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     title_html = _escape(t("landing.hero_title", lang))
     legacy_label = _escape(t("landing.legacy_view", lang))
     dashboard_label = _escape(t("landing.dashboard_link", lang))
+    # Élő Föld (időjárás-glóbusz) fül-címke — 10 nyelven (inline, self-contained)
+    live_earth_label = _escape({
+        'hu': 'Élő Föld', 'en': 'Live Earth', 'de': 'Live-Erde', 'es': 'Tierra en vivo',
+        'zh': '实时地球', 'fr': 'Terre en direct', 'pl': 'Żywa Ziemia', 'ru': 'Живая Земля',
+        'uk': 'Жива Земля', 'it': 'Terra in diretta',
+    }.get(lang, 'Élő Föld'))
     section_top = _escape(t("landing.section.top_stories", lang))
     section_local = _escape(t("landing.section.local", lang))
     section_blind = _escape(t("landing.section.blindspot", lang))
@@ -2430,6 +2436,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   </div>
 
   <div class="top-actions">
+    <a href="/weather?lang={lang}" class="btn-secondary">🌍 {live_earth_label} →</a>
     <a href="/landing-classic?lang={lang}" class="btn-secondary">{legacy_label} →</a>
     <a href="/dashboard?lang={lang}" class="btn-primary">{dashboard_label} →</a>
   </div>
@@ -2448,6 +2455,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     <div class="landing-col">
       <h2>{section_local} · {_escape(local.get('geo', {}).get('gnews', ''))}</h2>
       {local_trending_html}
+      <iframe class="weather-embed" id="weather-embed" src="/weather/widget?lang={lang}" title="{live_earth_label}" loading="lazy" scrolling="no"
+        style="width:100%;height:320px;border:0;border-radius:14px;display:block;margin:16px 0 0;background:#0b0f15;overflow:hidden;box-shadow:0 8px 30px -12px rgba(0,0,0,.55);"></iframe>
     </div>
     <div class="landing-col">
       {tv_panel_html}
@@ -2484,5 +2493,15 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 
   <script src="/static/echolot-tv.js" defer></script>
   <script src="/static/echolot-yt-transcript.js" defer></script>
+  <script>
+    // A beágyazott időjárás-widget a saját magasságát postMessage-eli — így
+    // az iframe pontosan a tartalomra méreteződik, nem kell scrollbar.
+    window.addEventListener('message', function(e) {{
+      if (e.data && e.data.type === 'ww-h' && typeof e.data.h === 'number') {{
+        var f = document.getElementById('weather-embed');
+        if (f) f.style.height = Math.max(120, Math.ceil(e.data.h)) + 'px';
+      }}
+    }});
+  </script>
 </body>
 </html>""", lang)

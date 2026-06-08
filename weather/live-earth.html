@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echolot — Élő Föld (funkcionális)</title>
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --primary:#14b8a6; --gold:#f2cd6b; --ink:#e8eef1; --ink-dim:#93a0a8; --ink-faint:#5a656d; --bg:#05070d; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; background:var(--bg); font-family:'IBM Plex Mono',monospace; }
+  #map { position:fixed; inset:0; background:var(--bg); }
+  .maplibregl-ctrl-attrib { font-size:9px !important; background:rgba(5,7,13,.6) !important; }
+  .maplibregl-ctrl-attrib a { color:var(--ink-faint) !important; }
+
+  .ui { position:fixed; inset:0; z-index:5; pointer-events:none;
+    padding:clamp(16px,3vw,34px); display:flex; flex-direction:column; justify-content:space-between; color:var(--ink); }
+  header { display:flex; justify-content:space-between; align-items:flex-start; }
+  .brand { font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--ink-dim);
+    background:rgba(5,7,13,.4); padding:6px 10px; border-radius:8px; backdrop-filter:blur(6px); }
+  .brand b { color:var(--primary); }
+  .brand-row { display:flex; align-items:center; gap:10px; }
+  .back-btn { pointer-events:auto; font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-dim); text-decoration:none; background:rgba(5,7,13,.5); padding:6px 11px;
+    border-radius:8px; border:1px solid rgba(255,255,255,.1); backdrop-filter:blur(6px); transition:.2s; }
+  .back-btn:hover { color:var(--ink); border-color:rgba(20,184,166,.4); }
+  .readout { font-size:11px; line-height:1.9; letter-spacing:.06em; color:var(--ink-dim); text-align:right;
+    background:rgba(5,7,13,.4); padding:6px 10px; border-radius:8px; backdrop-filter:blur(6px); }
+  .readout .v { color:var(--ink); } .readout .iss { color:var(--gold); }
+
+  .layers { position:fixed; left:clamp(16px,3vw,34px); top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:7px; z-index:6; }
+  .layer { pointer-events:auto; display:flex; align-items:center; gap:9px;
+    background:rgba(10,14,20,.6); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.08);
+    border-radius:11px; padding:8px 12px 8px 10px; cursor:pointer; min-width:158px;
+    font-size:12px; letter-spacing:.03em; color:var(--ink-dim); transition:.2s; user-select:none; }
+  .layer:hover { border-color:rgba(255,255,255,.2); color:var(--ink); }
+  .layer .dot { width:8px; height:8px; border-radius:50%; background:var(--ink-faint); flex-shrink:0; transition:.2s; }
+  .layer.on { color:var(--ink); border-color:rgba(20,184,166,.4); }
+  .layer.on .dot { background:var(--primary); box-shadow:0 0 10px var(--primary); }
+  .layer .ic { width:16px; text-align:center; }
+  .layer .tag { margin-left:auto; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+  .layer .cnt { margin-left:auto; font-size:10px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+
+  footer { display:flex; justify-content:space-between; align-items:flex-end; font-size:10.5px;
+    letter-spacing:.12em; color:var(--ink-faint); }
+  footer .hint em { color:var(--ink-dim); font-style:normal; } #clock { color:var(--primary); }
+
+  .home-dot { width:12px; height:12px; border-radius:50%; background:var(--primary);
+    box-shadow:0 0 0 4px rgba(20,184,166,.25), 0 0 12px var(--primary); }
+  .iss-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--gold);
+    letter-spacing:.1em; text-shadow:0 0 6px rgba(242,205,107,.8), 0 0 2px #000; pointer-events:none; white-space:nowrap; }
+
+  /* forecast-panel (a kis widget beágyazva iframe-be) */
+  .fc-panel { position:fixed; top:0; right:0; height:100%; width:380px; max-width:92vw; z-index:8;
+    pointer-events:auto; transform:translateX(100%); transition:transform .35s cubic-bezier(.22,1,.36,1);
+    box-shadow:-24px 0 60px -24px rgba(0,0,0,.75); background:#070a0f; }
+  .fc-panel.open { transform:none; }
+  .fc-panel iframe { width:100%; height:100%; border:0; display:block; }
+  .fc-close { position:absolute; top:12px; right:14px; z-index:9; width:30px; height:30px; border-radius:8px;
+    background:rgba(10,14,20,.7); border:1px solid rgba(255,255,255,.12); color:var(--ink); cursor:pointer;
+    font-size:13px; display:grid; place-items:center; }
+  .fc-close:hover { color:#fff; border-color:rgba(255,255,255,.28); }
+  .fc-hint { position:absolute; bottom:0; left:0; right:0; padding:8px 14px; z-index:9;
+    background:linear-gradient(to top, rgba(7,10,15,.95), transparent); font-size:10px;
+    letter-spacing:.06em; color:var(--ink-faint); text-align:center; pointer-events:none; }
+  .fc-pin { width:14px; height:14px; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+    background:var(--gold); box-shadow:0 0 10px rgba(242,205,107,.7); border:1.5px solid #fff6df; }
+
+  @media (max-width:720px){ .readout{display:none;} .layers{top:auto; bottom:84px; transform:none;} }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="ui">
+  <header>
+    <div class="brand-row">
+      <a href="/" class="back-btn" id="back-btn">← Vissza</a>
+      <div class="brand">Echolot <b>·</b> Élő Föld</div>
+    </div>
+    <div class="readout" id="readout">
+      <span id="loc">— —</span><br>
+      <span class="v" id="zoom">z—</span><br>
+      <span class="iss" id="iss">ISS —</span>
+    </div>
+  </header>
+  <footer>
+    <div class="hint"><em>Húzd</em> a forgatáshoz · <em>görgess</em> a közelítéshez a felhőzónákba</div>
+    <div><span id="clock">—</span></div>
+  </footer>
+</div>
+
+<div class="layers" id="layers">
+  <button class="layer on" data-layer="clouds"><span class="dot"></span><span class="ic">☁</span> Felhő</button>
+  <button class="layer" data-layer="radar"><span class="dot"></span><span class="ic">☔</span> Radar <span class="cnt" id="radartime"></span></button>
+  <button class="layer on" data-layer="sat"><span class="dot"></span><span class="ic">🛰</span> Műhold <span class="cnt" id="satcnt">—</span></button>
+  <button class="layer" data-layer="flights"><span class="dot"></span><span class="ic">✈</span> Repülő <span class="cnt" id="flcnt"></span></button>
+  <button class="layer" data-layer="forecast" style="margin-top:6px; border-color:rgba(242,205,107,.3)"><span class="dot" style="background:var(--gold)"></span><span class="ic">📊</span> Előrejelzés</button>
+</div>
+
+<div class="fc-panel" id="fc">
+  <button class="fc-close" id="fc-close">✕</button>
+  <iframe id="fc-frame" title="Előrejelzés"></iframe>
+  <div class="fc-hint">Kattints a térképre egy másik hely előrejelzéséért</div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<script>
+// ── konfiguráció ────────────────────────────────────────────────────────
+// A nézet nyelve (a forecast-panel a kis widgetet ezen a nyelven ágyazza be)
+const LANG = new URLSearchParams(location.search).get('lang') || 'hu';
+// Repülő-adat: az Echolot backend szerveroldali OpenSky-proxyja (same-origin, Worker nélkül)
+const FLIGHTS_URL = '/weather/flights';
+// Vissza gomb → Echolot landing, a nézet nyelvét megtartva
+{ const bb = document.getElementById('back-btn'); if (bb) bb.href = '/?lang=' + encodeURIComponent(LANG); }
+
+// ── alaptérkép: sötét CARTO raszter (ingyenes, CORS-OK, mélyen zoomolható) ──
+const style = {
+  version: 8,
+  sources: {
+    'carto-dark': {
+      type: 'raster',
+      tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+      tileSize: 256, attribution: '© OpenStreetMap, © CARTO'
+    }
+  },
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#05070d' } },
+    { id: 'carto-dark', type: 'raster', source: 'carto-dark', paint: { 'raster-brightness-max': 0.85 } }
+  ]
+};
+
+const map = new maplibregl.Map({
+  container: 'map', style, center: [19.04, 47.5], zoom: 2.4, attributionControl: { compact: true }
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'bottom-right');
+
+// ── animált RainViewer raszter-réteg ──
+function addAnimatedRaster(idBase, host, frames, { size = 256, color, opt, opacity = 0.85, visible }) {
+  const layerIds = [];
+  frames.forEach((f, idx) => {
+    const sid = `${idBase}-s${idx}`, lid = `${idBase}-l${idx}`;
+    map.addSource(sid, {
+      type: 'raster', tileSize: size, maxzoom: 7, attribution: 'Időjárás: RainViewer',
+      tiles: [`${host}${f.path}/${size}/{z}/{x}/{y}/${color}/${opt}.png`]
+    });
+    map.addLayer({ id: lid, type: 'raster', source: sid,
+      layout: { visibility: visible ? 'visible' : 'none' },
+      paint: { 'raster-opacity': 0, 'raster-opacity-transition': { duration: 350 } } });
+    layerIds.push(lid);
+  });
+  let i = 0, timer = null;
+  const show = (idx) => layerIds.forEach((lid, k) => map.setPaintProperty(lid, 'raster-opacity', k === idx ? opacity : 0));
+  const play = () => { stop(); timer = setInterval(() => { i = (i + 1) % layerIds.length; show(i); }, 650); };
+  const stop = () => { if (timer) clearInterval(timer); timer = null; };
+  const setVisible = (v) => {
+    layerIds.forEach(lid => map.setLayoutProperty(lid, 'visibility', v ? 'visible' : 'none'));
+    if (v) { show(i); play(); } else stop();
+  };
+  if (visible) { show(0); play(); }
+  return { setVisible, layerIds, currentTime: () => frames[i] && frames[i].time };
+}
+
+// ── időjárás: Felhő (NASA GIBS valódi műholdkép) + Radar (RainViewer) ──
+let cloudsCtl = null, radarCtl = null;
+function addClouds() {
+  const dt = new Date(Date.now() - 30 * 3600 * 1000);        // ~tegnap UTC: biztosan kész kompozit
+  const date = dt.toISOString().slice(0, 10);
+  map.addSource('clouds', {
+    type: 'raster', tileSize: 256, maxzoom: 9, attribution: 'Felhőkép: NASA GIBS / EOSDIS',
+    tiles: [`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`]
+  });
+  map.addLayer({ id: 'clouds', type: 'raster', source: 'clouds',
+    paint: { 'raster-opacity': 0.96, 'raster-opacity-transition': { duration: 300 } } });
+  return { setVisible: (v) => map.setLayoutProperty('clouds', 'visibility', v ? 'visible' : 'none') };
+}
+async function initWeather() {
+  cloudsCtl = addClouds();
+  try {
+    const api = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json();
+    const radar = [...(api.radar.past || []), ...(api.radar.nowcast || [])];
+    if (radar.length) radarCtl = addAnimatedRaster('radar', api.host, radar.slice(-10),
+      { size: 256, color: 4, opt: '1_1', opacity: 0.85, visible: false });
+  } catch (e) { console.warn('RainViewer radar nem elérhető:', e); }
+}
+
+// ── műholdak (Celestrak TLE + satellite.js) + ISS-címke + pályaív ──
+let sats = [], issIndex = -1, issGeo = null, issMarker = null;
+async function initSats() {
+  try {
+    const text = await (await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle')).text();
+    const L = text.split(/\r?\n/).filter(l => l.trim().length);
+    for (let i = 0; i + 2 < L.length; i += 3) {
+      if (L[i+1][0] !== '1' || L[i+2][0] !== '2') continue;
+      const satrec = satellite.twoline2satrec(L[i+1], L[i+2]);
+      if (satrec && !satrec.error) sats.push({ name: L[i].trim(), id: L[i+1].slice(2,7).trim(), satrec });
+    }
+    issIndex = sats.findIndex(s => String(s.id) === '25544' || /ISS|ZARYA/i.test(s.name));
+  } catch (e) { console.warn('CelesTrak nem elérhető:', e); }
+  document.getElementById('satcnt').textContent = sats.length;
+
+  // ISS-pályaív (talajnyom ±50 perc)
+  map.addSource('iss-track', { type: 'geojson', data: computeISSTrack() });
+  map.addLayer({ id: 'iss-track', type: 'line', source: 'iss-track',
+    paint: { 'line-color': '#f2cd6b', 'line-width': 1, 'line-opacity': 0.35, 'line-dasharray': [2, 2] } });
+
+  // műhold-pöttyök
+  map.addSource('sats', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addLayer({ id: 'sats', type: 'circle', source: 'sats',
+    paint: {
+      'circle-radius': ['case', ['get', 'iss'], 6, 3],
+      'circle-color': ['case', ['get', 'iss'], '#ffe9a8', '#bfe9e3'],
+      'circle-blur': 0.6, 'circle-opacity': 0.95,
+      'circle-stroke-width': ['case', ['get', 'iss'], 1.5, 0], 'circle-stroke-color': '#ffe9a8'
+    } });
+
+  // ISS HTML-címke (követi az ISS-t; nincs glyph-függőség)
+  const el = document.createElement('div'); el.className = 'iss-label'; el.textContent = 'ISS';
+  issMarker = new maplibregl.Marker({ element: el, anchor: 'left', offset: [10, 0] }).setLngLat([0, 0]).addTo(map);
+  el.style.display = 'none';
+
+  tickSats();
+  setInterval(tickSats, 1000);
+  setInterval(() => { if (map.getSource('iss-track')) map.getSource('iss-track').setData(computeISSTrack()); }, 15000);
+}
+function computeISSTrack() {
+  const empty = { type: 'Feature', geometry: { type: 'MultiLineString', coordinates: [] }, properties: {} };
+  if (issIndex < 0 || !sats[issIndex]) return empty;
+  const sr = sats[issIndex].satrec, now = Date.now(), segs = []; let seg = [], prevLon = null;
+  for (let m = -50; m <= 50; m += 1) {
+    const when = new Date(now + m * 60000);
+    const pv = satellite.propagate(sr, when); if (!pv || !pv.position) continue;
+    const gd = satellite.eciToGeodetic(pv.position, satellite.gstime(when));
+    if (!isFinite(gd.latitude) || !isFinite(gd.longitude)) continue;
+    const lat = satellite.degreesLat(gd.latitude), lon = satellite.degreesLong(gd.longitude);
+    if (prevLon !== null && Math.abs(lon - prevLon) > 180) { if (seg.length > 1) segs.push(seg); seg = []; }
+    seg.push([lon, lat]); prevLon = lon;
+  }
+  if (seg.length > 1) segs.push(seg);
+  return { type: 'Feature', geometry: { type: 'MultiLineString', coordinates: segs }, properties: {} };
+}
+function tickSats() {
+  if (!sats.length || !map.getSource('sats')) return;
+  const now = new Date(), gmst = satellite.gstime(now), feats = [];
+  sats.forEach((s, idx) => {
+    const pv = satellite.propagate(s.satrec, now);
+    if (!pv || !pv.position) return;
+    const gd = satellite.eciToGeodetic(pv.position, gmst);
+    if (!isFinite(gd.latitude) || !isFinite(gd.longitude)) return;
+    const lat = satellite.degreesLat(gd.latitude), lon = satellite.degreesLong(gd.longitude);
+    if (idx === issIndex) {
+      issGeo = { lat, lon, alt: gd.height };
+      if (issMarker) { issMarker.setLngLat([lon, lat]); issMarker.getElement().style.display = map.getLayoutProperty('sats', 'visibility') === 'none' ? 'none' : ''; }
+    }
+    feats.push({ type: 'Feature', properties: { iss: idx === issIndex, name: s.name },
+      geometry: { type: 'Point', coordinates: [lon, lat] } });
+  });
+  map.getSource('sats').setData({ type: 'FeatureCollection', features: feats });
+}
+
+// ── repülők (OpenSky a látható területre, a Worker/dev-proxy CORS-megkerülésén át) ──
+let flightsOn = false, flightTimer = null;
+function addPlaneIcon() {
+  const s = 28, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d');
+  x.translate(s/2, s/2); x.fillStyle = '#ffe9a8'; x.strokeStyle = '#1a1407'; x.lineWidth = 1;
+  x.beginPath();
+  x.moveTo(0,-11); x.lineTo(2.5,-3); x.lineTo(11,3); x.lineTo(11,5); x.lineTo(2.5,2);
+  x.lineTo(1.8,9); x.lineTo(5,12); x.lineTo(5,13); x.lineTo(0,11.2);
+  x.lineTo(-5,13); x.lineTo(-5,12); x.lineTo(-1.8,9); x.lineTo(-2.5,2);
+  x.lineTo(-11,5); x.lineTo(-11,3); x.lineTo(-2.5,-3); x.closePath();
+  x.fill(); x.stroke();
+  const img = x.getImageData(0, 0, s, s);
+  if (!map.hasImage('plane')) map.addImage('plane', { width: s, height: s, data: img.data });
+}
+function initFlights() {
+  map.addSource('flights', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addLayer({ id: 'flights', type: 'symbol', source: 'flights',
+    layout: { visibility: 'none', 'icon-image': 'plane', 'icon-size': 0.7,
+      'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true } });
+}
+async function pollFlights() {
+  if (!flightsOn || map.getZoom() < 3.5) return;   // kis bbox = kevés kredit
+  const b = map.getBounds();
+  const url = `${FLIGHTS_URL}?lamin=${b.getSouth().toFixed(3)}&lomin=${b.getWest().toFixed(3)}&lamax=${b.getNorth().toFixed(3)}&lomax=${b.getEast().toFixed(3)}`;
+  try {
+    const d = await (await fetch(url)).json();
+    const feats = (d.states || []).filter(s => s[5] != null && s[6] != null && !s[8])
+      .map(s => ({ type: 'Feature', properties: { cs: (s[1]||'').trim(), heading: s[10] || 0 },
+        geometry: { type: 'Point', coordinates: [s[5], s[6]] } }));
+    if (map.getSource('flights')) map.getSource('flights').setData({ type: 'FeatureCollection', features: feats });
+    document.getElementById('flcnt').textContent = feats.length;
+  } catch (e) { /* best-effort: csendben */ }
+}
+
+// ── réteg-togglek ──
+document.querySelectorAll('.layer[data-layer]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const layer = btn.dataset.layer, on = btn.classList.toggle('on');
+    if (layer === 'clouds' && cloudsCtl) cloudsCtl.setVisible(on);
+    if (layer === 'radar' && radarCtl) {
+      radarCtl.setVisible(on);
+      if (!on) document.getElementById('radartime').textContent = '';
+      if (on) ['iss-track','sats','flights'].forEach(id => map.getLayer(id) && map.moveLayer(id));
+    }
+    if (layer === 'sat' && map.getLayer('sats')) {
+      map.setLayoutProperty('sats', 'visibility', on ? 'visible' : 'none');
+      if (map.getLayer('iss-track')) map.setLayoutProperty('iss-track', 'visibility', on ? 'visible' : 'none');
+      if (issMarker) issMarker.getElement().style.display = on ? '' : 'none';
+    }
+    if (layer === 'flights') {
+      flightsOn = on;
+      if (map.getLayer('flights')) map.setLayoutProperty('flights', 'visibility', on ? 'visible' : 'none');
+      if (on) { pollFlights(); flightTimer = setInterval(pollFlights, 20000); }
+      else { clearInterval(flightTimer); document.getElementById('flcnt').textContent = ''; }
+    }
+    if (layer === 'forecast') {
+      if (on) openForecast(homeLoc ? homeLoc.lat : map.getCenter().lat, homeLoc ? homeLoc.lon : map.getCenter().lng);
+      else closeForecast();
+    }
+  });
+});
+
+// ── forecast-panel: a kis widget (index.html) iframe-be ágyazva a kattintott pontra ──
+let homeLoc = null, fcOpen = false, fcMarker = null;
+const fcPanel = document.getElementById('fc'), fcFrame = document.getElementById('fc-frame');
+function openForecast(lat, lon) {
+  fcFrame.src = `/weather/widget?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}&lang=${LANG}&expanded=1`;
+  fcPanel.classList.add('open'); fcOpen = true;
+  const b = document.querySelector('[data-layer="forecast"]'); if (b) b.classList.add('on');
+  if (fcMarker) fcMarker.remove();
+  const el = document.createElement('div'); el.className = 'fc-pin';
+  fcMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([lon, lat]).addTo(map);
+}
+function closeForecast() {
+  fcPanel.classList.remove('open'); fcOpen = false;
+  const b = document.querySelector('[data-layer="forecast"]'); if (b) b.classList.remove('on');
+  if (fcMarker) { fcMarker.remove(); fcMarker = null; }
+}
+document.getElementById('fc-close').onclick = closeForecast;
+map.on('click', e => { if (fcOpen) openForecast(e.lngLat.lat, e.lngLat.lng); });
+
+// ── helyzet + home-jelölő ──
+async function placeHome() {
+  let loc = await new Promise(res => { if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lon: p.coords.longitude }), () => res(null), { timeout: 5000 }); });
+  if (!loc) { try { const d = await (await fetch('https://ipwho.is/')).json();
+    if (d && d.success !== false && d.latitude) loc = { lat: d.latitude, lon: d.longitude, city: d.city, country: d.country }; } catch (_) {} }
+  if (!loc) loc = { lat: 47.4979, lon: 19.0402, city: 'Budapest', country: 'Magyarország' };
+  if (!loc.city) { try { const d = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${loc.lat}&longitude=${loc.lon}&localityLanguage=hu`)).json();
+    loc.city = d.city || d.locality || d.principalSubdivision || loc.lat.toFixed(2); loc.country = loc.country || d.countryName || ''; } catch (_) {} }
+  homeLoc = { lat: loc.lat, lon: loc.lon };
+  const el = document.createElement('div'); el.className = 'home-dot';
+  new maplibregl.Marker({ element: el }).setLngLat([loc.lon, loc.lat]).addTo(map);
+  document.getElementById('loc').textContent = (loc.city || loc.lat.toFixed(2)) + (loc.country ? ', ' + loc.country : '');
+}
+
+// ── readout / óra ──
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('hu-HU');
+  if (issGeo) document.getElementById('iss').textContent =
+    `ISS ${Math.abs(issGeo.lat).toFixed(1)}°${issGeo.lat>=0?'N':'S'} ${Math.abs(issGeo.lon).toFixed(1)}°${issGeo.lon>=0?'E':'W'} · ${Math.round(issGeo.alt)} km`;
+  if (radarCtl && document.querySelector('[data-layer="radar"]').classList.contains('on')) {
+    const t = radarCtl.currentTime();
+    if (t) document.getElementById('radartime').textContent = new Date(t * 1000).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+  }
+}, 1000);
+map.on('zoom', () => { document.getElementById('zoom').textContent = 'z' + map.getZoom().toFixed(1); });
+
+// ── indítás ──
+map.on('load', () => {
+  try { map.setProjection({ type: 'globe' }); } catch (e) { console.warn('globe projection?', e); }
+  addPlaneIcon();
+  initWeather();
+  initSats();
+  initFlights();
+  placeHome();
+  document.getElementById('zoom').textContent = 'z' + map.getZoom().toFixed(1);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echolot — Élő Föld</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #14b8a6;
+    --gold: #f2cd6b;
+    --ink: #e8eef1;
+    --ink-dim: #93a0a8;
+    --ink-faint: #5a656d;
+    --bg: #05070d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); }
+  #scene { position: fixed; inset: 0; display: block; cursor: grab; }
+  #scene:active { cursor: grabbing; }
+
+  .vignette { position: fixed; inset: 0; pointer-events: none; z-index: 20;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,6,.6) 100%); }
+  .grain { position: fixed; inset: -50%; width: 200%; height: 200%; pointer-events: none;
+    opacity: .045; z-index: 30;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 8s steps(10) infinite; }
+  @keyframes grain { 0%,100%{transform:translate(0,0)} 20%{transform:translate(-3%,2%)}
+    40%{transform:translate(2%,-3%)} 60%{transform:translate(-2%,-2%)} 80%{transform:translate(3%,3%)} }
+
+  .ui { position: fixed; inset: 0; z-index: 40; pointer-events: none;
+    padding: clamp(18px,3.4vw,40px); color: var(--ink);
+    display: flex; flex-direction: column; justify-content: space-between; }
+  .ui a, .ui button { pointer-events: auto; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-start;
+    opacity: 0; animation: fade 1.4s .3s cubic-bezier(.22,1,.36,1) forwards; }
+  .brand { font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 11px;
+    letter-spacing: .34em; text-transform: uppercase; color: var(--ink-dim); }
+  .brand b { color: var(--primary); font-weight: 500; }
+  .readout { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.9;
+    letter-spacing: .08em; color: var(--ink-dim); text-align: right; }
+  .readout .v { color: var(--ink); }
+  .readout .iss { color: var(--gold); }
+
+  /* layer panel */
+  .layers { position: fixed; left: clamp(18px,3.4vw,40px); top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 41;
+    opacity: 0; animation: fade 1.4s .8s forwards; }
+  .layer { pointer-events: auto; display: flex; align-items: center; gap: 10px;
+    background: rgba(10,14,20,.5); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.08); border-radius: 12px;
+    padding: 9px 13px 9px 11px; cursor: pointer; min-width: 150px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: .04em;
+    color: var(--ink-dim); transition: border-color .2s, color .2s, background .2s; }
+  .layer:hover { border-color: rgba(255,255,255,.2); color: var(--ink); }
+  .layer .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint);
+    flex-shrink: 0; transition: background .2s, box-shadow .2s; }
+  .layer.on { color: var(--ink); border-color: rgba(20,184,166,.4); }
+  .layer.on .dot { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+  .layer.soon { opacity: .5; cursor: not-allowed; }
+  .layer.soon .tag { margin-left: auto; font-size: 9px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint); }
+  .layer .ic { width: 16px; text-align: center; }
+
+  footer { display: flex; justify-content: space-between; align-items: flex-end;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .14em;
+    color: var(--ink-faint); opacity: 0; animation: fade 1.4s 1.1s forwards; }
+  footer .hint em { color: var(--ink-dim); font-style: normal; }
+  footer a { color: var(--ink-faint); text-decoration: none; }
+  footer a:hover { color: var(--ink-dim); }
+  #clock { color: var(--primary); }
+
+  @keyframes fade { from{opacity:0; transform:translateY(-8px)} to{opacity:1; transform:none} }
+  .layers { animation-name: fadeL; }
+  @keyframes fadeL { from{opacity:0; transform:translate(-10px,-50%)} to{opacity:1; transform:translate(0,-50%)} }
+
+  @media (max-width: 720px) {
+    .readout { display: none; }
+    .layers { top: auto; bottom: 90px; transform: none; }
+    .layers { animation: fade 1.4s .8s forwards; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="ui">
+  <header>
+    <div class="brand">Echolot <b>·</b> Élő Föld</div>
+    <div class="readout" id="readout">
+      <span id="loc">— —</span><br>
+      <span class="v" id="satcount">— sat</span><br>
+      <span class="iss" id="iss">ISS —</span>
+    </div>
+  </header>
+  <footer>
+    <div class="hint"><em>Húzd</em> a forgatáshoz · <em>görgess</em> a közelítéshez</div>
+    <div><a href="https://celestrak.org" target="_blank" rel="noopener">TLE: CelesTrak</a> · <span id="clock">—</span></div>
+  </footer>
+</div>
+
+<div class="layers" id="layers">
+  <button class="layer on" data-layer="sat"><span class="dot"></span><span class="ic">🛰</span> Műhold</button>
+  <div class="layer soon"><span class="dot"></span><span class="ic">☔</span> Radar <span class="tag">hamarosan</span></div>
+  <div class="layer soon"><span class="dot"></span><span class="ic">✈</span> Repülő <span class="tag">hamarosan</span></div>
+  <div class="layer soon"><span class="dot"></span><span class="ic">🚢</span> Hajó <span class="tag">hamarosan</span></div>
+</div>
+
+<!-- SGP4 propagátor (UMD global `satellite`) -->
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const R = 1.5;                 // globe radius
+const EARTH_KM = 6371;
+const TIME_SCALE = 12;         // a műholdak láthatóan, de hiteles arányban mozogjanak
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+camera.position.set(0, 0.4, 4.6);
+
+const sun = new THREE.DirectionalLight(0xfff4e0, 3.0);
+sun.position.set(5, 1.5, 2); scene.add(sun);
+scene.add(new THREE.AmbientLight(0x223355, 0.6));
+
+// ── textúra-betöltés procedurális tartalékkal ──
+const loader = new THREE.TextureLoader();
+loader.setCrossOrigin('anonymous');
+const TEX = 'https://unpkg.com/three-globe@2.31.0/example/img/';
+function tryLoad(url){ return new Promise(res=>loader.load(url, t=>{t.colorSpace=THREE.SRGBColorSpace; res(t);}, undefined, ()=>res(null))); }
+function proceduralEarth(){
+  const c=document.createElement('canvas'); c.width=1024; c.height=512; const x=c.getContext('2d');
+  x.fillStyle='#0b2a4a'; x.fillRect(0,0,1024,512); let s=42; const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+  x.fillStyle='#2f5d34';
+  for(let i=0;i<90;i++){const cx=rnd()*1024,cy=100+rnd()*312,r=18+rnd()*70; x.beginPath();
+    for(let a=0;a<=Math.PI*2;a+=0.3){const rr=r*(0.6+rnd()*0.7); x.lineTo(cx+Math.cos(a)*rr, cy+Math.sin(a)*rr*0.7);} x.fill();}
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+
+// ── glóbusz csoport (tengelydőléssel + lassú idle-pörgés) ──
+const globe = new THREE.Group();
+globe.rotation.z = THREE.MathUtils.degToRad(23.4);
+scene.add(globe);
+
+const earthMat = new THREE.MeshPhongMaterial({ color:0xffffff, shininess:14, specular:0x333344 });
+const earth = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 96), earthMat);
+globe.add(earth);
+
+const cloudMat = new THREE.MeshLambertMaterial({ transparent:true, opacity:0.5, depthWrite:false });
+const clouds = new THREE.Mesh(new THREE.SphereGeometry(R*1.01, 64, 64), cloudMat);
+clouds.visible = false; globe.add(clouds);
+
+tryLoad(TEX+'earth-blue-marble.jpg').then(t=>{ earthMat.map=t||proceduralEarth(); earthMat.needsUpdate=true; });
+tryLoad(TEX+'earth-topology.png').then(t=>{ if(t){ earthMat.bumpMap=t; earthMat.bumpScale=0.04; earthMat.needsUpdate=true; } });
+tryLoad(TEX+'clouds.png').then(t=>{ if(t){ cloudMat.map=t; cloudMat.needsUpdate=true; clouds.visible=true; } });
+
+// ── atmoszféra-ragyogás (fresnel) ──
+const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(R,64,64), new THREE.ShaderMaterial({
+  transparent:true, blending:THREE.AdditiveBlending, side:THREE.BackSide, uniforms:{},
+  vertexShader:`varying vec3 vN; void main(){ vN=normalize(normalMatrix*normal);
+    gl_Position=projectionMatrix*modelViewMatrix*vec4(position*1.18,1.0); }`,
+  fragmentShader:`varying vec3 vN; void main(){ float i=pow(0.62-dot(vN,vec3(0.,0.,1.)),3.0);
+    gl_FragColor=vec4(0.30,0.55,1.0,1.0)*i*1.4; }`
+}));
+scene.add(atmosphere);
+
+// ── csillagmező ──
+{
+  const n=2600, pos=new Float32Array(n*3);
+  for(let i=0;i<n;i++){ const v=new THREE.Vector3().randomDirection().multiplyScalar(30+Math.random()*30); pos.set([v.x,v.y,v.z], i*3); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color:0xcdd6ff, size:0.09, sizeAttenuation:true, transparent:true, opacity:0.85 })));
+}
+
+// ── geo → vektor (a glóbusz lokális keretében; blue-marble illesztés) ──
+function geoToVec3(latDeg, lonDeg, radius){
+  const phi=(90-latDeg)*Math.PI/180, theta=(lonDeg+180)*Math.PI/180;
+  return new THREE.Vector3(
+    -radius*Math.sin(phi)*Math.cos(theta),
+     radius*Math.cos(phi),
+     radius*Math.sin(phi)*Math.sin(theta)
+  );
+}
+
+// kör alakú lágy pont-textúra
+function dotTexture(){
+  const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
+  const g=x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(.35,'rgba(255,255,255,.9)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.fillRect(0,0,64,64); return new THREE.CanvasTexture(c);
+}
+const DOT = dotTexture();
+
+// ── MŰHOLD-réteg (a globe gyermeke → együtt forog a Földdel) ──
+const satGroup = new THREE.Group(); globe.add(satGroup);
+let sats = [];          // {name, id, satrec}
+let issIndex = -1;
+let satPoints = null;   // THREE.Points
+let issPoint = null;
+
+const FALLBACK = []; // nincs fabrikált TLE — ha CelesTrak nem elérhető, a réteg üres marad
+
+async function loadSats(){
+  try {
+    // TLE-formátum + twoline2satrec — ez minden satellite.js v5-ben létezik
+    // (a json2satrec nincs benne a v5.0.0 UMD buildben).
+    const url='https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle';
+    const text = await fetch(url).then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.text(); });
+    const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+    for(let i=0; i+2 < lines.length; i+=3){
+      const name=lines[i].trim(), l1=lines[i+1], l2=lines[i+2];
+      if(!l1 || !l2 || l1[0]!=='1' || l2[0]!=='2') continue;
+      const satrec = satellite.twoline2satrec(l1, l2);
+      if(satrec && !satrec.error) sats.push({ name, id: l1.slice(2,7).trim(), satrec });
+    }
+    issIndex = sats.findIndex(s=> String(s.id)==='25544' || /ISS|ZARYA/i.test(s.name));
+  } catch(e){
+    console.warn('CelesTrak nem elérhető:', e);
+  }
+  buildSatMeshes();
+}
+
+function buildSatMeshes(){
+  // sima műholdak
+  const n=Math.max(sats.length,1);
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n*3), 3));
+  satPoints=new THREE.Points(g, new THREE.PointsMaterial({
+    size:0.05, map:DOT, color:0xbfe9e3, transparent:true, opacity:0.95,
+    blending:THREE.AdditiveBlending, depthWrite:false, sizeAttenuation:true }));
+  satGroup.add(satPoints);
+  // ISS kiemelve
+  const ig=new THREE.BufferGeometry(); ig.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3),3));
+  issPoint=new THREE.Points(ig, new THREE.PointsMaterial({
+    size:0.13, map:DOT, color:0xffe9a8, transparent:true, opacity:1,
+    blending:THREE.AdditiveBlending, depthWrite:false, sizeAttenuation:true }));
+  satGroup.add(issPoint);
+  document.getElementById('satcount').textContent = sats.length + ' műhold';
+}
+
+let issGeo = null; // utolsó ISS lat/lon/alt a readouthoz
+function updateSats(when){
+  if(!satPoints || !sats.length) return;
+  const gmst = satellite.gstime(when);
+  const arr = satPoints.geometry.attributes.position.array;
+  for(let i=0;i<sats.length;i++){
+    let lat=0, lon=0, alt=0, ok=false;
+    const pv = satellite.propagate(sats[i].satrec, when);
+    if(pv && pv.position){
+      const gd = satellite.eciToGeodetic(pv.position, gmst);
+      if(isFinite(gd.latitude) && isFinite(gd.longitude)){
+        lat=satellite.degreesLat(gd.latitude); lon=satellite.degreesLong(gd.longitude); alt=gd.height; ok=true;
+      }
+    }
+    const v = ok ? geoToVec3(lat, lon, R*(1+alt/EARTH_KM)) : new THREE.Vector3(0,0,0);
+    arr[i*3]=v.x; arr[i*3+1]=v.y; arr[i*3+2]=v.z;
+    if(i===issIndex){
+      issPoint.geometry.attributes.position.array.set([v.x,v.y,v.z]);
+      issPoint.geometry.attributes.position.needsUpdate=true;
+      if(ok) issGeo={lat,lon,alt};
+    }
+  }
+  satPoints.geometry.attributes.position.needsUpdate=true;
+}
+
+// réteg-toggle
+document.querySelector('[data-layer="sat"]').addEventListener('click', e=>{
+  const btn=e.currentTarget; const on=btn.classList.toggle('on'); satGroup.visible=on;
+});
+
+// ── helyzet (geolokáció → IP → Budapest) + home-jelölő ──
+let homeMarker=null;
+async function placeHome(){
+  let loc=null;
+  loc = await new Promise(res=>{ if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lon:p.coords.longitude,city:null}), ()=>res(null), {timeout:5000}); });
+  if(!loc){ try{ const d=await fetch('https://ipwho.is/').then(r=>r.json());
+    if(d&&d.success!==false&&d.latitude) loc={lat:d.latitude,lon:d.longitude,city:d.city,country:d.country}; }catch(_){} }
+  if(!loc) loc={lat:47.4979,lon:19.0402,city:'Budapest',country:'Magyarország'};
+  if(!loc.city){ try{ const d=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${loc.lat}&longitude=${loc.lon}&localityLanguage=hu`).then(r=>r.json());
+    loc.city=d.city||d.locality||d.principalSubdivision||loc.lat.toFixed(2); loc.country=loc.country||d.countryName||''; }catch(_){ } }
+  const v=geoToVec3(loc.lat, loc.lon, R*1.005);
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.022,16,16), new THREE.MeshBasicMaterial({color:0x14b8a6}));
+  m.position.copy(v); globe.add(m); homeMarker=m;
+  // halvány halo
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(0.04,16,16), new THREE.MeshBasicMaterial({color:0x14b8a6, transparent:true, opacity:0.25}));
+  halo.position.copy(v); globe.add(halo);
+  document.getElementById('loc').textContent = (loc.city||loc.lat.toFixed(2)) + (loc.country? ', '+loc.country : '');
+}
+
+// ── interakció ──
+let dragging=false, px=0, py=0, velX=0, velY=0; const baseSpin=0.0014; let zoom=4.6;
+canvas.addEventListener('pointerdown', e=>{dragging=true; px=e.clientX; py=e.clientY;});
+addEventListener('pointerup', ()=>dragging=false);
+addEventListener('pointermove', e=>{ if(!dragging) return;
+  velX=(e.clientX-px)*0.0035; velY=(e.clientY-py)*0.0022; px=e.clientX; py=e.clientY; });
+addEventListener('wheel', e=>{ zoom=THREE.MathUtils.clamp(zoom+e.deltaY*0.0022, 2.6, 9); }, {passive:true});
+
+// ── óra + ISS readout ──
+const clockEl=document.getElementById('clock'), issEl=document.getElementById('iss');
+setInterval(()=>{
+  clockEl.textContent=new Date().toLocaleTimeString('hu-HU');
+  if(issGeo) issEl.textContent=`ISS ${Math.abs(issGeo.lat).toFixed(1)}°${issGeo.lat>=0?'N':'S'} ${Math.abs(issGeo.lon).toFixed(1)}°${issGeo.lon>=0?'E':'W'} · ${Math.round(issGeo.alt)} km`;
+}, 1000);
+
+// ── resize + render loop ──
+function resize(){ renderer.setSize(innerWidth, innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+let t0=performance.now();
+function animate(t){
+  requestAnimationFrame(animate);
+  const dt=Math.min((t-t0)/16.6,3); t0=t;
+  globe.rotation.y += (baseSpin+velX)*dt;
+  globe.rotation.x = THREE.MathUtils.clamp(globe.rotation.x+velY*dt, -0.9, 0.9);
+  velX*=0.94; velY*=0.90;
+  clouds.rotation.y += 0.0003*dt;
+  camera.position.z += (zoom-camera.position.z)*0.08;
+
+  // műhold-propagáció gyorsított idővel (hiteles arányok, látható mozgás)
+  const simNow = new Date(Date.now() + (t* (TIME_SCALE-1)));
+  if(satGroup.visible) updateSats(simNow);
+
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+// indítás
+loadSats();
+placeHome();
+</script>
+</body>
+</html>
