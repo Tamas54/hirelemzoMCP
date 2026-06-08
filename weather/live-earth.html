@@ -285,12 +285,15 @@ function initFlights() {
       'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true } });
 }
 async function pollFlights() {
-  if (!flightsOn || map.getZoom() < 3.5) return;   // kis bbox = kevés kredit
+  if (!flightsOn) return;   // a látható területre tölt; áttekintő nézetben is mutat gépeket
   const b = map.getBounds();
-  const url = `${FLIGHTS_URL}?lamin=${b.getSouth().toFixed(3)}&lomin=${b.getWest().toFixed(3)}&lamax=${b.getNorth().toFixed(3)}&lomax=${b.getEast().toFixed(3)}`;
+  const south = Math.max(-90, b.getSouth()).toFixed(3), north = Math.min(90, b.getNorth()).toFixed(3);
+  const west = Math.max(-180, b.getWest()).toFixed(3), east = Math.min(180, b.getEast()).toFixed(3);
+  const url = `${FLIGHTS_URL}?lamin=${south}&lomin=${west}&lamax=${north}&lomax=${east}`;
   try {
     const d = await (await fetch(url)).json();
     const feats = (d.states || []).filter(s => s[5] != null && s[6] != null && !s[8])
+      .slice(0, 4000)   // teljesítmény-plafon nagyon kizoomolt nézetnél
       .map(s => ({ type: 'Feature', properties: { cs: (s[1]||'').trim(), heading: s[10] || 0 },
         geometry: { type: 'Point', coordinates: [s[5], s[6]] } }));
     if (map.getSource('flights')) map.getSource('flights').setData({ type: 'FeatureCollection', features: feats });
