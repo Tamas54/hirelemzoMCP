@@ -3278,6 +3278,13 @@ async def landing_legacy(request):
 # ---------------------------------------------------------------------------
 WEATHER_DIR = Path(__file__).resolve().parent / "weather"
 
+# /weather/flights memória-cache: N egyidejű user ugyanarra a régióra EGY
+# upstream (adsb.lol) hívást oszt meg a TTL alatt → sokszorosára nő a
+# repülő-kapacitás, és barátságosabb a forrás-API rate-limitje felé.
+# Kulcs: kerekített közép + sugár. Érték: (monoton_idő, payload).
+_FLIGHTS_CACHE: dict = {}
+_FLIGHTS_TTL = 12.0  # másodperc
+
 
 @mcp.custom_route("/weather", methods=["GET"])
 async def weather_earth(request):
@@ -3324,6 +3331,20 @@ async def weather_flights(request):
     dlon = (lomax - lomin) / 2.0 * math.cos(math.radians(clat))
     radius_nm = int(min(250.0, max(40.0, math.hypot(dlat, dlon) * 60.0)))
 
+    # cache: kerekített közép (0.1°) + sugár → közeli nézetek osztoznak a válaszon
+    import time
+    key = (round(clat, 1), round(clon, 1), radius_nm)
+    now = time.monotonic()
+    cached = _FLIGHTS_CACHE.get(key)
+    if cached and now - cached[0] < _FLIGHTS_TTL:
+        return JSONResponse(cached[1], headers={"Cache-Control": "no-store"})
+
+    def _store(payload):
+        if len(_FLIGHTS_CACHE) > 800:   # egyszerű plafon a memória ellen
+            _FLIGHTS_CACHE.clear()
+        _FLIGHTS_CACHE[key] = (now, payload)
+        return payload
+
     # 1) adsb.lol (pont + sugár), normalizálva
     try:
         async with httpx.AsyncClient(timeout=15.0) as c:
@@ -3339,7 +3360,7 @@ async def weather_flights(request):
                 states.append([a.get("hex"), (a.get("flight") or "").strip(), "", 0, 0,
                                lon, lat, None, ground, a.get("gs"), a.get("track")])
             if states:
-                return JSONResponse({"states": states, "source": "adsb.lol"},
+                return JSONResponse(_store({"states": states, "source": "adsb.lol"}),
                                     headers={"Cache-Control": "no-store"})
     except Exception:
         pass
@@ -3352,6 +3373,8 @@ async def weather_flights(request):
                             params=params, headers={"User-Agent": "echolot-weather"})
         data = r.json() if r.status_code == 200 else {"states": []}
         data["source"] = "opensky"
+        if data.get("states"):
+            _store(data)
         return JSONResponse(data, status_code=r.status_code, headers={"Cache-Control": "no-store"})
     except Exception as e:
         return JSONResponse({"error": str(e), "states": []}, status_code=502)
