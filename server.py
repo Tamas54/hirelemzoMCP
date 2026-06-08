@@ -2204,7 +2204,7 @@ async def api_news(request):
     limit = max(1, min(100, int(request.query_params.get("limit", "60"))))
     since = (datetime.now() - timedelta(days=days)).replace(hour=0, minute=0, second=0)
 
-    sql = """SELECT a.title, a.url, a.source_name, a.category, a.language,
+    sql = """SELECT a.title, a.url, a.source_id, a.source_name, a.category, a.language,
                     a.published_at, a.spheres_json, s.source_type
              FROM articles a JOIN sources s ON s.id = a.source_id
              WHERE a.published_at >= ?"""
@@ -2481,6 +2481,46 @@ LANDING_HTML = r"""<!DOCTYPE html>
                         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
                         overflow: hidden; }
   .news-card .nc-meta { font-size: 0.65rem; color: var(--text-dim); }
+  /* Forrás-doboz (Hírkereső-stílus): forrásonként csoportosított hírfolyam */
+  .news-source-box {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 0.55rem 0.75rem 0.4rem; align-self: start;
+    display: flex; flex-direction: column;
+  }
+  .nsb-head {
+    display: flex; align-items: center; gap: 0.4rem; text-decoration: none;
+    padding-bottom: 0.45rem; margin-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .nsb-src {
+    font-size: 0.7rem; color: var(--primary); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .nsb-arrow { margin-left: auto; color: var(--primary); font-weight: 700; opacity: 0.7; }
+  .nsb-head:hover .nsb-src { text-decoration: underline; }
+  .nsb-head:hover .nsb-arrow { opacity: 1; }
+  .nsb-head-plain .nc-lang { margin-left: auto; }
+  .nsb-item {
+    display: flex; align-items: baseline; gap: 0.5rem; text-decoration: none;
+    color: inherit; padding: 0.3rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .nsb-item:last-of-type { border-bottom: none; }
+  .nsb-item:hover .nsb-title { color: var(--primary); }
+  .nsb-title {
+    font-size: 0.82rem; font-weight: 500; line-height: 1.4; flex: 1;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; transition: color 0.15s;
+  }
+  .nsb-time {
+    font-size: 0.62rem; color: var(--text-dim); white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .nsb-more {
+    display: block; margin-top: 0.4rem; padding-top: 0.4rem;
+    font-size: 0.7rem; color: var(--text-dim); text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+  .nsb-more:hover { color: var(--primary); }
   .news-empty, .news-loading { text-align: center; color: var(--text-dim);
                                 padding: 2rem; font-size: 0.9rem; grid-column: 1 / -1; }
   .news-loading .spinner { display: inline-block; width: 18px; height: 18px;
@@ -2723,23 +2763,70 @@ function escapeHTML(s) {
   return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// "Forrás összes híre" label per UI-lang (a /source oldal szótárával egyezik)
+const NSB_MORE_LBL = {
+  hu: 'Forrás összes híre', en: 'All news from source',
+  de: 'Alle Nachrichten der Quelle', fr: 'Toutes les actus de la source',
+  ru: 'Все новости источника', uk: 'Усі новини джерела'
+};
+const NSB_MAX_ITEMS = 5;  // hány cím látszik dobozonként; a többi a /source oldalon
+
+// Az élő hírfolyamot FORRÁSONKÉNT csoportosítjuk (Hírkereső-doboz stílus):
+// egy forrás minden friss híre egy dobozba kerül, így egyetlen bőven publikáló
+// forrás (pl. Sydney Morning Herald) nem árasztja el a folyamot. A doboz fejléce
+// és "összes híre" linkje a /source/<id> oldalra visz (a mostani eljárás).
 function renderNews(arts) {
   const grid = document.getElementById('news-grid');
   if (!arts.length) {
     grid.innerHTML = '<div class="news-empty">Nincs cikk ebben a szelekcióban a vizsgált időablakon belül.</div>';
     return;
   }
-  grid.innerHTML = arts.slice(0, 80).map(a => {
-    const tg = a.source_type === 'telegram' ? '<span class="nc-lang" style="background:rgba(20,184,166,0.15);color:#14b8a6">TG</span>' : '';
-    return `<a class="news-card" href="${escapeHTML(a.url)}" target="_blank" rel="noopener">
-      <div class="nc-meta-top">
-        <div class="nc-source">${escapeHTML(a.source_name)}</div>
-        <div class="nc-lang">${escapeHTML(a.language || '')}</div>
-        ${tg}
-      </div>
-      <div class="nc-title">${escapeHTML(a.title)}</div>
-      <div class="nc-meta">${timeAgo(a.published_at)}</div>
-    </a>`;
+  const lang = (new URLSearchParams(location.search).get('lang') || 'hu');
+  const moreLbl = NSB_MORE_LBL[lang] || NSB_MORE_LBL.hu;
+
+  // Csoportosítás source_id szerint, az első előfordulás sorrendjében.
+  // Az arts published_at DESC-ben jön, így a legfrissebb hírt hozó forrás
+  // doboza kerül elsőként a folyam tetejére.
+  const order = [];
+  const groups = {};
+  arts.forEach(a => {
+    const sid = a.source_id || a.source_name || '?';
+    if (!groups[sid]) { groups[sid] = []; order.push(sid); }
+    groups[sid].push(a);
+  });
+
+  grid.innerHTML = order.map(sid => {
+    const items = groups[sid];
+    const a0 = items[0];
+    const srcName = escapeHTML(a0.source_name || sid);
+    const hasLink = !!a0.source_id;
+    const srcHref = hasLink ? `/source/${encodeURIComponent(a0.source_id)}?lang=${encodeURIComponent(lang)}` : '';
+    const tg = a0.source_type === 'telegram' ? '<span class="nc-lang" style="background:rgba(20,184,166,0.15);color:#14b8a6">TG</span>' : '';
+
+    const head = hasLink
+      ? `<a class="nsb-head" href="${srcHref}">
+           <span class="nsb-src">${srcName}</span>
+           <span class="nc-lang">${escapeHTML(a0.language || '')}</span>
+           ${tg}
+           <span class="nsb-arrow">→</span>
+         </a>`
+      : `<div class="nsb-head nsb-head-plain">
+           <span class="nsb-src">${srcName}</span>
+           <span class="nc-lang">${escapeHTML(a0.language || '')}</span>
+           ${tg}
+         </div>`;
+
+    const rows = items.slice(0, NSB_MAX_ITEMS).map(a =>
+      `<a class="nsb-item" href="${escapeHTML(a.url)}" target="_blank" rel="noopener">
+         <span class="nsb-title">${escapeHTML(a.title)}</span>
+         <span class="nsb-time">${timeAgo(a.published_at)}</span>
+       </a>`).join('');
+
+    const more = hasLink
+      ? `<a class="nsb-more" href="${srcHref}">${moreLbl} (${items.length}) →</a>`
+      : '';
+
+    return `<div class="news-source-box">${head}${rows}${more}</div>`;
   }).join('');
 }
 
