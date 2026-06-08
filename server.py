@@ -3301,17 +3301,57 @@ async def weather_widget(request):
 
 @mcp.custom_route("/weather/flights", methods=["GET"])
 async def weather_flights(request):
-    """OpenSky states/all szerveroldali proxy — a repülő-réteg így KÜLÖN WORKER NÉLKÜL
-    működik: a böngészőből az OpenSky CORS-zárt, de a backend szabadon lekérheti és
-    same-origin adja vissza. bbox: lamin/lomin/lamax/lomax."""
-    import httpx
+    """Repülő-pozíciók szerveroldali proxyja a repülő-réteghez (a forrás-API-k
+    CORS-zártak / datacenter-IP-t blokkolnak, ezért a backend kéri le).
+
+    Elsődleges: adsb.lol (ingyenes, kulcs nélküli community ADS-B, datacenter-
+    barát; pont+sugár, max 250 NM). Fallback: OpenSky (otthoni IP-n megy, de a
+    Railway datacenter-IP-jét tipikusan blokkolja). A választ az OpenSky
+    state-vektor formátumra normalizáljuk, hogy a kliens változatlan maradjon:
+    s[1]=hívójel, s[5]=lon, s[6]=lat, s[8]=on_ground, s[10]=track."""
+    import httpx, math
     p = request.query_params
-    params = {k: p[k] for k in ("lamin", "lomin", "lamax", "lomax") if p.get(k)}
+
+    def _f(name, d):
+        try:
+            return float(p.get(name))
+        except (TypeError, ValueError):
+            return d
+    lamin, lamax = _f("lamin", 45.0), _f("lamax", 50.0)
+    lomin, lomax = _f("lomin", 5.0), _f("lomax", 20.0)
+    clat, clon = (lamin + lamax) / 2.0, (lomin + lomax) / 2.0
+    dlat = (lamax - lamin) / 2.0
+    dlon = (lomax - lomin) / 2.0 * math.cos(math.radians(clat))
+    radius_nm = int(min(250.0, max(40.0, math.hypot(dlat, dlon) * 60.0)))
+
+    # 1) adsb.lol (pont + sugár), normalizálva
     try:
+        async with httpx.AsyncClient(timeout=15.0) as c:
+            r = await c.get(f"https://api.adsb.lol/v2/point/{clat:.4f}/{clon:.4f}/{radius_nm}",
+                            headers={"User-Agent": "echolot-weather"})
+        if r.status_code == 200:
+            states = []
+            for a in (r.json().get("ac") or []):
+                lat, lon = a.get("lat"), a.get("lon")
+                if lat is None or lon is None:
+                    continue
+                ground = a.get("alt_baro") == "ground"
+                states.append([a.get("hex"), (a.get("flight") or "").strip(), "", 0, 0,
+                               lon, lat, None, ground, a.get("gs"), a.get("track")])
+            if states:
+                return JSONResponse({"states": states, "source": "adsb.lol"},
+                                    headers={"Cache-Control": "no-store"})
+    except Exception:
+        pass
+
+    # 2) OpenSky fallback
+    try:
+        params = {k: p[k] for k in ("lamin", "lomin", "lamax", "lomax") if p.get(k)}
         async with httpx.AsyncClient(timeout=15.0) as c:
             r = await c.get("https://opensky-network.org/api/states/all",
                             params=params, headers={"User-Agent": "echolot-weather"})
         data = r.json() if r.status_code == 200 else {"states": []}
+        data["source"] = "opensky"
         return JSONResponse(data, status_code=r.status_code, headers={"Cache-Control": "no-store"})
     except Exception as e:
         return JSONResponse({"error": str(e), "states": []}, status_code=502)
