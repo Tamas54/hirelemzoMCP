@@ -22,3 +22,6 @@ thoughts*.md
 # Live-TV viewer sandbox (dev playground; production-be integrálva,
 # lásd echolot_live_news.py + static/echolot-tv.js)
 tv-viewer/
+
+# Internal GEO strategy doc — never publish
+Echolot_GEO_audit_checklist.docx

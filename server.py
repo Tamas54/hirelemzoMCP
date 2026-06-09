@@ -118,6 +118,10 @@ from echolot_ai_discovery import (
     well_known_mcp_json_string,
     openapi_spec_string,
 )
+from echolot_citability import (
+    format_query_response,
+    format_divergence_response,
+)
 from echolot_content_neg import (
     prefers_format,
     render_sphere_detail_markdown,
@@ -414,6 +418,16 @@ def search_news(
     if include_web:
         response["web_results"] = web_results
         response["web_count"] = len(web_results) if web_results else 0
+
+    # GEO citability layer (additive): adds answer_lead, per-item `citable`
+    # attribution, attribution_note, and a fixed-schema `_machine` block so a
+    # calling LLM/agent can quote Echolot directly. Original `articles` key is
+    # preserved for backward compatibility.
+    citable = format_query_response(response, query=query, spheres=sphere)
+    response["answer_lead"] = citable["answer_lead"]
+    response["items"] = citable["items"]
+    response["attribution_note"] = citable["attribution_note"]
+    response["_machine"] = citable["_machine"]
     return json.dumps(response, ensure_ascii=False, default=str)
 
 
@@ -621,15 +635,51 @@ def get_spheres() -> str:
                 cur["latest"] = r["latest"]
 
     spheres = sorted(set(list(sphere_sources.keys()) + list(sphere_counts.keys())))
-    out = {sph: {
-        "source_count": len(sphere_sources.get(sph, [])),
-        "sources": sphere_sources.get(sph, []),
-        "article_count": sphere_counts.get(sph, {}).get("articles", 0),
-        "latest_article": sphere_counts.get(sph, {}).get("latest"),
-    } for sph in spheres}
 
-    return json.dumps({"spheres_count": len(spheres), "spheres": out},
-                      ensure_ascii=False, default=str)
+    # Sphere hygiene: green/yellow/red status per sphere, using the same
+    # thresholds as echolot_health (green <2h, yellow <24h, red >=24h or empty).
+    # A calling agent that hits a dead/empty sphere leaves empty-handed ("broken
+    # citability"), so we surface freshness explicitly and let callers filter.
+    now = datetime.now()
+
+    def _sphere_status(latest: str | None) -> str:
+        if not latest:
+            return "red"
+        try:
+            dt = datetime.fromisoformat(str(latest).replace("Z", "+00:00"))
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
+            minutes = (now - dt).total_seconds() / 60
+        except Exception:
+            return "red"
+        if minutes < 0:
+            minutes = 0
+        if minutes < 2 * 60:
+            return "green"
+        if minutes < 24 * 60:
+            return "yellow"
+        return "red"
+
+    out = {}
+    status_tally = {"green": 0, "yellow": 0, "red": 0}
+    for sph in spheres:
+        latest = sphere_counts.get(sph, {}).get("latest")
+        status = _sphere_status(latest)
+        status_tally[status] += 1
+        out[sph] = {
+            "source_count": len(sphere_sources.get(sph, [])),
+            "sources": sphere_sources.get(sph, []),
+            "article_count": sphere_counts.get(sph, {}).get("articles", 0),
+            "latest_article": latest,
+            "status": status,
+        }
+
+    return json.dumps({
+        "spheres_count": len(spheres),
+        "status_summary": status_tally,
+        "status_legend": "green: fresh (<2h) · yellow: slowing (<24h) · red: stale (>=24h) or empty",
+        "spheres": out,
+    }, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
@@ -700,12 +750,23 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
     out = {sph: items[:per_sphere_limit]
            for sph, items in sorted(by_sphere.items(), key=lambda kv: -len(kv[1]))}
 
-    return json.dumps({
+    response = {
         "query": query, "fts_query": fts_query, "days": days,
         "spheres_found": len(out),
         "collapse_to_parent": collapse_to_parent,
         "by_sphere": out,
-    }, ensure_ascii=False, default=str)
+    }
+
+    # GEO citability layer (additive): the crown-jewel contrast. Adds a
+    # one-sentence contrast_lead, an enriched per-sphere view with a quotable
+    # sphere_summary and per-item `citable` attribution, attribution_note, and
+    # a fixed-schema `_machine` contrast table. Original `by_sphere` is kept.
+    citable = format_divergence_response(response, query=query)
+    response["contrast_lead"] = citable["contrast_lead"]
+    response["by_sphere_citable"] = citable["by_sphere"]
+    response["attribution_note"] = citable["attribution_note"]
+    response["_machine"] = citable["_machine"]
+    return json.dumps(response, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
@@ -1281,7 +1342,7 @@ def search_web(query: str, count: int = 10) -> str:
     """Web search via our brave-mcp-server — independent of the Echolot corpus.
 
     Use this when you need fresh internet results (current events, niche
-    topics, anything outside our 315 RSS sources). Returns Brave web search
+    topics, anything outside our 750+ RSS/Telegram sources). Returns Brave web search
     hits as plain {title, url, description} dicts.
 
     Args:
@@ -2586,7 +2647,7 @@ LANDING_HTML = r"""<!DOCTYPE html>
 <div class="hero">
   <div class="logo">▷  E C H O L O T  ◁</div>
   <h1>Globális narratíva-térkép</h1>
-  <p class="sub">315 forrás 63 információs szférából — magyar sajtó, globális anchor lapok,
+  <p class="sub">750+ forrás 93 információs szférából — magyar sajtó, globális anchor lapok,
      kínai állami média, izraeli bal/jobb, iráni rezsim/ellenzék, ukrán front-OSINT,
      orosz milblog/ellenzék, japán/koreai/indiai/török/arab/dél-amerikai sajtó, US partisan szubsztakok,
      AI / climate / health / OSINT topikális csomagok, Telegram-csatornák.<br>

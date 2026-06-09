@@ -28,7 +28,13 @@ from echolot_dashboard import (
     _request_lang,
     _escape,
 )
-from echolot_seo import public_origin, seo_head_html
+from echolot_seo import (
+    public_origin,
+    seo_head_html,
+    schema_org_website_html,
+    schema_org_organization_html,
+    schema_org_software_application_html,
+)
 from echolot_local_trending import build_local_trending
 from echolot_youtube_trends import trending_videos as _yt_trending_videos
 from echolot_top_stories import cluster_top_stories
@@ -2375,6 +2381,17 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         origin=origin, lang=lang, path="/",
         description=t("seo.site.description", lang),
         og_title=f"Echolot — {t('landing.hero_title', lang)}",
+    )
+    # GEO A-front: emit schema.org JSON-LD so AI search engines can identify
+    # and consolidate the Echolot entity (SoftwareApplication + Organization +
+    # WebSite, with a sameAs array linking landing ↔ GitHub ↔ Railway).
+    seo_head += (
+        "\n"
+        + schema_org_software_application_html(origin)
+        + "\n"
+        + schema_org_organization_html(origin)
+        + "\n"
+        + schema_org_website_html(origin, lang)
     )
 
     # Nav-strip (megőrzött)

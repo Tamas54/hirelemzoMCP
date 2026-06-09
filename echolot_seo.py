@@ -351,6 +351,57 @@ def schema_org_organization_html(origin: str) -> str:
     return _ld_script(payload)
 
 
+# Canonical sameAs anchors that consolidate the Echolot entity across every
+# public surface it appears on. AI search engines use this to understand that
+# the landing page, the GitHub repo and the Railway deployment are ONE entity.
+# Add the ECHOLOT EU-project page here when it has a public URL.
+ECHOLOT_SAME_AS = [
+    "https://github.com/Tamas54/hirelemzoMCP",
+    "https://web-production-02611.up.railway.app",
+]
+
+
+def schema_org_software_application_html(origin: str) -> str:
+    """JSON-LD <script> for the Echolot MCP server as a SoftwareApplication.
+
+    This is the core entity type for an MCP server: it tells AI search engines
+    and agents what Echolot *is* (a sphere-aware, MCP-native, multilingual news
+    grounding layer), and the sameAs array consolidates it with the GitHub repo
+    and Railway deployment. SoftwareApplication is the type the docx GEO-audit
+    A-front asks for, alongside the existing Organization schema.
+    """
+    same_as = sorted({*ECHOLOT_SAME_AS, origin})
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Echolot",
+        "alternateName": "Hírmagnet",
+        "url": origin,
+        "description": (
+            "Echolot is a sphere-aware, MCP-native, multilingual news grounding "
+            "layer for LLMs and AI agents. It scrapes 750+ RSS and Telegram "
+            "sources every 30 seconds, tags them into 93 narrative spheres "
+            "(regional, topical, and perspective-aligned), and exposes them to "
+            "AI agents through the Model Context Protocol."
+        ),
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any (MCP-compatible)",
+        "programmingLanguage": "Python",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "EUR",
+        },
+        "sameAs": same_as,
+        "publisher": {
+            "@type": "Organization",
+            "name": "Makronóm Intézet",
+            "url": "https://makronom.hu",
+        },
+    }
+    return _ld_script(payload)
+
+
 def schema_org_breadcrumb_html(items: list[tuple[str, str]]) -> str:
     """JSON-LD <script> for a BreadcrumbList.
 
