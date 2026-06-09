@@ -23,6 +23,13 @@ from echolot_landing_v2 import (
 )
 from echolot_seo import public_origin
 from echolot_top_stories import LEAN_TO_BIAS
+from echolot_theme import (
+    theme_html_attr,
+    DAY_THEME_CSS,
+    THEME_TOGGLE_CSS,
+    THEME_TOGGLE_JS,
+    theme_toggle_html,
+)
 
 
 # ─── Idő-formátum: "4 órája (06:12)" stílus ──────────────────────────────
@@ -302,6 +309,13 @@ _STORY_DETAIL_CSS = """
       margin: 24px auto 80px;
       padding: 0 var(--sp-4);
     }
+    .story-detail-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
     .story-detail-back {
       display: inline-flex;
       align-items: center;
@@ -309,7 +323,6 @@ _STORY_DETAIL_CSS = """
       color: var(--fg-2);
       font-size: 14px;
       text-decoration: none;
-      margin-bottom: 16px;
       transition: color .15s ease;
     }
     .story-detail-back:hover { color: var(--text); }
@@ -636,9 +649,11 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
 
     title_html = _escape(title[:80])
     page_title = f"{title_html} — Echolot"
+    theme_attr = theme_html_attr(request)
+    theme_toggle = theme_toggle_html(lang)
 
     return f"""<!doctype html>
-<html lang="{lang}">
+<html lang="{lang}"{theme_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -646,11 +661,14 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{_STORY_DETAIL_CSS}</style>
+  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{_STORY_DETAIL_CSS}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
 <body>
   <main class="story-detail-shell landing-v2-shell">
-    <a href="/?lang={lang}" class="story-detail-back">← {back_label}</a>
+    <div class="story-detail-topbar">
+      <a href="/?lang={lang}" class="story-detail-back">← {back_label}</a>
+      {theme_toggle}
+    </div>
 
     <header class="story-detail-header">
       <div class="story-detail-meta">
@@ -677,5 +695,6 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
       </div>
     </section>
   </main>
+  {THEME_TOGGLE_JS}
 </body>
 </html>"""

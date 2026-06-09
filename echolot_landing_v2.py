@@ -28,6 +28,13 @@ from echolot_dashboard import (
     _request_lang,
     _escape,
 )
+from echolot_theme import (
+    theme_html_attr,
+    DAY_THEME_CSS,
+    THEME_TOGGLE_CSS,
+    THEME_TOGGLE_JS,
+    theme_toggle_html,
+)
 from echolot_seo import (
     public_origin,
     seo_head_html,
@@ -2400,6 +2407,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     # GEO answer blocks: question-form, self-contained citable copy (A-graded
     # by citability_scorer), rendered as visible SSR HTML for crawlers.
     answer_blocks_html = answer_blocks_section_html(lang)
+    theme_attr = theme_html_attr(request)
+    theme_toggle = theme_toggle_html(lang)
 
     # Nav-strip (megőrzött)
     nav_strip = _augment_block_html(lang, active="feed")
@@ -2440,7 +2449,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     tv_panel_html = _render_tv_panel(lang)
 
     return (f"""<!DOCTYPE html>
-<html lang="{lang}">
+<html lang="{lang}"{theme_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -2450,7 +2459,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}</style>
+  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -2460,6 +2469,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   </div>
 
   <div class="top-actions">
+    {theme_toggle}
     <a href="/weather?lang={lang}" class="btn-secondary">🌍 {live_earth_label} →</a>
     <a href="/landing-classic?lang={lang}" class="btn-secondary">{legacy_label} →</a>
     <a href="/dashboard?lang={lang}" class="btn-primary">{dashboard_label} →</a>
@@ -2529,5 +2539,6 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
       }}
     }});
   </script>
+  {THEME_TOGGLE_JS}
 </body>
 </html>""", lang)
