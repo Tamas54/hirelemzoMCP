@@ -57,8 +57,26 @@ _HTTPX_HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; EcholotFetcher/0.1; +https://github.com/Tamas54/hirelemzoMCP)",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9,hu;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
+    # Only advertise encodings httpx can always decode. Brotli ("br") needs the
+    # optional brotli/brotlicffi package; without it httpx hands back the raw
+    # compressed bytes, which extract_main_text turns into U+FFFD garbage that
+    # then gets stored as full_text. gzip/deflate are always decoded natively.
+    "Accept-Encoding": "gzip, deflate",
 }
+
+
+def _looks_like_text(s: str) -> bool:
+    """True if `s` is plausibly real article text, not binary/garbage.
+
+    Undecoded compressed payloads (e.g. brotli without the codec) are dense
+    with U+FFFD replacement characters and control bytes; genuine article text
+    has essentially none. Used to refuse storing/serving garbage full_text."""
+    if not s:
+        return False
+    sample = s[:4000]
+    bad = sum(1 for c in sample
+              if c == "�" or (ord(c) < 32 and c not in "\t\n\r"))
+    return (bad / len(sample)) < 0.05
 
 
 async def _httpx_fetch_extract(client: httpx.AsyncClient, url: str) -> Optional[dict]:
@@ -151,6 +169,17 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
 
     if result.get("content_usable"):
         text = result.get("text") or result.get("markdown") or ""
+        if not _looks_like_text(text):
+            # Undecoded/binary payload masquerading as text — refuse to store it.
+            with sqlite3.connect(db_path, timeout=30.0) as conn:
+                conn.execute("""
+                    UPDATE articles
+                    SET full_text_status='blocked',
+                        full_text_fetched_at=?, full_text_block_reason='garbage_or_binary'
+                    WHERE article_id=?
+                """, (now, article_id))
+                conn.commit()
+            return "blocked"
         # Tag httpx-recovered rows so observability is clear without inventing a
         # new column. NULL stays NULL for the normal Brave path.
         block_marker = (
@@ -234,6 +263,39 @@ def run_cycle(
 ) -> dict:
     """Sync wrapper around run_cycle_async — handy for threaded daemons."""
     return asyncio.run(run_cycle_async(db_path, batch_size, concurrency, robust))
+
+
+def reset_garbage_full_text(db_path: Path = DB_PATH) -> int:
+    """One-shot cleanup: find rows whose stored full_text is binary garbage
+    (undecoded brotli etc.) and reset them to NULL so the worker refetches them
+    cleanly with the fixed Accept-Encoding. Returns how many were reset.
+
+    Cheap enough to run at startup: it samples the first 4 KB of each 'ok' row."""
+    try:
+        with sqlite3.connect(db_path, timeout=30.0) as conn:
+            rows = conn.execute("""
+                SELECT article_id, full_text FROM articles
+                WHERE full_text_status='ok'
+                  AND full_text IS NOT NULL AND length(full_text) > 0
+            """).fetchall()
+            bad = [aid for aid, ft in rows if not _looks_like_text(ft or "")]
+            if bad:
+                conn.executemany(
+                    "UPDATE articles SET full_text=NULL, full_text_status=NULL, "
+                    "full_text_block_reason=NULL WHERE article_id=?",
+                    [(a,) for a in bad],
+                )
+                for a in bad:
+                    try:
+                        conn.execute(
+                            "UPDATE articles_fts SET full_text='' WHERE article_id=?", (a,))
+                    except sqlite3.OperationalError:
+                        pass
+                conn.commit()
+            return len(bad)
+    except Exception as exc:
+        log.warning("reset_garbage_full_text failed: %s", exc)
+        return 0
 
 
 async def fetch_on_demand(

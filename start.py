@@ -102,6 +102,16 @@ def brave_fetcher_thread():
     interval_s = int(os.environ.get("BRAVE_FETCH_INTERVAL_S", "60"))
     log.info("brave-fetcher daemon: interval=%ds", interval_s)
 
+    # One-shot: purge any garbage full_text (undecoded brotli from older builds)
+    # so it gets refetched cleanly with the fixed Accept-Encoding.
+    try:
+        from echolot_brave_fetcher import reset_garbage_full_text
+        n_bad = reset_garbage_full_text()
+        if n_bad:
+            log.info("brave-fetcher: reset %d garbage full_text rows for refetch", n_bad)
+    except Exception as e:
+        log.warning("brave-fetcher: garbage cleanup skipped: %s", e)
+
     cycle = 0
     while True:
         try:

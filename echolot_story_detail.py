@@ -22,6 +22,7 @@ from echolot_landing_v2 import (
     _sphere_color,
 )
 from echolot_seo import public_origin
+from echolot_top_stories import LEAN_TO_BIAS
 
 
 # ─── Idő-formátum: "4 órája (06:12)" stílus ──────────────────────────────
@@ -56,24 +57,6 @@ def _fmt_combined(ts: str | None) -> str:
 
 # ─── Lean badge ──────────────────────────────────────────────────────────
 
-_LEAN_LABEL = {
-    "left": "B",
-    "lean_left": "B",
-    "center": "K",
-    "lean_right": "J",
-    "right": "J",
-    "government": "K+",
-}
-_LEAN_COLOR = {
-    "left": "var(--pol-l, #c25a5a)",
-    "lean_left": "var(--pol-l, #c25a5a)",
-    "center": "var(--pol-c, #8e8e8e)",
-    "lean_right": "var(--pol-r, #4d7ec8)",
-    "right": "var(--pol-r, #4d7ec8)",
-    "government": "var(--pol-g, #b48a3a)",
-}
-
-
 _ORIG_LBL = {
     "hu": "Eredeti cikk", "en": "Original article", "de": "Originalartikel",
     "fr": "Article original", "ru": "Оригинал статьи", "uk": "Оригінал статті",
@@ -106,11 +89,6 @@ _TIMELINE_LBL = {
     "hu": "Idővonal", "en": "Timeline", "de": "Zeitleiste",
     "fr": "Chronologie", "ru": "Хронология", "uk": "Хронологія",
 }
-_LEAN_GROUP = {
-    "left": ("hu", "Baloldali"), "lean_left": ("hu", "Baloldali"),
-    "center": ("hu", "Központi"), "government": ("hu", "Kormányzati"),
-    "lean_right": ("hu", "Jobboldali"), "right": ("hu", "Jobboldali"),
-}
 # Lean-bucket emberi név (nyelvfüggetlen kulcs → HU/EN).
 _LEAN_BUCKET_LBL = {
     "L": {"hu": "Baloldali sajtó", "en": "Left-leaning"},
@@ -120,16 +98,22 @@ _LEAN_BUCKET_LBL = {
 }
 
 
+# Bias-bucket → színek és badge-betűk (a pol-bar logikájával egyezően).
+_BUCKET_COLOR = {
+    "L": "var(--pol-l, #c25a5a)", "C": "var(--pol-c, #8e8e8e)",
+    "R": "var(--pol-r, #4d7ec8)",
+}
+_BUCKET_BADGE = {"L": "B", "C": "K", "R": "J"}
+
+
 def _lean_bucket(lean: str | None) -> str:
-    """Lean-stringet L/C/R/G bucketbe sorol (a pol-bar logikájával egyezően)."""
-    key = (lean or "").strip().lower().replace("-", "_")
-    if key in ("left", "lean_left"):
-        return "L"
-    if key in ("right", "lean_right"):
-        return "R"
-    if key == "government":
-        return "G"
-    return "C"
+    """Forrás-lean → L/C/R bias-bucket a KANONIKUS LEAN_TO_BIAS mappinggel.
+
+    Fontos: a DB lean-szókincse 'opposition'/'gov'/'unknown'/'center'/... — NEM
+    'left'/'right'/'government'. A bias-bar is ezt a mappinget használja, így a
+    perspektíva-bontás és a lean-badge mostantól egyezik vele."""
+    key = (lean or "").strip().lower()
+    return LEAN_TO_BIAS.get(key, "C")
 
 
 def _readmore_label(lang: str) -> str:
@@ -141,6 +125,12 @@ def _render_full_text(full_text: str, lang: str) -> str:
     <details> blokkban adja vissza. Üres/rövid szövegnél üres stringet ad."""
     text = (full_text or "").strip()
     if len(text) < 200:
+        return ""
+    # Defense in depth: never render binary/garbage (undecoded brotli etc.).
+    # Real article text has ~no U+FFFD replacement chars; garbage is full of them.
+    sample = text[:4000]
+    bad = sum(1 for c in sample if c == "�" or (ord(c) < 32 and c not in "\t\n\r"))
+    if bad / len(sample) >= 0.05:
         return ""
     # Bekezdésekre bontás: dupla, majd egyszeres sortörés mentén.
     chunks = [c.strip() for c in text.replace("\r", "").split("\n") if c.strip()]
@@ -173,9 +163,9 @@ def _src_all_label(lang: str) -> str:
 def _render_lean_badge(lean: str | None) -> str:
     if not lean:
         return ""
-    key = (lean or "").strip().lower().replace("-", "_")
-    label = _LEAN_LABEL.get(key, "")
-    color = _LEAN_COLOR.get(key, "var(--fg-3)")
+    bucket = _lean_bucket(lean)
+    label = _BUCKET_BADGE.get(bucket, "")
+    color = _BUCKET_COLOR.get(bucket, "var(--fg-3)")
     if not label:
         return ""
     return f'<span class="lean-badge" style="background:{color}" title="{_escape(lean)}">{label}</span>'
@@ -237,11 +227,7 @@ def _render_source_card(article: dict, lang: str) -> str:
 
 # ─── Perspektíva-bontás (lean szerint) ──────────────────────────────────
 
-_BUCKET_ORDER = ["L", "C", "R", "G"]
-_BUCKET_COLOR = {
-    "L": "var(--pol-l, #c25a5a)", "C": "var(--pol-c, #8e8e8e)",
-    "R": "var(--pol-r, #4d7ec8)", "G": "var(--pol-g, #b48a3a)",
-}
+_BUCKET_ORDER = ["L", "C", "R"]
 
 
 def _bucket_label(bucket: str, lang: str) -> str:
