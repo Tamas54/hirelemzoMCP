@@ -34,6 +34,8 @@ from echolot_seo import (
     schema_org_website_html,
     schema_org_organization_html,
     schema_org_software_application_html,
+    schema_org_faqpage_html,
+    answer_blocks_section_html,
 )
 from echolot_local_trending import build_local_trending
 from echolot_youtube_trends import trending_videos as _yt_trending_videos
@@ -2392,7 +2394,12 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         + schema_org_organization_html(origin)
         + "\n"
         + schema_org_website_html(origin, lang)
+        + "\n"
+        + schema_org_faqpage_html()
     )
+    # GEO answer blocks: question-form, self-contained citable copy (A-graded
+    # by citability_scorer), rendered as visible SSR HTML for crawlers.
+    answer_blocks_html = answer_blocks_section_html(lang)
 
     # Nav-strip (megőrzött)
     nav_strip = _augment_block_html(lang, active="feed")
@@ -2501,6 +2508,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
       {tabloid_html}
     </div>
   </div>
+
+  {answer_blocks_html}
 
   <div class="legacy-link">
     <a href="/landing-classic?lang={lang}">▷ {legacy_label} ◁</a>
