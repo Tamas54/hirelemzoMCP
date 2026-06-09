@@ -87,6 +87,81 @@ _SRC_ALL_LBL = {
 }
 
 
+# "Tovább olvasom" — a teljes (extrahált) cikkszöveget kinyitó details/summary.
+_READMORE_LBL = {
+    "hu": "Tovább olvasom", "en": "Read full text", "de": "Volltext lesen",
+    "fr": "Lire le texte complet", "ru": "Читать полностью", "uk": "Читати повністю",
+}
+_COLLAPSE_LBL = {
+    "hu": "Összecsukom", "en": "Collapse", "de": "Einklappen",
+    "fr": "Réduire", "ru": "Свернуть", "uk": "Згорнути",
+}
+# Perspektíva-bontás + idővonal szekció-címkék.
+_PERSP_LBL = {
+    "hu": "Így írták meg", "en": "How each side framed it",
+    "de": "So berichteten die Seiten", "fr": "Comment chaque camp l'a présenté",
+    "ru": "Как подали разные стороны", "uk": "Як подали різні сторони",
+}
+_TIMELINE_LBL = {
+    "hu": "Idővonal", "en": "Timeline", "de": "Zeitleiste",
+    "fr": "Chronologie", "ru": "Хронология", "uk": "Хронологія",
+}
+_LEAN_GROUP = {
+    "left": ("hu", "Baloldali"), "lean_left": ("hu", "Baloldali"),
+    "center": ("hu", "Központi"), "government": ("hu", "Kormányzati"),
+    "lean_right": ("hu", "Jobboldali"), "right": ("hu", "Jobboldali"),
+}
+# Lean-bucket emberi név (nyelvfüggetlen kulcs → HU/EN).
+_LEAN_BUCKET_LBL = {
+    "L": {"hu": "Baloldali sajtó", "en": "Left-leaning"},
+    "C": {"hu": "Központi / semleges", "en": "Center / neutral"},
+    "R": {"hu": "Jobboldali sajtó", "en": "Right-leaning"},
+    "G": {"hu": "Kormányzati", "en": "Government"},
+}
+
+
+def _lean_bucket(lean: str | None) -> str:
+    """Lean-stringet L/C/R/G bucketbe sorol (a pol-bar logikájával egyezően)."""
+    key = (lean or "").strip().lower().replace("-", "_")
+    if key in ("left", "lean_left"):
+        return "L"
+    if key in ("right", "lean_right"):
+        return "R"
+    if key == "government":
+        return "G"
+    return "C"
+
+
+def _readmore_label(lang: str) -> str:
+    return _READMORE_LBL.get(lang, _READMORE_LBL["hu"])
+
+
+def _render_full_text(full_text: str, lang: str) -> str:
+    """A kinyert teljes cikkszöveget bekezdésekre bontva, kinyitható
+    <details> blokkban adja vissza. Üres/rövid szövegnél üres stringet ad."""
+    text = (full_text or "").strip()
+    if len(text) < 200:
+        return ""
+    # Bekezdésekre bontás: dupla, majd egyszeres sortörés mentén.
+    chunks = [c.strip() for c in text.replace("\r", "").split("\n") if c.strip()]
+    if not chunks:
+        return ""
+    # Védőkorlát: ne dőljön be óriás szövegtől (kb. 8000 karakter).
+    paras, total = [], 0
+    for c in chunks:
+        if total > 8000:
+            break
+        paras.append(f"<p>{_escape(c)}</p>")
+        total += len(c)
+    body = "\n".join(paras)
+    return (
+        '<details class="src-card-fulltext">'
+        f'<summary>{_escape(_readmore_label(lang))} ▾</summary>'
+        f'<div class="src-card-fulltext-body">{body}</div>'
+        "</details>"
+    )
+
+
 def _orig_label(lang: str) -> str:
     return _ORIG_LBL.get(lang, _ORIG_LBL["hu"])
 
@@ -121,6 +196,7 @@ def _render_source_card(article: dict, lang: str) -> str:
     lead_html = (
         f'<p class="src-card-lead">{_escape(lead)}</p>' if lead else ""
     )
+    fulltext_html = _render_full_text(article.get("full_text") or "", lang)
 
     # FENT: a forrás neve belső link a forrás-kártyára (aznapi hírei).
     src_href = f"/source/{_escape(src_id)}?lang={lang}" if src_id else ""
@@ -148,6 +224,7 @@ def _render_source_card(article: dict, lang: str) -> str:
         </header>
         <h3 class="src-card-title">{_escape(title)}</h3>
         {lead_html}
+        {fulltext_html}
         <div class="src-card-actions">
           <a href="{_escape(url)}" target="_blank" rel="noopener" class="src-card-link">
             {_escape(_orig_label(lang))} ↗
@@ -156,6 +233,79 @@ def _render_source_card(article: dict, lang: str) -> str:
         </div>
       </article>
     """
+
+
+# ─── Perspektíva-bontás (lean szerint) ──────────────────────────────────
+
+_BUCKET_ORDER = ["L", "C", "R", "G"]
+_BUCKET_COLOR = {
+    "L": "var(--pol-l, #c25a5a)", "C": "var(--pol-c, #8e8e8e)",
+    "R": "var(--pol-r, #4d7ec8)", "G": "var(--pol-g, #b48a3a)",
+}
+
+
+def _bucket_label(bucket: str, lang: str) -> str:
+    d = _LEAN_BUCKET_LBL.get(bucket, {})
+    return d.get(lang, d.get("hu", bucket))
+
+
+def _render_perspective_breakdown(articles: list[dict], lang: str) -> str:
+    """Lean-bucketenként (Bal/Központi/Jobb/Kormányzati) megmutatja, hogy az
+    egyes oldalak milyen címmel írták meg ugyanazt — ez az Echolot lényege."""
+    groups: dict[str, list[dict]] = {b: [] for b in _BUCKET_ORDER}
+    for a in articles:
+        groups[_lean_bucket(a.get("source_lean"))].append(a)
+    present = [b for b in _BUCKET_ORDER if groups[b]]
+    # Ha minden forrás egy bucketben van, nincs mit kontrasztba állítani.
+    if len(present) < 2:
+        return ""
+
+    cols = []
+    for b in present:
+        items = groups[b]
+        lis = "".join(
+            f'<li><span class="persp-src">{_escape(a.get("source_name") or "")}</span>'
+            f'<span class="persp-title">{_escape((a.get("title") or "").strip())}</span></li>'
+            for a in items[:4]
+        )
+        more = (f'<li class="persp-more">+{len(items) - 4}</li>'
+                if len(items) > 4 else "")
+        cols.append(
+            f'<div class="persp-col">'
+            f'<div class="persp-head" style="color:{_BUCKET_COLOR[b]}">'
+            f'<span class="persp-dot" style="background:{_BUCKET_COLOR[b]}"></span>'
+            f'{_escape(_bucket_label(b, lang))} · {len(items)}</div>'
+            f'<ul class="persp-items">{lis}{more}</ul>'
+            f'</div>'
+        )
+    heading = _escape(_PERSP_LBL.get(lang, _PERSP_LBL["hu"]))
+    return (
+        '<section class="story-perspective">'
+        f'<h2>{heading}</h2>'
+        f'<div class="persp-grid">{"".join(cols)}</div>'
+        '</section>'
+    )
+
+
+def _render_timeline(articles: list[dict], lang: str) -> str:
+    """A sztori fejlődése időrendben: melyik forrás mikor vette át."""
+    dated = [a for a in articles if (a.get("published_at") or "").strip()]
+    if len(dated) < 2:
+        return ""
+    ordered = sorted(dated, key=lambda a: a.get("published_at") or "")
+    rows = "".join(
+        f'<li><time class="tl-time">{_escape(_fmt_combined(a.get("published_at")))}</time>'
+        f'<span class="tl-src">{_escape(a.get("source_name") or "")}</span>'
+        f'<span class="tl-title">{_escape((a.get("title") or "").strip())}</span></li>'
+        for a in ordered
+    )
+    heading = _escape(_TIMELINE_LBL.get(lang, _TIMELINE_LBL["hu"]))
+    return (
+        '<section class="story-timeline">'
+        f'<h2>{heading}</h2>'
+        f'<ol class="tl-list">{rows}</ol>'
+        '</section>'
+    )
 
 
 # ─── Oldal-specifikus CSS ───────────────────────────────────────────────
@@ -322,9 +472,120 @@ _STORY_DETAIL_CSS = """
       letter-spacing: 0.04em;
     }
 
+    /* Teljes cikkszöveg — kinyitható details/summary */
+    .src-card-fulltext { margin: 4px 0 10px 0; }
+    .src-card-fulltext > summary {
+      cursor: pointer;
+      color: var(--accent, #6cb6ff);
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      list-style: none;
+      user-select: none;
+      display: inline-block;
+      padding: 2px 0;
+    }
+    .src-card-fulltext > summary::-webkit-details-marker { display: none; }
+    .src-card-fulltext[open] > summary { color: var(--fg-2); margin-bottom: 8px; }
+    .src-card-fulltext-body {
+      border-left: 2px solid var(--line);
+      padding-left: 14px;
+      margin-top: 6px;
+    }
+    .src-card-fulltext-body p {
+      font-size: 14.5px;
+      line-height: 1.7;
+      color: var(--fg-2);
+      margin: 0 0 12px 0;
+    }
+    .src-card-fulltext-body p:last-child { margin-bottom: 0; }
+
+    /* Perspektíva-bontás */
+    .story-perspective, .story-timeline { margin: 0 0 var(--sp-5); }
+    .story-perspective > h2, .story-timeline > h2 {
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--fg-3);
+      margin: 0 0 var(--sp-3);
+      font-weight: 600;
+    }
+    .persp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .persp-col {
+      background: var(--bg-2, rgba(255,255,255,0.02));
+      border: 1px solid var(--line);
+      border-radius: var(--r-md, 8px);
+      padding: 12px 14px;
+    }
+    .persp-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .persp-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; flex: 0 0 auto;
+    }
+    .persp-items { list-style: none; margin: 0; padding: 0; }
+    .persp-items li {
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 9px;
+      color: var(--fg-2);
+    }
+    .persp-items li:last-child { margin-bottom: 0; }
+    .persp-src {
+      display: block;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 1px;
+    }
+    .persp-title { display: block; color: var(--fg-2); }
+    .persp-more { color: var(--fg-3); font-size: 12px; }
+
+    /* Idővonal */
+    .tl-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-left: 2px solid var(--line);
+    }
+    .tl-list li {
+      position: relative;
+      padding: 0 0 14px 18px;
+      font-size: 13.5px;
+      line-height: 1.4;
+    }
+    .tl-list li::before {
+      content: "";
+      position: absolute;
+      left: -5px; top: 5px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent, #6cb6ff);
+    }
+    .tl-list li:last-child { padding-bottom: 0; }
+    .tl-time {
+      color: var(--fg-3);
+      font-variant-numeric: tabular-nums;
+      margin-right: 8px;
+    }
+    .tl-src { color: var(--text); font-weight: 600; margin-right: 8px; }
+    .tl-title { color: var(--fg-2); }
+
     @media (max-width: 720px) {
       .story-detail-title { font-size: 22px; }
       .src-card-title { font-size: 16px; }
+      .persp-grid { grid-template-columns: 1fr; }
     }
 """
 
@@ -383,6 +644,8 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
         if timeline_parts else ""
     )
 
+    perspective_html = _render_perspective_breakdown(articles, lang)
+    story_timeline_html = _render_timeline(articles, lang)
     cards_html = "".join(_render_source_card(a, lang) for a in articles)
 
     title_html = _escape(title[:80])
@@ -416,6 +679,10 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
       <div class="story-detail-pol-bar">{_render_pol_bar(bias)}</div>
       {timeline_html}
     </header>
+
+    {perspective_html}
+
+    {story_timeline_html}
 
     <section class="story-sources-section">
       <h2>{sources_label} ({n_sources})</h2>

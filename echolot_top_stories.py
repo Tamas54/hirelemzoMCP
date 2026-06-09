@@ -235,6 +235,8 @@ SELECT
     a.category,
     a.published_at,
     a.fetched_at,
+    a.full_text,
+    a.full_text_status,
     a.spheres_json    AS article_spheres,
     s.lean            AS source_lean,
     s.trust_tier      AS trust_tier,
@@ -515,6 +517,8 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                     "source_lean": a.get("source_lean") or "",
                     "published_at": ts,
                     "language": a.get("language") or "",
+                    "full_text": a.get("full_text") or "",
+                    "full_text_status": a.get("full_text_status") or "",
                 }
 
     # Fallback: ha NINCS article-szintű sphere a clusterben (régi cikkek),

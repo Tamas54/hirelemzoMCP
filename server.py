@@ -3271,6 +3271,30 @@ async def story_detail(request):
             f"<h1>Story not found</h1><p><a href='/?lang={lang}'>← Vissza</a></p>",
             status_code=404,
         )
+
+    # On-demand full text: fill sources that the background fetcher hasn't
+    # reached yet, so a freshly-clustered story already has readable body text.
+    # Bounded + cached to the DB, so only the first visitor to a new story ever
+    # waits, and only articles never attempted (status NULL) are touched.
+    try:
+        arts = cluster.get("articles") or []
+        pending = [
+            (a.get("article_id"), a.get("url"))
+            for a in arts
+            if a.get("url")
+            and not (a.get("full_text") or "").strip()
+            and (a.get("full_text_status") or "") == ""
+        ][:6]
+        if pending:
+            from echolot_brave_fetcher import fetch_on_demand
+            filled = await fetch_on_demand(pending, DB_PATH)
+            if filled:
+                for a in arts:
+                    if a.get("article_id") in filled:
+                        a["full_text"] = filled[a["article_id"]]
+    except Exception as exc:
+        logger.warning("story on-demand full-text failed: %s", exc)
+
     page = render_story_detail_page(cluster, lang, request=request)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")

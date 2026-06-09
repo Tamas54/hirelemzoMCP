@@ -236,6 +236,67 @@ def run_cycle(
     return asyncio.run(run_cycle_async(db_path, batch_size, concurrency, robust))
 
 
+async def fetch_on_demand(
+    items: list[tuple[str, str]],
+    db_path: Path = DB_PATH,
+    *,
+    concurrency: int = 6,
+    per_timeout: float = 5.0,
+    overall_timeout: float = 7.0,
+    robust: bool = False,
+) -> dict[str, str]:
+    """Fetch full text for specific (article_id, url) pairs RIGHT NOW.
+
+    Used by the story-detail page so a freshly-clustered story has readable
+    body text before the background worker reaches it. Persists every outcome
+    to the DB (so the next visitor is instant) and returns {article_id: text}
+    for the articles whose full text became usable. Bounded by overall_timeout
+    so a slow source can never hang the page — whatever isn't ready in time is
+    simply omitted and falls back to the lead.
+
+    The caller is expected to pass only articles that don't already have text
+    (status NULL/empty), so this won't refetch 'ok' or re-attempt 'blocked'.
+    """
+    if not items:
+        return {}
+    sem = asyncio.Semaphore(concurrency)
+    out: dict[str, str] = {}
+
+    async def _go() -> None:
+        async with aiohttp.ClientSession() as session, \
+                httpx.AsyncClient(headers=_HTTPX_HEADERS, max_redirects=3) as httpx_client:
+
+            async def worker(article_id: str, url: str) -> None:
+                async with sem:
+                    result = None
+                    try:
+                        result = await asyncio.wait_for(
+                            brave_fetch(session, url, robust=robust), per_timeout)
+                    except (asyncio.TimeoutError, Exception):
+                        result = None
+                    if result is None and HTTPX_FALLBACK:
+                        try:
+                            result = await asyncio.wait_for(
+                                _httpx_fetch_extract(httpx_client, url), per_timeout)
+                        except (asyncio.TimeoutError, Exception):
+                            result = None
+                    try:
+                        _persist(db_path, article_id, result)
+                    except Exception as exc:
+                        log.warning("on-demand persist failed for %s: %s", article_id, exc)
+                    if result and result.get("content_usable"):
+                        out[article_id] = result.get("text") or result.get("markdown") or ""
+
+            await asyncio.gather(*[worker(aid, url) for aid, url in items])
+
+    try:
+        await asyncio.wait_for(_go(), overall_timeout)
+    except asyncio.TimeoutError:
+        log.info("on-demand fetch hit overall_timeout (%ss); returning %d ready",
+                 overall_timeout, len(out))
+    return out
+
+
 def main(argv: list[str]) -> int:
     logging.basicConfig(
         level=logging.INFO,
