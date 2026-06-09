@@ -1257,7 +1257,7 @@ _LANDING_V2_EXTRA_CSS = """
     }
     @media (max-width: 700px) {
       .top-actions { position: static; padding: 0.7rem 1rem 0;
-                     justify-content: flex-end; }
+                     flex-wrap: wrap; justify-content: flex-end; }
     }
 
     /* =====================================================================
