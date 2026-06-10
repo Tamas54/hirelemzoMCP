@@ -308,31 +308,37 @@ def _find_articles(conn: sqlite3.Connection, query: str, days: int) -> tuple[lis
 
     # Tier 1 — strict AND (every content term must co-occur, prefix-matched).
     and_expr = " AND ".join(f"{t}*" for t in terms)
-    rows = _exec(and_expr, "ASC", MAX_ARTICLES)
-    if rows:
-        arts = _rows_to_articles(rows)
-        arts.sort(key=lambda a: a["_pub_dt"])
-        return arts, {"fts": and_expr, "match_mode": "and",
-                      "terms": terms, "quorum": len(terms)}
+    and_arts = _rows_to_articles(_exec(and_expr, "ASC", MAX_ARTICLES))
+    and_sources = {a["source"] for a in and_arts}
+    and_info = {"fts": and_expr, "match_mode": "and", "terms": terms,
+                "quorum": len(terms)}
+    # Trust strict AND only when it's genuinely corroborated (>=3 sources). A
+    # thin AND (0-2 sources) usually means the claim was over-specified — a
+    # named entity or two appears verbatim in just one outlet while siblings
+    # phrase it differently. In that case expand to OR+quorum for recall.
+    if len(and_sources) >= 3:
+        and_arts.sort(key=lambda a: a["_pub_dt"])
+        return and_arts, and_info
 
     # Tier 2 — OR + quorum fallback (only meaningful with several terms).
     if len(terms) < 3:
-        return [], {"fts": and_expr, "match_mode": "and", "terms": terms,
-                    "quorum": len(terms)}
+        and_arts.sort(key=lambda a: a["_pub_dt"])
+        return and_arts, and_info
     or_expr = " OR ".join(f"{t}*" for t in terms)
     rows = _exec(or_expr, "DESC", _OR_POOL)  # recent-first pool, then quorum-filter
-    arts = _rows_to_articles(rows)
     quorum = max(2, math.ceil(0.4 * len(terms)))
     kept = []
-    for a in arts:
-        cov = sum(1 for t in terms if _covers(t, a["_tokens"]))
-        if cov >= quorum:
-            a["_coverage"] = cov
+    for a in _rows_to_articles(rows):
+        if sum(1 for t in terms if _covers(t, a["_tokens"])) >= quorum:
             kept.append(a)
-    kept.sort(key=lambda a: a["_pub_dt"])  # chronological for origin/propagation
-    kept = kept[:MAX_ARTICLES]
-    return kept, {"fts": or_expr, "match_mode": "or_quorum",
-                  "terms": terms, "quorum": quorum}
+    # Keep the richer of {strict AND, OR+quorum} by distinct-source count, so we
+    # never regress a good tight match into noise, but do rescue thin ones.
+    if len({a["source"] for a in kept}) > len(and_sources):
+        kept.sort(key=lambda a: a["_pub_dt"])
+        return kept[:MAX_ARTICLES], {"fts": or_expr, "match_mode": "or_quorum",
+                                     "terms": terms, "quorum": quorum}
+    and_arts.sort(key=lambda a: a["_pub_dt"])
+    return and_arts, and_info
 
 
 # ---------------------------------------------------------------------------
