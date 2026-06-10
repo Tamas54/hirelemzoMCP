@@ -84,7 +84,11 @@ def _strip_accents(s: str) -> str:
                    if not unicodedata.combining(c))
 
 
-_WORD_RE = re.compile(r"[a-z0-9]+")
+# Unicode word chars (letters/digits in ANY script, underscore excluded) so
+# Cyrillic (ru/uk — ru_state_media, ua_front_osint are flagship spheres), Greek,
+# etc. tokenize. \w is Unicode-aware for str patterns in Python 3.
+# Caveat: space-free scripts (CJK) still don't word-segment here — a known gap.
+_WORD_RE = re.compile(r"[^\W_]+")
 
 
 def _norm_tokens(text: str) -> list[str]:
