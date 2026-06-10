@@ -238,6 +238,9 @@ SELECT
     a.full_text,
     a.full_text_status,
     a.spheres_json    AS article_spheres,
+    a.frame           AS frame,
+    a.sentiment       AS sentiment,
+    a.classification_status AS classification_status,
     s.lean            AS source_lean,
     s.trust_tier      AS trust_tier,
     s.spheres_json    AS source_spheres
@@ -426,6 +429,8 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
     languages: set[str] = set()
     trust_vals: list[int] = []
     titles_by_source: dict[str, str] = {}
+    frame_counts: Counter = Counter()   # F1: dominant frame across classified articles
+    sent_vals: list[float] = []         # F1: cluster sentiment
 
     earliest_ts: str | None = None
     earliest_url: str | None = None
@@ -451,6 +456,18 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         sid = a.get("source_id") or ""
         article_spheres = _parse_spheres(a.get("article_spheres"))
         source_spheres = _parse_spheres(a.get("source_spheres"))
+
+        # F1 analytical layer: dominant frame + sentiment over classified articles.
+        if a.get("classification_status") == "ok":
+            fr = a.get("frame")
+            if fr:
+                frame_counts[fr] += 1
+            sv = a.get("sentiment")
+            if sv is not None:
+                try:
+                    sent_vals.append(float(sv))
+                except (TypeError, ValueError):
+                    pass
 
         aid = a.get("article_id")
         if aid:
@@ -565,6 +582,10 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         "source_count": len(seen_sources),
         "source_ids": sorted(seen_sources),
         "bias_dist": _bias_dist_pct(bias_counts),
+        "dominant_frame": (max(frame_counts, key=frame_counts.get) if frame_counts else None),
+        "frame_dist": dict(frame_counts),
+        "avg_sentiment": (round(sum(sent_vals) / len(sent_vals), 2) if sent_vals else None),
+        "classified_count": sum(frame_counts.values()),
         "sphere_set": sorted(sphere_set),
         "pure_topical_set": sorted(pure_topical_set),
         "languages": sorted(languages),

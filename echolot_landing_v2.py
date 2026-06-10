@@ -390,6 +390,31 @@ def _render_v2_footer_reach(
     )
 
 
+# F1 frame badge (Semetko–Valkenburg) for top-story cards — colored pill +
+# lang-aware label, mirroring hirspektrum's per-narrative frame tag. Only shown
+# when the cluster has classified articles (dominant_frame set).
+_FRAME_BADGE = {
+    "conflict":        ("#f85149", {"hu": "Konfliktus", "en": "Conflict", "de": "Konflikt"}),
+    "human_interest":  ("#58a6ff", {"hu": "Emberi érdek", "en": "Human interest", "de": "Menschlich"}),
+    "economic":        ("#3fb950", {"hu": "Gazdasági", "en": "Economic", "de": "Wirtschaft"}),
+    "morality":        ("#bc8cff", {"hu": "Erkölcs", "en": "Morality", "de": "Moral"}),
+    "vulnerability":   ("#d29922", {"hu": "Kiszolgáltatottság", "en": "Vulnerability", "de": "Verwundbarkeit"}),
+    "responsibility":  ("#ff7b72", {"hu": "Felelősség", "en": "Responsibility", "de": "Verantwortung"}),
+    "security_threat": ("#db61a2", {"hu": "Biztonsági fenyegetés", "en": "Security threat", "de": "Sicherheit"}),
+    "progress":        ("#2ea043", {"hu": "Fejlődés", "en": "Progress", "de": "Fortschritt"}),
+    "other":           ("#8b949e", {"hu": "Egyéb", "en": "Other", "de": "Sonstige"}),
+}
+
+
+def _render_frame_badge(s: dict, lang: str) -> str:
+    fr = s.get("dominant_frame")
+    if not fr or fr not in _FRAME_BADGE:
+        return ""
+    color, labels = _FRAME_BADGE[fr]
+    label = labels.get(lang) or labels["en"]
+    return f'<span class="frame-badge" style="background:{color}">{_escape(label)}</span>'
+
+
 def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") -> str:
     """Render a single story card in the v2 mockup style.
 
@@ -471,7 +496,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") ->
       <a href="{_escape(href)}"{link_attrs} class="story {variant}">
         <span class="accent" style="background: {accent}"></span>
         <div class="meta-row">
-          <span class="sphere-tag" style="color: {accent}">{_escape(sphere)}</span>
+          <span class="meta-left">{_render_frame_badge(s, lang)}<span class="sphere-tag" style="color: {accent}">{_escape(sphere)}</span></span>
           <span class="source-stack">
             {_render_source_stack(n_sources)}
             <span class="src-count">{n_sources} {src_label}</span>
@@ -1402,6 +1427,15 @@ _LANDING_V2_EXTRA_CSS = """
       font-family: var(--font-mono); font-size: 10px;
       letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
     }
+    :is(.landing-v2-shell, .rovat-shell) .meta-left {
+      display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .frame-badge {
+      font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: #fff;
+      padding: 2px 7px; border-radius: 5px; white-space: nowrap; line-height: 1.4;
+    }
+    :is(.landing-v2-shell, .rovat-shell) .story.sub.compact .frame-badge { font-size: 8.5px; padding: 1px 5px; }
     :is(.landing-v2-shell, .rovat-shell) .source-stack {
       display: inline-flex; align-items: center; gap: var(--sp-2);
       font-family: var(--font-mono); font-size: 10px;
