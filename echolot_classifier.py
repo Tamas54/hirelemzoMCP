@@ -66,8 +66,9 @@ def _load_env_file_once() -> None:
         log.warning("classifier env-file load failed: %s", exc)
 
 
-_KEY_ENV_NAMES = ("CLASSIFIER_API_KEY", "SILICONFLOW_API_KEY",
-                  "CLASSIFIER_KEY", "ECHOLOT_LLM_KEY", "SILICONFLOW_KEY")
+_KEY_ENV_NAMES = ("CLASSIFIER_API_KEY", "CLASSIFYER_API_KEY",  # accept the common typo
+                  "SILICONFLOW_API_KEY", "CLASSIFIER_KEY",
+                  "ECHOLOT_LLM_KEY", "SILICONFLOW_KEY")
 
 
 def _config() -> dict | None:
