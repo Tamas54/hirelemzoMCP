@@ -16,6 +16,26 @@ from __future__ import annotations
 import math
 from html import escape as _esc
 
+from echolot_sphere_taxonomy import CHILD_TO_PARENT
+
+# Vivid, theme-agnostic palette for sphere families (reads on dark & light).
+_FAMILY_PALETTE = ["#58a6ff", "#3fb950", "#d29922", "#f85149", "#bc8cff",
+                   "#39c5cf", "#ff7b72", "#7ee787", "#ffa657", "#a5d6ff",
+                   "#e3b341", "#79c0ff"]
+
+
+def _famly(sphere: str | None) -> str:
+    return CHILD_TO_PARENT.get(sphere or "", sphere or "—")
+
+
+def _fmt_delay(mins: float) -> str:
+    mins = max(0, int(mins))
+    if mins < 60:
+        return f"{mins}m"
+    if mins < 1440:
+        return f"{round(mins/60)}h"
+    return f"{round(mins/1440)}d"
+
 _LEVEL_STYLE = {
     "confirmed":     ("#1f9d55", "Confirmed"),
     "contested":     ("#d97706", "Contested"),
@@ -64,6 +84,9 @@ form.q button{background:var(--accent);color:#fff;border:none;font-weight:600;pa
 .stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center}
 .stat .num{font-size:28px;font-weight:700;line-height:1}
 .stat .lab{font-size:12px;color:var(--muted);margin-top:6px}
+.maplegend{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;margin-top:12px}
+.lgi{font-size:12px;color:var(--muted)}
+.lgi .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
 .heatmap{margin:6px 0 4px}
 .heatmap rect{transition:opacity .15s}.heatmap:hover rect{opacity:.55}.heatmap rect:hover{opacity:1}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;
@@ -130,6 +153,120 @@ def _render_verdict(v: dict) -> str:
             f'<div class="lvl">{_esc(label)}</div>'
             f'<div class="one">{_esc((v or {}).get("one_line",""))}</div>'
             f'{conf_html}</div>')
+
+
+def _render_spread_map(passport: dict) -> str:
+    """Hero visual: a radial 'narrative spread' map.
+
+    Origin at the center; each pickup is a node placed by sphere-family (angle)
+    and time-delay (radius), linked to the origin by an arc that draws itself in.
+    Pure inline SVG + SMIL animation — no JS, no external fetch."""
+    origin = passport.get("origin") or {}
+    prop = passport.get("propagation") or []
+    if not origin:
+        return ""
+    SZ, CX, CY = 560, 280, 280
+    R_IN, R_OUT = 52, 244
+
+    # Families present (origin first) -> stable base angle + color.
+    fams: list[str] = []
+    for s in [origin.get("sphere")] + [p.get("sphere") for p in prop]:
+        f = _famly(s)
+        if f not in fams:
+            fams.append(f)
+    fam_angle = {f: (i * 2 * math.pi / max(1, len(fams))) for i, f in enumerate(fams)}
+    fam_color = {f: _FAMILY_PALETTE[i % len(_FAMILY_PALETTE)] for i, f in enumerate(fams)}
+
+    # Group pickups by family for in-sector jitter.
+    by_fam: dict[str, list[dict]] = {}
+    for p in prop[:60]:
+        by_fam.setdefault(_famly(p.get("sphere")), []).append(p)
+    max_delay = max((p.get("delay_minutes") or 0) for p in prop) if prop else 1
+    max_delay = max(max_delay, 1)
+
+    def _r(delay):
+        # sqrt scale so early pickups don't all collapse onto the origin
+        return R_IN + (math.sqrt(max(delay, 0)) / math.sqrt(max_delay)) * (R_OUT - R_IN)
+
+    def _xy(angle, r):
+        return CX + r * math.sin(angle), CY - r * math.cos(angle)
+
+    # Guide rings + time labels.
+    rings = []
+    for mark in [60, 360, 1440, 4320]:
+        if mark > max_delay and mark != 60:
+            continue
+        rr = _r(min(mark, max_delay))
+        rings.append(f'<circle cx="{CX}" cy="{CY}" r="{rr:.0f}" fill="none" '
+                     f'stroke="var(--border)" stroke-width="1" stroke-dasharray="2 5"/>')
+        rings.append(f'<text x="{CX+4}" y="{CY-rr+12:.0f}" fill="var(--muted)" '
+                     f'font-size="10">{_fmt_delay(mark)}</text>')
+
+    # Connectors + nodes.
+    edges, nodes = [], []
+    for f, items in by_fam.items():
+        base = fam_angle[f]
+        color = fam_color[f]
+        m = len(items)
+        slice_w = (2 * math.pi / max(1, len(fams))) * 0.62
+        for j, p in enumerate(items):
+            off = 0 if m == 1 else (j - (m - 1) / 2) * (slice_w / m)
+            ang = base + off
+            r = _r(p.get("delay_minutes") or 0)
+            px, py = _xy(ang, r)
+            sim = p.get("similarity_to_origin") or 0.0
+            rad = 4 + sim * 7
+            # curved connector (quadratic), control point pushed off the chord
+            mx, my = (CX + px) / 2, (CY + py) / 2
+            cxp = mx + (py - CY) * 0.12
+            cyp = my - (px - CX) * 0.12
+            approx = math.hypot(px - CX, py - CY) * 1.15
+            edges.append(
+                f'<path d="M{CX},{CY} Q{cxp:.0f},{cyp:.0f} {px:.0f},{py:.0f}" '
+                f'fill="none" stroke="{color}" stroke-width="1.4" opacity="0.45" '
+                f'stroke-dasharray="{approx:.0f}" stroke-dashoffset="{approx:.0f}">'
+                f'<animate attributeName="stroke-dashoffset" from="{approx:.0f}" to="0" '
+                f'dur="0.9s" begin="{0.04*j:.2f}s" fill="freeze"/></path>'
+            )
+            nodes.append(
+                f'<circle cx="{px:.0f}" cy="{py:.0f}" r="0" fill="{color}" '
+                f'stroke="var(--panel)" stroke-width="1.5">'
+                f'<title>{_esc(p.get("source") or "")} · {_esc(p.get("sphere") or "")} '
+                f'· +{_fmt_delay(p.get("delay_minutes") or 0)} · sim {sim:.0%}</title>'
+                f'<animate attributeName="r" from="0" to="{rad:.1f}" dur="0.4s" '
+                f'begin="{0.04*j+0.5:.2f}s" fill="freeze"/></circle>'
+            )
+
+    origin_color = fam_color.get(_famly(origin.get("sphere")), "#3fb950")
+    origin_svg = (
+        f'<circle cx="{CX}" cy="{CY}" r="14" fill="{origin_color}" opacity="0.35">'
+        f'<animate attributeName="r" values="14;26;14" dur="2.4s" repeatCount="indefinite"/>'
+        f'<animate attributeName="opacity" values="0.35;0.05;0.35" dur="2.4s" repeatCount="indefinite"/></circle>'
+        f'<circle cx="{CX}" cy="{CY}" r="9" fill="{origin_color}" stroke="var(--panel)" stroke-width="2">'
+        f'<title>ORIGIN · {_esc(origin.get("source") or "")} · {_esc(origin.get("sphere") or "")}</title></circle>'
+        f'<text x="{CX}" y="{CY+30}" text-anchor="middle" fill="var(--text)" '
+        f'font-size="11" font-weight="600">{_esc((origin.get("source") or "")[:22])}</text>'
+    )
+
+    # Legend (families).
+    legend = "".join(
+        f'<span class="lgi"><span class="dot" style="background:{fam_color[f]}"></span>{_esc(f)}</span>'
+        for f in fams[:10]
+    )
+
+    svg = (
+        f'<svg viewBox="0 0 {SZ} {SZ}" width="100%" style="max-width:520px;height:auto;display:block;margin:0 auto" '
+        f'role="img" aria-label="narrative spread map">'
+        f'<defs><radialGradient id="bgrad" cx="50%" cy="50%" r="50%">'
+        f'<stop offset="0%" stop-color="var(--accent)" stop-opacity="0.06"/>'
+        f'<stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></radialGradient></defs>'
+        f'<circle cx="{CX}" cy="{CY}" r="{R_OUT}" fill="url(#bgrad)"/>'
+        f'{"".join(rings)}{"".join(edges)}{origin_svg}{"".join(nodes)}</svg>'
+    )
+    return (
+        '<div class="card"><h3>Narrative spread — origin → pickups (radius = time, sector = sphere family)</h3>'
+        f'{svg}<div class="maplegend">{legend}</div></div>'
+    )
 
 
 def _render_stat_strip(passport: dict) -> str:
@@ -278,6 +415,7 @@ def render_passport_page(passport: dict | None, *, claim: str = "",
         body = (
             _render_verdict(passport.get("verdict") or {})
             + _render_stat_strip(passport)
+            + _render_spread_map(passport)
             + _render_origin(passport.get("origin"))
             + _render_timeline(passport.get("propagation") or [])
             + _render_heatmap(passport.get("corroboration_matrix") or {})
