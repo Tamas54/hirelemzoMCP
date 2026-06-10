@@ -211,6 +211,19 @@ def _claim_batch(conn: sqlite3.Connection, size: int) -> list[dict]:
     return [{"article_id": r[0], "title": r[1], "lead": r[2]} for r in rows]
 
 
+def pending_count(db_path: str | Path = None) -> int:
+    """How many articles still await classification (cheap)."""
+    conn = sqlite3.connect(str(db_path or DB_PATH), timeout=15)
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM articles WHERE classification_status IS NULL "
+            "AND title IS NOT NULL AND title != ''").fetchone()[0]
+    except sqlite3.OperationalError:
+        return 0
+    finally:
+        conn.close()
+
+
 def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
     """Classify one batch of pending articles. Returns #articles written.
     Returns 0 (no-op) if no API key is configured."""
@@ -278,9 +291,15 @@ def worker_loop(db_path: str | Path = None) -> None:
             log.info("classified %d articles", n)
             idle = 0
             time.sleep(2)
+        elif pending_count(db_path) > 0:
+            # Batch yielded nothing but work REMAINS → transient (rate limit / bad
+            # response). Retry soon; do NOT enter the long caught-up backoff (that
+            # was making a single rate-limit look like a multi-minute stall).
+            idle = 0
+            time.sleep(15)
         else:
             idle += 1
-            time.sleep(min(LOOP_SLEEP * idle, 600))  # back off when caught up
+            time.sleep(min(LOOP_SLEEP * idle, 300))  # truly caught up — ease off
 
 
 if __name__ == "__main__":

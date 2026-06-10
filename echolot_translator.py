@@ -167,6 +167,18 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
         conn.close()
 
 
+def _pending_count(db_path) -> int:
+    conn = sqlite3.connect(str(db_path or DB_PATH), timeout=15)
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM articles WHERE translation_status IS NULL "
+            "AND title IS NOT NULL AND title != ''").fetchone()[0]
+    except sqlite3.OperationalError:
+        return 0
+    finally:
+        conn.close()
+
+
 def worker_loop(db_path: str | Path = None) -> None:
     if not is_enabled():
         log.info("translator disabled (no CLASSIFIER_API_KEY) — title_en stays empty")
@@ -184,9 +196,12 @@ def worker_loop(db_path: str | Path = None) -> None:
             log.info("translated %d articles", n)
             idle = 0
             time.sleep(2)
+        elif _pending_count(db_path) > 0:
+            idle = 0
+            time.sleep(15)  # transient — retry soon, no long backoff
         else:
             idle += 1
-            time.sleep(min(LOOP_SLEEP * idle, 600))
+            time.sleep(min(LOOP_SLEEP * idle, 300))
 
 
 if __name__ == "__main__":
