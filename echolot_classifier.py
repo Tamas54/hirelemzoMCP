@@ -66,9 +66,19 @@ def _load_env_file_once() -> None:
         log.warning("classifier env-file load failed: %s", exc)
 
 
+_KEY_ENV_NAMES = ("CLASSIFIER_API_KEY", "SILICONFLOW_API_KEY",
+                  "CLASSIFIER_KEY", "ECHOLOT_LLM_KEY", "SILICONFLOW_KEY")
+
+
 def _config() -> dict | None:
     _load_env_file_once()
-    key = os.environ.get("CLASSIFIER_API_KEY")
+    # Accept several env-var names so a Railway var named SILICONFLOW_API_KEY
+    # (the key's natural name) works without renaming.
+    key = None
+    for name in _KEY_ENV_NAMES:
+        if os.environ.get(name):
+            key = os.environ[name]
+            break
     if not key:
         return None
     return {
