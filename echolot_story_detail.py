@@ -591,6 +591,111 @@ _STORY_DETAIL_CSS = """
 
 # ─── Fő render fv ───────────────────────────────────────────────────────
 
+_SD_FRAME = {
+    "conflict":        ("#f85149", {"hu": "Konfliktus", "en": "Conflict", "de": "Konflikt"}),
+    "human_interest":  ("#58a6ff", {"hu": "Emberi érdek", "en": "Human interest", "de": "Menschlich"}),
+    "economic":        ("#3fb950", {"hu": "Gazdasági", "en": "Economic", "de": "Wirtschaft"}),
+    "morality":        ("#bc8cff", {"hu": "Erkölcs", "en": "Morality", "de": "Moral"}),
+    "vulnerability":   ("#d29922", {"hu": "Kiszolgáltatottság", "en": "Vulnerability", "de": "Verwundbarkeit"}),
+    "responsibility":  ("#ff7b72", {"hu": "Felelősség", "en": "Responsibility", "de": "Verantwortung"}),
+    "security_threat": ("#db61a2", {"hu": "Biztonsági fenyegetés", "en": "Security threat", "de": "Sicherheit"}),
+    "progress":        ("#2ea043", {"hu": "Fejlődés", "en": "Progress", "de": "Fortschritt"}),
+    "other":           ("#8b949e", {"hu": "Egyéb", "en": "Other", "de": "Sonstige"}),
+}
+
+
+def _frame_label(fr: str, lang: str) -> str:
+    if fr not in _SD_FRAME:
+        return fr
+    return _SD_FRAME[fr][1].get(lang) or _SD_FRAME[fr][1]["en"]
+
+
+def _render_frame_analysis(cluster: dict, articles: list, lang: str) -> str:
+    """Per-story F1 analysis: framing donut + sentiment + per-source frame
+    breakdown. Renders only when the cluster has classified articles."""
+    frame_dist = {k: v for k, v in (cluster.get("frame_dist") or {}).items() if v}
+    title = {"hu": "Keretezési elemzés", "en": "Framing analysis",
+             "de": "Framing-Analyse", "fr": "Analyse du cadrage",
+             "ru": "Анализ фрейминга", "uk": "Аналіз фреймування",
+             "it": "Analisi del framing"}.get(lang, "Framing analysis")
+    if not frame_dist:
+        return ""  # no classified articles in this cluster yet → omit silently
+
+    total = sum(frame_dist.values()) or 1
+    import math as _m
+    R, C = 54, 2 * _m.pi * 54
+    segs, legend, cum = [], [], 0.0
+    for fr, n in sorted(frame_dist.items(), key=lambda kv: -kv[1]):
+        color = _SD_FRAME.get(fr, ("#8b949e", {}))[0]
+        frac = n / total
+        seg = frac * C
+        segs.append(
+            f'<circle cx="70" cy="70" r="{R}" fill="none" stroke="{color}" '
+            f'stroke-width="20" stroke-dasharray="{seg:.2f} {C-seg:.2f}" '
+            f'stroke-dashoffset="{-cum*C:.2f}" transform="rotate(-90 70 70)"/>')
+        cum += frac
+        legend.append(
+            f'<div style="display:flex;align-items:center;gap:7px;font-size:13px;margin:4px 0">'
+            f'<span style="width:11px;height:11px;border-radius:3px;background:{color}"></span>'
+            f'{_escape(_frame_label(fr, lang))}'
+            f'<span style="margin-left:auto;color:var(--fg-2)">{round(frac*100)}%</span></div>')
+    donut = (f'<svg width="140" height="140" viewBox="0 0 140 140">{"".join(segs)}'
+             f'<text x="70" y="66" text-anchor="middle" fill="var(--fg)" font-size="18" '
+             f'font-weight="700">{total}</text>'
+             f'<text x="70" y="82" text-anchor="middle" fill="var(--fg-2)" font-size="9">'
+             f'{ {"hu":"osztályozva","en":"classified"}.get(lang,"classified") }</text></svg>')
+
+    avg = cluster.get("avg_sentiment")
+    sent_html = ""
+    if avg is not None:
+        pos = round((avg + 1) / 2 * 100)
+        scol = "#3fb950" if avg > 0.15 else ("#f85149" if avg < -0.15 else "#d29922")
+        slabel = {"hu": "Átfogó hangulat", "en": "Overall sentiment"}.get(lang, "Overall sentiment")
+        sent_html = (
+            f'<div style="margin-top:14px"><div style="font-size:12px;color:var(--fg-2);'
+            f'text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">{slabel}</div>'
+            f'<div style="display:flex;align-items:center;gap:12px">'
+            f'<span style="font-size:24px;font-weight:700;color:{scol}">{avg:+.2f}</span>'
+            f'<span style="flex:1;height:8px;border-radius:5px;position:relative;'
+            f'background:linear-gradient(90deg,#f85149,#d29922,#3fb950)">'
+            f'<span style="position:absolute;top:-3px;left:{pos}%;width:3px;height:14px;'
+            f'background:var(--fg);transform:translateX(-50%);border-radius:2px"></span></span></div></div>')
+
+    # Per-source frame breakdown (hirspektrum "Forráselemzés").
+    rows = []
+    for a in articles:
+        fr = a.get("frame")
+        if not fr:
+            continue
+        color = _SD_FRAME.get(fr, ("#8b949e", {}))[0]
+        sv = a.get("sentiment")
+        scol = "#3fb950" if (sv or 0) > 0.15 else ("#f85149" if (sv or 0) < -0.15 else "var(--fg-2)")
+        sval = f'{sv:+.2f}' if sv is not None else "—"
+        rows.append(
+            f'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;'
+            f'border-top:1px solid var(--line);font-size:13px">'
+            f'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;'
+            f'white-space:nowrap">{_escape(a.get("source_name") or "")}</span>'
+            f'<span style="font-size:11px;padding:2px 8px;border-radius:5px;color:#fff;'
+            f'background:{color};white-space:nowrap">{_escape(_frame_label(fr, lang))}</span>'
+            f'<span style="width:46px;text-align:right;color:{scol}">{sval}</span></div>')
+    src_label = {"hu": "Források keretezése", "en": "Framing by source"}.get(lang, "Framing by source")
+    src_block = (f'<div style="margin-top:16px"><div style="font-size:12px;color:var(--fg-2);'
+                 f'text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">{src_label}</div>'
+                 f'{"".join(rows)}</div>') if rows else ""
+
+    return (
+        '<section class="story-frame-analysis" style="margin:22px 0;padding:20px;'
+        'background:var(--bg-2,rgba(127,127,127,.05));border:1px solid var(--line);border-radius:14px">'
+        f'<h2 style="font-size:14px;text-transform:uppercase;letter-spacing:.08em;'
+        f'color:var(--fg-2);margin:0 0 14px">{_escape(title)} '
+        f'<span style="font-size:11px;text-transform:none;letter-spacing:0">· F1</span></h2>'
+        f'<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">'
+        f'<div>{donut}</div><div style="flex:1;min-width:180px">{"".join(legend)}</div></div>'
+        f'{sent_html}{src_block}</section>'
+    )
+
+
 def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     """Visszaad egy teljes HTML-lapot egy adott cluster source-listájával."""
     title = cluster.get("title") or cluster.get("lead_title") or "?"
@@ -644,6 +749,7 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     )
 
     perspective_html = _render_perspective_breakdown(articles, lang)
+    frame_analysis_html = _render_frame_analysis(cluster, articles, lang)
     story_timeline_html = _render_timeline(articles, lang)
     cards_html = "".join(_render_source_card(a, lang) for a in articles)
 
@@ -683,6 +789,8 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
       <div class="story-detail-pol-bar">{_render_pol_bar(bias)}</div>
       {timeline_html}
     </header>
+
+    {frame_analysis_html}
 
     {perspective_html}
 

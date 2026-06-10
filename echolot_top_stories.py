@@ -536,6 +536,8 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                     "language": a.get("language") or "",
                     "full_text": a.get("full_text") or "",
                     "full_text_status": a.get("full_text_status") or "",
+                    "frame": a.get("frame") if a.get("classification_status") == "ok" else None,
+                    "sentiment": a.get("sentiment") if a.get("classification_status") == "ok" else None,
                 }
 
     # Fallback: ha NINCS article-szintű sphere a clusterben (régi cikkek),
