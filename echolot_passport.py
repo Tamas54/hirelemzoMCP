@@ -299,8 +299,15 @@ def _find_articles(conn: sqlite3.Connection, query: str, days: int) -> tuple[lis
             # Malformed FTS expr or missing table (fresh DB) -> treat as no rows.
             return []
 
-    # Tier 1 — strict AND (every content term must co-occur).
-    and_expr = " AND ".join(f'"{t}"' for t in terms)
+    # Prefix tokens (term*) so agglutinative/inflected forms match: Hungarian
+    # "parlament*" hits "parlamentben", "leyen*" hits "Leyennel", German compounds
+    # too. The FTS index is diacritics-folded, matching our accent-stripped terms.
+    # Terms are alnum-only (normalized), so bareword-prefix syntax is safe.
+    def _covers(term: str, tokens: set[str]) -> bool:
+        return any(tok.startswith(term) for tok in tokens)
+
+    # Tier 1 — strict AND (every content term must co-occur, prefix-matched).
+    and_expr = " AND ".join(f"{t}*" for t in terms)
     rows = _exec(and_expr, "ASC", MAX_ARTICLES)
     if rows:
         arts = _rows_to_articles(rows)
@@ -312,14 +319,13 @@ def _find_articles(conn: sqlite3.Connection, query: str, days: int) -> tuple[lis
     if len(terms) < 3:
         return [], {"fts": and_expr, "match_mode": "and", "terms": terms,
                     "quorum": len(terms)}
-    or_expr = " OR ".join(f'"{t}"' for t in terms)
+    or_expr = " OR ".join(f"{t}*" for t in terms)
     rows = _exec(or_expr, "DESC", _OR_POOL)  # recent-first pool, then quorum-filter
     arts = _rows_to_articles(rows)
-    term_set = set(terms)
     quorum = max(2, math.ceil(0.4 * len(terms)))
     kept = []
     for a in arts:
-        cov = len(term_set & a["_tokens"])
+        cov = sum(1 for t in terms if _covers(t, a["_tokens"]))
         if cov >= quorum:
             a["_coverage"] = cov
             kept.append(a)
