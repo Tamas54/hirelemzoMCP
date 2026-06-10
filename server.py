@@ -1808,6 +1808,22 @@ async def page_passport(request):
     return HTMLResponse(html)
 
 
+@mcp.custom_route("/analysis", methods=["GET"])
+async def page_analysis(request):
+    """F1 framing/emotion/sentiment dashboard (hirspektrum-style). Renders from
+    the classifier columns; degrades to an empty-state until classification runs."""
+    import asyncio
+    from echolot_analytics import overview
+    from echolot_analysis_page import render_analysis_page
+    query = (request.query_params.get("query") or "").strip()
+    try:
+        days = int(request.query_params.get("days", "30"))
+    except ValueError:
+        days = 30
+    data = await asyncio.to_thread(overview, days, query, str(DB_PATH))
+    return HTMLResponse(render_analysis_page(data, query=query, days=days))
+
+
 @mcp.custom_route("/robots.txt", methods=["GET"])
 async def robots(request):
     """robots.txt — allow all crawlers + explicit AI-bot welcome blocks

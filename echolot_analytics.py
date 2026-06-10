@@ -63,6 +63,71 @@ def _family(sphere):
     return CHILD_TO_PARENT.get(sphere, sphere)
 
 
+# ---------------------------------------------------------------------------
+# overview — corpus-wide (or topic-scoped) frame/emotion/sentiment aggregate,
+# for the /analysis frontend page (hirspektrum-style framing+emotion view).
+# ---------------------------------------------------------------------------
+def overview(days=30, query="", db_path="echolot.db"):
+    days = max(1, min(365, int(days)))
+    params = [_since(days)]
+    join = ""
+    where = "a.published_at >= ?"
+    fts, _ = _fts_and(query) if query else (None, [])
+    if fts:
+        join = "JOIN articles_fts f ON f.article_id = a.article_id"
+        where = "articles_fts MATCH ? AND a.published_at >= ?"
+        params = [fts, _since(days)]
+    sql = f"""
+        SELECT a.source_name, s.lean, a.frame, a.emotion, a.sentiment,
+               a.classification_status
+        FROM articles a JOIN sources s ON s.id = a.source_id {join}
+        WHERE {where}
+    """
+    conn = _conn(db_path)
+    try:
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        except sqlite3.OperationalError as e:
+            return {"error": str(e), "frame_distribution": {}, "emotion_distribution": {}}
+    finally:
+        conn.close()
+
+    frames, emotions = {}, {}
+    sents = []
+    src = {}
+    n_class = 0
+    for r in rows:
+        sp = src.setdefault(r["source_name"], {"articles": 0, "lean": r["lean"],
+                                               "frames": {}, "_s": 0.0, "_n": 0})
+        sp["articles"] += 1
+        if r["classification_status"] == "ok":
+            n_class += 1
+            if r["frame"]:
+                frames[r["frame"]] = frames.get(r["frame"], 0) + 1
+                sp["frames"][r["frame"]] = sp["frames"].get(r["frame"], 0) + 1
+            if r["emotion"]:
+                emotions[r["emotion"]] = emotions.get(r["emotion"], 0) + 1
+            if r["sentiment"] is not None:
+                sents.append(r["sentiment"]); sp["_s"] += r["sentiment"]; sp["_n"] += 1
+    top_sources = []
+    for name, p in sorted(src.items(), key=lambda kv: -kv[1]["articles"])[:14]:
+        dom = max(p["frames"].items(), key=lambda kv: kv[1])[0] if p["frames"] else None
+        top_sources.append({"source": name, "lean": p["lean"], "articles": p["articles"],
+                            "dominant_frame": dom,
+                            "avg_sentiment": round(p["_s"]/p["_n"], 2) if p["_n"] else None})
+    return {
+        "query": query or None, "days": days,
+        "frame_distribution": dict(sorted(frames.items(), key=lambda kv: -kv[1])),
+        "emotion_distribution": dict(sorted(emotions.items(), key=lambda kv: -kv[1])),
+        "sentiment": {"avg": round(sum(sents)/len(sents), 3) if sents else None,
+                      "min": round(min(sents), 2) if sents else None,
+                      "max": round(max(sents), 2) if sents else None,
+                      "n": len(sents)},
+        "top_sources": top_sources,
+        "classification_coverage": _coverage(len(rows), n_class),
+    }
+
+
 def _coverage(rows_total, rows_classified):
     pct = round(100 * rows_classified / rows_total) if rows_total else 0
     note = None
