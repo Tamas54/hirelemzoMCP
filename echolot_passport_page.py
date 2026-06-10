@@ -426,7 +426,7 @@ def render_passport_page(passport: dict | None, *, claim: str = "",
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{_esc(claim) + ' — ' if claim else ''}Echolot Narrative Passport</title>"
         f"<style>{_PAGE_CSS}</style></head><body><div class=wrap>"
-        '<div class="topbar"><div class="brand">Echolot '
+        '<div class="topbar"><div class="brand"><a href="/" style="color:inherit;text-decoration:none">Echolot</a> '
         '<small>narrative passport</small></div>'
         '<button id="tt" class="theme-toggle">☀ Day</button></div>'
         + _form(claim, days, detail)

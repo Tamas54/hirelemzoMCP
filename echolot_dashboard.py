@@ -183,6 +183,7 @@ def _augment_block_html(lang: str, active: str = "feed") -> str:
         ("trending", "/dashboard/trending",   t("tab.trending", lang)),
         ("spheres",  "/dashboard/spheres",    t("tab.spheres", lang)),
         ("health",   "/dashboard/health",     t("tab.health", lang)),
+        ("passport", "/passport",             t("tab.passport", lang)),
     ]
     tab_html = []
     for key, url, label in tabs:
