@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import shlex
 import sqlite3
@@ -63,6 +64,13 @@ _STOP = {
     "az", "egy", "es", "is", "hogy", "nem", "meg", "ki", "be", "el", "fel",
     "der", "die", "das", "und", "von", "den", "im", "le", "la", "les", "des",
     "et", "que", "el", "los", "las", "y", "de", "por", "con",
+    # common English function words that must not become required AND-terms
+    "after", "near", "before", "over", "under", "into", "than", "then", "when",
+    "what", "who", "whom", "how", "why", "will", "would", "could", "should",
+    "also", "more", "most", "very", "just", "only", "about", "against",
+    "between", "during", "without", "within", "amid", "amid", "out", "off",
+    "per", "via", "amid", "their", "they", "them", "there", "here", "such",
+    "which", "while", "amid", "say", "saying", "told", "tell",
 }
 
 
@@ -208,30 +216,42 @@ def _extract_from_url(url: str) -> dict:
 # ---------------------------------------------------------------------------
 # Article retrieval
 # ---------------------------------------------------------------------------
-def _find_articles(conn: sqlite3.Connection, query: str, days: int) -> tuple[list[dict], str | None]:
-    fts, terms = _build_fts_match(query)
-    if fts is None:
-        return [], None
-    since = (_now_utc() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
-    sql = """
-        SELECT a.article_id, a.title, a.lead, a.url, a.source_name,
-               a.published_at, a.language, a.spheres_json,
-               s.lean, s.trust_tier
-        FROM articles a
-        JOIN articles_fts fts ON fts.article_id = a.article_id
-        JOIN sources s ON s.id = a.source_id
-        WHERE articles_fts MATCH ?
-          AND a.published_at >= ?
-        ORDER BY a.published_at ASC
-        LIMIT ?
-    """
+_OR_POOL = 3000  # how many OR-candidates to fetch before quorum filtering
+_FETCH_SQL = """
+    SELECT a.article_id, a.title, a.lead, a.url, a.source_name,
+           a.published_at, a.language, a.spheres_json,
+           s.lean, s.trust_tier
+    FROM articles a
+    JOIN articles_fts fts ON fts.article_id = a.article_id
+    JOIN sources s ON s.id = a.source_id
+    WHERE articles_fts MATCH ?
+      AND a.published_at >= ?
+    ORDER BY a.published_at {order}
+    LIMIT ?
+"""
+
+
+def _claim_content_terms(query: str) -> list[str]:
+    """Salient, deduped content terms from a claim (stopwords + short dropped).
+
+    This is what we actually search on — function words like 'and'/'the'/'after'
+    must NOT become required AND-terms (that was the live not_found bug)."""
     try:
-        rows = conn.execute(sql, (fts, since, MAX_ARTICLES)).fetchall()
-    except sqlite3.OperationalError:
-        # Malformed FTS expression (e.g. stray quote in a weak-agent claim) or a
-        # missing articles_fts/articles table on a fresh DB. Treat as no coverage
-        # rather than crashing — the passport degrades to "not_found".
-        return [], None
+        tokens = shlex.split(query)
+    except ValueError:
+        tokens = query.split()
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in tokens:
+        norm = "".join(ch for ch in _strip_accents(t.lower()) if ch.isalnum())
+        if len(norm) <= 2 or norm in _STOP or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(norm)
+    return out
+
+
+def _rows_to_articles(rows) -> list[dict]:
     out = []
     for r in rows:
         pub = _parse_utc(r["published_at"])
@@ -253,8 +273,58 @@ def _find_articles(conn: sqlite3.Connection, query: str, days: int) -> tuple[lis
             "_spheres": _article_spheres(r["spheres_json"]),
             "_tokens": set(_norm_tokens(f"{title} {lead}")),
         })
-    out.sort(key=lambda a: a["_pub_dt"])
-    return out, fts
+    return out
+
+
+def _find_articles(conn: sqlite3.Connection, query: str, days: int) -> tuple[list[dict], dict | None]:
+    """Tiered retrieval: strict AND first (precision); if it finds nothing on a
+    long natural-language claim, fall back to OR + quorum (recall) so a
+    well-covered story is not falsely reported as 'not_found'.
+
+    Returns (articles_sorted_chronologically, query_info) where query_info has
+    {fts, match_mode, terms, quorum}. query_info is None if the claim has no
+    usable content terms.
+    """
+    terms = _claim_content_terms(query)
+    if not terms:
+        return [], None
+    since = (_now_utc() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+
+    def _exec(expr: str, order: str, limit: int):
+        try:
+            return conn.execute(_FETCH_SQL.format(order=order), (expr, since, limit)).fetchall()
+        except sqlite3.OperationalError:
+            # Malformed FTS expr or missing table (fresh DB) -> treat as no rows.
+            return []
+
+    # Tier 1 — strict AND (every content term must co-occur).
+    and_expr = " AND ".join(f'"{t}"' for t in terms)
+    rows = _exec(and_expr, "ASC", MAX_ARTICLES)
+    if rows:
+        arts = _rows_to_articles(rows)
+        arts.sort(key=lambda a: a["_pub_dt"])
+        return arts, {"fts": and_expr, "match_mode": "and",
+                      "terms": terms, "quorum": len(terms)}
+
+    # Tier 2 — OR + quorum fallback (only meaningful with several terms).
+    if len(terms) < 3:
+        return [], {"fts": and_expr, "match_mode": "and", "terms": terms,
+                    "quorum": len(terms)}
+    or_expr = " OR ".join(f'"{t}"' for t in terms)
+    rows = _exec(or_expr, "DESC", _OR_POOL)  # recent-first pool, then quorum-filter
+    arts = _rows_to_articles(rows)
+    term_set = set(terms)
+    quorum = max(2, math.ceil(0.4 * len(terms)))
+    kept = []
+    for a in arts:
+        cov = len(term_set & a["_tokens"])
+        if cov >= quorum:
+            a["_coverage"] = cov
+            kept.append(a)
+    kept.sort(key=lambda a: a["_pub_dt"])  # chronological for origin/propagation
+    kept = kept[:MAX_ARTICLES]
+    return kept, {"fts": or_expr, "match_mode": "or_quorum",
+                  "terms": terms, "quorum": quorum}
 
 
 # ---------------------------------------------------------------------------
@@ -567,7 +637,7 @@ def build_passport(
             live = _live_spheres(conn)
         except sqlite3.OperationalError:
             live = set()  # fresh/empty DB with no articles table yet
-        articles, fts = _find_articles(conn, search_text, days) if search_text else ([], None)
+        articles, qinfo = _find_articles(conn, search_text, days) if search_text else ([], None)
     finally:
         conn.close()
 
@@ -591,7 +661,9 @@ def build_passport(
         "spheres_monitored_live": live_count,
         "languages": langs,
         "time_window_days": days,
-        "fts_query": fts,
+        "fts_query": (qinfo or {}).get("fts"),
+        "match_mode": (qinfo or {}).get("match_mode"),
+        "search_terms": (qinfo or {}).get("terms"),
     }
 
     passport = {
