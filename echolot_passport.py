@@ -364,10 +364,26 @@ def _word_diff_note(origin_title: str, later_title: str) -> str | None:
     return "; ".join(bits)
 
 
-def _build_origin_propagation(articles: list[dict]) -> tuple[dict | None, list[dict]]:
+def _claim_coverage(terms: list[str], tokens: set[str]) -> float:
+    """Fraction of claim content-terms present in an article (prefix-matched)."""
+    if not terms:
+        return 1.0
+    hit = sum(1 for t in terms if any(tok.startswith(t) for tok in tokens))
+    return hit / len(terms)
+
+
+def _build_origin_propagation(articles: list[dict],
+                              terms: list[str] | None = None) -> tuple[dict | None, list[dict]]:
     if not articles:
         return None, []
-    origin_a = articles[0]
+    # Origin = the EARLIEST *strong* match (>=60% of the claim's terms), not just
+    # the earliest article overall. With the OR+quorum recall tier a loosely
+    # related early article (sharing a couple of terms) would otherwise be
+    # crowned "first seen" — wrong for a provenance tool. Fall back to plain
+    # earliest if nothing clears the bar.
+    strong = [a for a in articles if _claim_coverage(terms or [], a["_tokens"]) >= 0.6]
+    pool = strong or articles
+    origin_a = min(pool, key=lambda a: a["_pub_dt"])
     origin_dt = origin_a["_pub_dt"]
     origin = {
         "first_seen_utc": origin_a["published_utc"],
@@ -379,8 +395,12 @@ def _build_origin_propagation(articles: list[dict]) -> tuple[dict | None, list[d
         "headline_translated": None,  # deferred (translation layer / F1)
     }
     origin_tokens = origin_a["_tokens"]
+    # Pickups = everything at/after the origin, in time order (skip pre-origin
+    # weak articles so the chain has no negative delays / tangential heads).
+    followers = [a for a in sorted(articles, key=lambda a: a["_pub_dt"])
+                 if a is not origin_a and a["_pub_dt"] >= origin_dt]
     propagation = []
-    for i, a in enumerate(articles[1:], start=2):
+    for i, a in enumerate(followers, start=2):
         delay_min = round((a["_pub_dt"] - origin_dt).total_seconds() / 60.0)
         propagation.append({
             "order": i,
@@ -660,7 +680,7 @@ def build_passport(
         conn.close()
 
     live_count = len(live)
-    origin, propagation = _build_origin_propagation(articles)
+    origin, propagation = _build_origin_propagation(articles, (qinfo or {}).get("terms"))
     corroboration = _build_corroboration(articles, live)
     mutation = _build_mutation(articles)
     velocity = _build_velocity(articles)
