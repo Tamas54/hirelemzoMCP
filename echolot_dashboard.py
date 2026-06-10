@@ -38,6 +38,13 @@ from echolot_ai_discovery import (
     schema_org_data_catalog_html,
 )
 from echolot_news_render import render_initial_news_html
+from echolot_theme import (
+    theme_html_attr,
+    DAY_THEME_CSS,
+    THEME_TOGGLE_CSS,
+    THEME_TOGGLE_JS,
+    theme_toggle_html,
+)
 from echolot_charts import hourly_volume_svg, polit_spectrum_svg
 
 
@@ -563,8 +570,9 @@ def _page_shell(
         )
     if extra_head_html:
         seo_head += "\n" + extra_head_html
+    theme_attr = theme_html_attr(request)
     return f"""<!DOCTYPE html>
-<html lang="{lang}">
+<html lang="{lang}"{theme_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -575,7 +583,7 @@ def _page_shell(
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <style>{_BASE_STYLES}{_augment_strip_css()}</style>
+  <style>{_BASE_STYLES}{_augment_strip_css()}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -592,7 +600,8 @@ def _page_shell(
           <h1 class="echolot-title text-2xl md:text-3xl mt-1">{_escape(t('site.title', lang))}</h1>
           <p class="text-sm text-[color:var(--text-dim)] mt-1 max-w-xl">{_escape(t('site.subtitle', lang))}</p>
         </a>
-        <div class="lang-selector-wrap">
+        <div class="lang-selector-wrap" style="display:flex;align-items:center;gap:8px;">
+          {theme_toggle_html(lang)}
           {_lang_selector_html(lang)}
         </div>
       </div>
@@ -612,6 +621,7 @@ def _page_shell(
       <a href="/landing-legacy" class="opacity-70 hover:opacity-100">Old view</a>
     </p>
   </footer>
+  {THEME_TOGGLE_JS}
 </body>
 </html>"""
 

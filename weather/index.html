@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Időjárás — Echolot widget</title>
+<script>try{if(new URLSearchParams(location.search).get('theme')==='day')document.documentElement.setAttribute('data-theme','day');}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -21,6 +22,33 @@
     --text-faint: #5c656e;
     --warn: #f2b34b;
     --rain: #5fa8e6;
+  }
+  /* Nappali mód (editorial paper) — a fő Echolot témával egyezően. A parent
+     ?theme=day query-paraméterrel kapcsolja (lásd a head inline scriptet). */
+  :root[data-theme="day"] {
+    --primary: #0f766e;
+    --primary-soft: rgba(15,118,110,0.10);
+    --bg: #f7f4ed;
+    --card: #ffffff;
+    --card-2: rgba(26,24,20,0.04);
+    --line: rgba(26,24,20,0.12);
+    --line-strong: rgba(26,24,20,0.20);
+    --text: #1a1814;
+    --text-dim: #6b6459;
+    --text-faint: #8c8576;
+    --warn: #b45309;
+    --rain: #1d4ed8;
+  }
+  [data-theme="day"] body {
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(15,118,110,0.06), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(29,78,216,0.05), transparent 55%),
+      var(--bg);
+  }
+  /* beágyazva: fehér kártya finom kerettel/árnyékkal, hogy elváljon a papírtól */
+  [data-theme="day"] body.embedded .ww {
+    border: 1px solid rgba(26,24,20,0.10);
+    box-shadow: 0 1px 2px rgba(26,24,20,.05), 0 10px 28px -18px rgba(26,24,20,.18);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {

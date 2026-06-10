@@ -2409,6 +2409,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     answer_blocks_html = answer_blocks_section_html(lang)
     theme_attr = theme_html_attr(request)
     theme_toggle = theme_toggle_html(lang)
+    # A weather-widget külön iframe-dokumentum → a témát query-paraméterrel adjuk át.
+    weather_theme = "&theme=day" if theme_attr else ""
 
     # Nav-strip (megőrzött)
     nav_strip = _augment_block_html(lang, active="feed")
@@ -2489,7 +2491,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     <div class="landing-col">
       <h2>{section_local} · {_escape(local.get('geo', {}).get('gnews', ''))}</h2>
       {local_trending_html}
-      <iframe class="weather-embed" id="weather-embed" src="/weather/widget?lang={lang}" title="{live_earth_label}" loading="lazy" scrolling="no"
+      <iframe class="weather-embed" id="weather-embed" src="/weather/widget?lang={lang}{weather_theme}" title="{live_earth_label}" loading="lazy" scrolling="no"
         style="width:100%;height:320px;border:0;border-radius:14px;display:block;margin:16px 0 0;background:#0b0f15;overflow:hidden;box-shadow:0 8px 30px -12px rgba(0,0,0,.55);"></iframe>
     </div>
     <div class="landing-col">

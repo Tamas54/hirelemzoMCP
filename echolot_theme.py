@@ -93,6 +93,11 @@ DAY_THEME_CSS = """
 [data-theme="day"] .nav-tab:hover{background:rgba(26,24,20,.04);}
 /* fulltext quote rule */
 [data-theme="day"] .src-card-fulltext-body{border-left-color:rgba(26,24,20,.16);}
+/* dashboard: a few hardcoded Tailwind dark utilities */
+[data-theme="day"] .border-gray-800{border-color:rgba(26,24,20,.12)!important;}
+[data-theme="day"] .bg-gray-800{background:#efe9df!important;color:#1a1814!important;}
+/* weather embed iframe has an inline dark background — flip it for day */
+[data-theme="day"] #weather-embed{background:#ffffff!important;}
 """
 
 
@@ -147,6 +152,14 @@ function echolotToggleTheme(){
   }else{
     d.setAttribute('data-theme','day');
     document.cookie='echolot_theme=day;path=/;max-age=31536000;samesite=lax';
+  }
+  // The weather widget is a separate iframe document — reload it with the new
+  // theme so a live toggle updates it too (not just the next page load).
+  var wf=document.getElementById('weather-embed');
+  if(wf){
+    var s=(wf.getAttribute('src')||'').replace(/&theme=day/g,'').replace(/\\?theme=day/g,'?');
+    if(!isDay){ s += (s.indexOf('?')>=0?'&':'?') + 'theme=day'; }
+    wf.src=s;
   }
 }
 </script>
