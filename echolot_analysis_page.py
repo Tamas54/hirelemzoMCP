@@ -58,7 +58,7 @@ form.q button{background:var(--accent);color:#fff;border:none;font-weight:600;pa
 .ebar{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
 .ebar .lab{width:74px;color:var(--muted)}
 .ebar .track{flex:1;height:9px;background:var(--grey);border-radius:5px;overflow:hidden}
-.ebar .fill{height:100%}
+.ebar .fill{display:block;height:100%;border-radius:5px}
 .ebar .n{width:30px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
 .senti{display:flex;align-items:center;gap:12px}
 .senti .big{font-size:34px;font-weight:700}
