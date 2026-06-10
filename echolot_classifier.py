@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sqlite3
 import time
 import urllib.request
@@ -109,7 +110,28 @@ def _build_user_prompt(batch: list[dict]) -> str:
     return "Classify these articles:\n\n" + "\n\n".join(lines)
 
 
-def _call_llm(cfg: dict, batch: list[dict]) -> list[dict] | None:
+def _parse_json_lenient(content: str):
+    """Parse model output that may be wrapped in markdown fences or have leading
+    prose. Returns the parsed object or None."""
+    if not content or not content.strip():
+        return None
+    s = content.strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z]*\n?", "", s)
+        s = re.sub(r"\n?```$", "", s).strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", s, re.DOTALL)  # first {...} blob
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except json.JSONDecodeError:
+                return None
+        return None
+
+
+def _call_llm(cfg: dict, batch: list[dict], retries: int = 3) -> list[dict] | None:
     body = json.dumps({
         "model": cfg["model"],
         "messages": [
@@ -123,19 +145,26 @@ def _call_llm(cfg: dict, batch: list[dict]) -> list[dict] | None:
         # would eat the budget and can wrap the JSON). V4 form, NOT enable_thinking.
         "thinking": {"type": "disabled"},
     }).encode()
-    req = urllib.request.Request(
-        f"{cfg['base']}/chat/completions", data=body,
-        headers={"Authorization": f"Bearer {cfg['key']}", "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode())
-        content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        return parsed.get("results") if isinstance(parsed, dict) else parsed
-    except Exception as exc:
-        log.warning("classifier LLM call failed: %s", exc)
-        return None
+    # Retry on transient empties / rate limits / malformed JSON. Returning None
+    # here makes the caller LEAVE the batch NULL (retried next cycle), so a
+    # transient failure never permanently marks articles 'failed'.
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(
+                f"{cfg['base']}/chat/completions", data=body,
+                headers={"Authorization": f"Bearer {cfg['key']}",
+                         "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode())
+            content = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            parsed = _parse_json_lenient(content)
+            if parsed is not None:
+                return parsed.get("results") if isinstance(parsed, dict) else parsed
+            log.warning("classifier: unparseable response (attempt %d/%d)", attempt + 1, retries)
+        except Exception as exc:
+            log.warning("classifier LLM call failed (attempt %d/%d): %s", attempt + 1, retries, exc)
+        time.sleep(1.5 * (attempt + 1))
+    return None
 
 
 def _sanitize(rec: dict) -> dict | None:
@@ -185,6 +214,10 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
         if not batch:
             return 0
         results = _call_llm(cfg, batch)
+        if results is None:
+            # Total/transient failure after retries — leave the batch NULL so it
+            # is retried next cycle (do NOT burn it as 'failed').
+            return 0
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         written = 0
         by_i = {}

@@ -22,7 +22,11 @@ import time
 import urllib.request
 from pathlib import Path
 
-from echolot_classifier import _config as _shared_config, _load_env_file_once  # shared key gate
+from echolot_classifier import (
+    _config as _shared_config,
+    _load_env_file_once,
+    _parse_json_lenient,
+)  # shared key gate + lenient JSON parse
 
 log = logging.getLogger("echolot-translator")
 
@@ -67,7 +71,7 @@ def _build_prompt(batch: list[dict]) -> str:
     return "Translate to English:\n\n" + "\n\n".join(lines)
 
 
-def _call_llm(cfg: dict, batch: list[dict]) -> list[dict] | None:
+def _call_llm(cfg: dict, batch: list[dict], retries: int = 3) -> list[dict] | None:
     body = json.dumps({
         "model": cfg["model"],
         "messages": [
@@ -79,18 +83,23 @@ def _call_llm(cfg: dict, batch: list[dict]) -> list[dict] | None:
         "response_format": {"type": "json_object"},
         "thinking": {"type": "disabled"},  # V4-Flash: force Non-Think (see classifier)
     }).encode()
-    req = urllib.request.Request(
-        f"{cfg['base']}/chat/completions", data=body,
-        headers={"Authorization": f"Bearer {cfg['key']}", "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode())
-        parsed = json.loads(data["choices"][0]["message"]["content"])
-        return parsed.get("results") if isinstance(parsed, dict) else parsed
-    except Exception as exc:
-        log.warning("translator LLM call failed: %s", exc)
-        return None
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(
+                f"{cfg['base']}/chat/completions", data=body,
+                headers={"Authorization": f"Bearer {cfg['key']}",
+                         "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode())
+            content = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            parsed = _parse_json_lenient(content)
+            if parsed is not None:
+                return parsed.get("results") if isinstance(parsed, dict) else parsed
+            log.warning("translator: unparseable response (attempt %d/%d)", attempt + 1, retries)
+        except Exception as exc:
+            log.warning("translator LLM call failed (attempt %d/%d): %s", attempt + 1, retries, exc)
+        time.sleep(1.5 * (attempt + 1))
+    return None
 
 
 def _claim_batch(conn: sqlite3.Connection, size: int) -> list[dict]:
@@ -128,6 +137,9 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
         written = ident
         if batch:
             results = _call_llm(cfg, batch)
+            if results is None:
+                conn.commit()  # keep the EN identity pass; retry non-EN next cycle
+                return written
             now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             by_i = {}
             for rec in (results or []):
