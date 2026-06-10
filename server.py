@@ -3332,7 +3332,7 @@ async def source_page(request):
             status_code=404,
         )
     articles = query_source_articles(str(DB_PATH), source_id, days)
-    page = render_source_page(source, articles, days, lang)
+    page = render_source_page(source, articles, days, lang, request=request)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp

@@ -98,6 +98,12 @@ DAY_THEME_CSS = """
 [data-theme="day"] .bg-gray-800{background:#efe9df!important;color:#1a1814!important;}
 /* weather embed iframe has an inline dark background — flip it for day */
 [data-theme="day"] #weather-embed{background:#ffffff!important;}
+/* search box (augment strip) — hardcoded dark, used on both landings */
+[data-theme="day"] .echolot-search-input,
+[data-theme="day"] .echolot-search-days{
+  background:#ffffff!important;color:#1a1814;border-color:rgba(26,24,20,.18);
+}
+[data-theme="day"] .echolot-search-input::placeholder{color:#8c8576;}
 """
 
 

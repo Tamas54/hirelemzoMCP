@@ -230,9 +230,15 @@ def augment_landing(request, landing_html: str, db_path: str | None = None) -> t
     lang = _request_lang(request)
     css = _augment_strip_css()
     block = _augment_block_html(lang, active="feed")
-    out = landing_html.replace("</style>", css + "\n</style>", 1)
-    out = out.replace("<body>", "<body>\n" + block, 1)
-    out = out.replace('<html lang="hu">', f'<html lang="{lang}">', 1)
+    theme_attr = theme_html_attr(request)
+    toggle_wrap = (
+        '<div style="position:fixed;top:14px;right:14px;z-index:9999;">'
+        + theme_toggle_html(lang) + '</div>'
+    )
+    out = landing_html.replace(
+        "</style>", css + DAY_THEME_CSS + THEME_TOGGLE_CSS + "\n</style>", 1)
+    out = out.replace("<body>", "<body>\n" + toggle_wrap + block, 1)
+    out = out.replace('<html lang="hu">', f'<html lang="{lang}"{theme_attr}>', 1)
 
     # SEO head block (meta description + canonical + hreflang × 6 + OG + Twitter)
     origin = public_origin(request)
@@ -384,6 +390,7 @@ def augment_landing(request, landing_html: str, db_path: str | None = None) -> t
         flags=re.DOTALL,
     )
 
+    out = out.replace("</body>", THEME_TOGGLE_JS + "</body>", 1)
     return out, lang
 
 

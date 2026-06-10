@@ -15,6 +15,13 @@ import sqlite3
 
 from echolot_dashboard import _BASE_STYLES, _augment_strip_css, _escape
 from echolot_landing_v2 import _LANDING_V2_EXTRA_CSS, _sphere_color
+from echolot_theme import (
+    theme_html_attr,
+    DAY_THEME_CSS,
+    THEME_TOGGLE_CSS,
+    THEME_TOGGLE_JS,
+    theme_toggle_html,
+)
 from echolot_story_detail import (
     _STORY_DETAIL_CSS,
     _fmt_combined,
@@ -222,7 +229,7 @@ def _render_window_selector(source_id: str, days: int, lang: str) -> str:
 # ─── Fő render fv ───────────────────────────────────────────────────────
 
 def render_source_page(
-    source: dict, articles: list[dict], days: int, lang: str
+    source: dict, articles: list[dict], days: int, lang: str, request=None
 ) -> str:
     """Teljes HTML-lap egy forrás híreivel az adott időablakban."""
     lbl = _lbl(lang)
@@ -260,9 +267,11 @@ def render_source_page(
     count_html = f'<span class="src-count">{n} {_escape(lbl["count"])}</span>'
 
     page_title = f"{_escape(name[:60])} — Echolot"
+    theme_attr = theme_html_attr(request)
+    theme_toggle = theme_toggle_html(lang)
 
     return f"""<!doctype html>
-<html lang="{lang}">
+<html lang="{lang}"{theme_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -270,11 +279,14 @@ def render_source_page(
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{_STORY_DETAIL_CSS}{_SOURCE_PAGE_CSS}</style>
+  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{_STORY_DETAIL_CSS}{_SOURCE_PAGE_CSS}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
 <body>
   <main class="story-detail-shell landing-v2-shell">
-    <a href="/?lang={lang}" class="story-detail-back">← {_escape(lbl["back"])}</a>
+    <div class="story-detail-topbar">
+      <a href="/?lang={lang}" class="story-detail-back">← {_escape(lbl["back"])}</a>
+      {theme_toggle}
+    </div>
 
     <header class="source-page-head">
       <div class="source-page-eyebrow" style="color: {accent}">
@@ -293,5 +305,6 @@ def render_source_page(
       {body_html}
     </section>
   </main>
+  {THEME_TOGGLE_JS}
 </body>
 </html>"""
