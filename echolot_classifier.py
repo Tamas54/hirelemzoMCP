@@ -72,8 +72,8 @@ def _config() -> dict | None:
         return None
     return {
         "key": key,
-        "base": os.environ.get("CLASSIFIER_API_BASE", "https://api.siliconflow.cn/v1").rstrip("/"),
-        "model": os.environ.get("CLASSIFIER_MODEL", "deepseek-ai/DeepSeek-V3"),
+        "base": os.environ.get("CLASSIFIER_API_BASE", "https://api.siliconflow.com/v1").rstrip("/"),
+        "model": os.environ.get("CLASSIFIER_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
     }
 
 
@@ -117,8 +117,11 @@ def _call_llm(cfg: dict, batch: list[dict]) -> list[dict] | None:
             {"role": "user", "content": _build_user_prompt(batch)},
         ],
         "temperature": 0.1,
-        "max_tokens": 1600,
+        "max_tokens": 2000,
         "response_format": {"type": "json_object"},
+        # DeepSeek-V4-Flash defaults to Think mode; disable it (reasoning tokens
+        # would eat the budget and can wrap the JSON). V4 form, NOT enable_thinking.
+        "thinking": {"type": "disabled"},
     }).encode()
     req = urllib.request.Request(
         f"{cfg['base']}/chat/completions", data=body,

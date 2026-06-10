@@ -41,7 +41,7 @@ def _config() -> dict | None:
     cfg = dict(cfg)
     cfg["model"] = os.environ.get(
         "TRANSLATOR_MODEL",
-        os.environ.get("CLASSIFIER_MODEL", "deepseek-ai/DeepSeek-V3"))
+        os.environ.get("CLASSIFIER_MODEL", "deepseek-ai/DeepSeek-V4-Flash"))
     return cfg
 
 
@@ -75,8 +75,9 @@ def _call_llm(cfg: dict, batch: list[dict]) -> list[dict] | None:
             {"role": "user", "content": _build_prompt(batch)},
         ],
         "temperature": 0.1,
-        "max_tokens": 2000,
+        "max_tokens": 2500,
         "response_format": {"type": "json_object"},
+        "thinking": {"type": "disabled"},  # V4-Flash: force Non-Think (see classifier)
     }).encode()
     req = urllib.request.Request(
         f"{cfg['base']}/chat/completions", data=body,
