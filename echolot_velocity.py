@@ -108,23 +108,35 @@ def compute_sphere_velocity(
         current = r["current_count"] or 0
         baseline = r["baseline_count"] or 0
         if baseline < min_baseline and current < min_baseline:
-            # Skip dead spheres entirely.
+            # Skip dead spheres entirely (both windows essentially empty).
             continue
         # Per-hour normalize so current vs baseline windows of different
         # widths compare as rates, not raw counts.
         current_rate = current / window_hours if window_hours > 0 else 0.0
-        baseline_rate = baseline / baseline_window_hours if baseline_window_hours > 0 else 0.0
+        # baseline_count=0 (a previously-silent sphere lighting up) is the single
+        # MOST important velocity signal — it's what flags a fresh burst for the
+        # revision-tracker / passport. The old code computed ratio=None for it,
+        # so genuine 0->N spikes were hidden as "no_baseline" and never surfaced.
+        # Floor the baseline at min_baseline articles: a 0->N jump now yields a
+        # finite, large ratio (=> "spike"), while the floor also dampens the
+        # classic "1 / 0.5 = noisy 2x" on tiny spheres. baseline_floored flags it.
+        baseline_floored = baseline < min_baseline
+        eff_baseline = max(baseline, min_baseline)
+        baseline_rate = eff_baseline / baseline_window_hours if baseline_window_hours > 0 else 0.0
         if baseline_rate > 0:
             ratio = round(current_rate / baseline_rate, 2)
         else:
             ratio = None
-        out.append({
+        item = {
             "sphere": r["sphere"],
             "current_count": current,
             "baseline_count": baseline,
             "velocity_ratio": ratio,
             "status": _status(ratio),
-        })
+        }
+        if baseline_floored:
+            item["baseline_floored"] = True
+        out.append(item)
 
     # Sort: spikes first, then by ratio desc. Items with no baseline (ratio=None)
     # but high current go near the top with status="no_baseline".

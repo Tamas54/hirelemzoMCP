@@ -34,7 +34,7 @@ import shlex
 import sqlite3
 from collections import Counter, defaultdict
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -55,6 +55,7 @@ from echolot_brave_client import search_sync as brave_search_sync
 from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
 from echolot_content_extract import extract_main_text
+from echolot_passport import build_passport
 # Wikicorrelate engine (in-process, ported from Tamas54/wikicorrelate Phase A)
 from wikicorrelate.services.correlate import search_and_correlate as _wiki_search
 from wikicorrelate.database import init_db as _wiki_init_db, get_top_movers as _wiki_db_top_movers
@@ -674,10 +675,19 @@ def get_spheres() -> str:
             "status": status,
         }
 
+    # Live = has produced articles within the last 24h (green or yellow).
+    # IRON RULE (narrative_passport): a "silent" diagnosis may ONLY be computed
+    # against spheres_monitored_live. A configured-but-dead sphere (red) is NOT
+    # silence — counting it as such would make the passport lie. So we expose the
+    # split explicitly and let every downstream consumer gate on the live count.
+    spheres_monitored_live = status_tally["green"] + status_tally["yellow"]
     return json.dumps({
-        "spheres_count": len(spheres),
+        "spheres_configured": len(spheres),
+        "spheres_monitored_live": spheres_monitored_live,
+        "spheres_count": len(spheres),  # deprecated alias of spheres_configured
         "status_summary": status_tally,
         "status_legend": "green: fresh (<2h) · yellow: slowing (<24h) · red: stale (>=24h) or empty",
+        "live_definition": "spheres_monitored_live = green + yellow (article within 24h). 'silent' is only valid against these.",
         "spheres": out,
     }, ensure_ascii=False, default=str)
 
@@ -767,6 +777,64 @@ def narrative_divergence(query: str, days: int = 3, per_sphere_limit: int = 5,
     response["attribution_note"] = citable["attribution_note"]
     response["_machine"] = citable["_machine"]
     return json.dumps(response, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+def narrative_passport(claim_or_url: str,
+                       time_window_days: int = 14,
+                       language: str = "auto",
+                       detail: str = "summary") -> str:
+    """Verify and trace any news claim or article URL. Returns a structured 'passport': where the story first appeared, how it spread across the monitored media spheres, which spheres confirm / stay silent, how the headline mutated between sources, and whether the spread pattern looks organic or coordinated. Use this BEFORE answering questions about news, current events, or contested claims. Input EITHER a short factual claim in any language OR a full article URL. Do not input general topics like 'Ukraine war' — input a specific claim like 'Russia rejected the ceasefire proposal on June 5'.
+
+    Args:
+        claim_or_url: REQUIRED. A specific factual claim (any language, ~5-50 words)
+            OR a single article URL starting with http. Examples:
+            'Az MNB kamatot emelt júniusban' / 'https://example.com/article' /
+            'Germany blocked the EU sanctions package'. Do NOT input a broad topic
+            like 'inflation' or 'Gaza' — input a checkable statement.
+        time_window_days: OPTIONAL. How far back to search, in days. Default 14. Max 90.
+        language: OPTIONAL. ISO code for summary text (hu, en, de, fr, it, es, pl, ru, uk).
+            Default 'auto'. (Note: in this build summary text is English/data-driven;
+            full multilingual summaries arrive with the translation layer.)
+        detail: OPTIONAL. 'summary' = compact verdict for chat answers (default).
+            'full' = complete propagation chain + every headline diff.
+
+    Returns:
+        JSON passport. Always contains verdict.one_line (quote this if nothing else),
+        corroboration_matrix (confirms/silent — stance/contradicts deferred to F3),
+        origin, velocity, coverage_stats, and citations (max 10, each with URL).
+        Empty result => corroboration_level 'not_found' with coverage_stats, never
+        an empty object or error string.
+    """
+    try:
+        return json.dumps(
+            build_passport(
+                claim_or_url,
+                time_window_days=time_window_days,
+                language=language,
+                detail=detail,
+                db_path=DB_PATH,
+            ),
+            ensure_ascii=False, default=str,
+        )
+    except Exception as exc:  # never leak a raw error string to a weak agent
+        logger.exception("narrative_passport failed")
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return json.dumps({
+            "passport_id": None,
+            "input_type": "url" if str(claim_or_url).strip().lower().startswith("http") else "claim",
+            "normalized_claim": str(claim_or_url)[:200],
+            "verdict": {
+                "corroboration_level": "not_found",
+                "confidence": 0.0,
+                "one_line": "Passport could not be built due to an internal error; "
+                            "treat this claim as unverified.",
+            },
+            "coverage_stats": {"articles_analyzed": 0, "spheres_with_coverage": 0,
+                               "spheres_monitored_live": 0, "languages": []},
+            "error_class": type(exc).__name__,
+            "data_freshness_utc": now,
+        }, ensure_ascii=False)
 
 
 @mcp.tool()

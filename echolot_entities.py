@@ -200,8 +200,30 @@ GROUP BY ?item
     return scores
 
 
-@lru_cache(maxsize=200)
+def _norm_name_key(name: str) -> str:
+    """Normalize a name for cache keying: lowercase + whitespace-collapse.
+
+    Merges case/whitespace variants ("Trump"/"trump"/"  Trump ") into one cache
+    entry and one upstream API call. We deliberately do NOT strip diacritics here:
+    Wikidata/Wikipedia search is case-insensitive (so lowercasing is safe) but
+    diacritics can carry signal ("Müller"). Same-entity different-spelling
+    unification (Zelensky/Zelenskyy/Zelenszkij) is handled downstream by
+    fetch_aliases(qid), which expands every spelling once the QID is resolved.
+    """
+    return " ".join((name or "").strip().lower().split())
+
+
 def resolve_qid_from_name(name: str, prefer: str = "person") -> Optional[tuple[str, str]]:
+    """Public wrapper: normalize the name, then resolve via the cached impl.
+
+    Keeps the original signature for callers while ensuring case/whitespace
+    variants of the same name share one cache slot (and one API round-trip).
+    """
+    return _resolve_qid_from_name_cached(_norm_name_key(name), prefer)
+
+
+@lru_cache(maxsize=200)
+def _resolve_qid_from_name_cached(name: str, prefer: str = "person") -> Optional[tuple[str, str]]:
     """Look up a name on Wikidata + Wikipedia; return (qid, primary_label).
 
     prefer="person" (default): UNION of two candidate pools:
