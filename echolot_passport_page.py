@@ -13,6 +13,7 @@ Pure rendering; the data comes from echolot_passport.build_passport().
 """
 from __future__ import annotations
 
+import math
 from html import escape as _esc
 
 _LEVEL_STYLE = {
@@ -56,7 +57,15 @@ form.q button{background:var(--accent);color:#fff;border:none;font-weight:600;pa
   box-shadow:0 1px 0 rgba(0,0,0,.2)}
 .verdict .lvl{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;opacity:.9}
 .verdict .one{font-size:18px;font-weight:600;margin-top:4px}
-.verdict .conf{font-size:12.5px;opacity:.9;margin-top:8px}
+.verdict .conf{font-size:12.5px;opacity:.95;margin-top:10px;display:flex;align-items:center;gap:8px}
+.confbar{flex:0 0 140px;height:6px;border-radius:4px;background:rgba(255,255,255,.3);overflow:hidden}
+.confbar i{display:block;height:100%;background:#fff}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center}
+.stat .num{font-size:28px;font-weight:700;line-height:1}
+.stat .lab{font-size:12px;color:var(--muted);margin-top:6px}
+.heatmap{margin:6px 0 4px}
+.heatmap rect{transition:opacity .15s}.heatmap:hover rect{opacity:.55}.heatmap rect:hover{opacity:1}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;
   padding:18px 20px;margin-bottom:18px}
 .card h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
@@ -109,12 +118,39 @@ def _render_verdict(v: dict) -> str:
     level = (v or {}).get("corroboration_level", "not_found")
     color, label = _LEVEL_STYLE.get(level, _LEVEL_STYLE["not_found"])
     conf = (v or {}).get("confidence")
-    conf_html = (f'<div class="conf">confidence {conf:.0%}</div>'
-                 if isinstance(conf, (int, float)) and conf else "")
+    conf_html = ""
+    if isinstance(conf, (int, float)) and conf:
+        pct = round(conf * 100)
+        conf_html = (
+            '<div class="conf">confidence '
+            f'<b>{pct}%</b>'
+            f'<span class="confbar"><i style="width:{pct}%"></i></span></div>'
+        )
     return (f'<div class="verdict" style="background:{color}">'
             f'<div class="lvl">{_esc(label)}</div>'
             f'<div class="one">{_esc((v or {}).get("one_line",""))}</div>'
             f'{conf_html}</div>')
+
+
+def _render_stat_strip(passport: dict) -> str:
+    cm = passport.get("corroboration_matrix") or {}
+    cs = passport.get("coverage_stats") or {}
+    confirms = cm.get("confirms", [])
+    silent = cm.get("silent", [])
+    n_articles = cs.get("articles_analyzed", 0)
+    n_live = cs.get("spheres_monitored_live", 0)
+    tiles = [
+        (str(n_articles), "articles", "var(--accent)"),
+        (str(len(confirms)), "spheres covering", "var(--green)"),
+        (str(len(silent)), "live but silent", "var(--muted)"),
+        (str(n_live), "live spheres", "var(--text)"),
+    ]
+    cells = "".join(
+        f'<div class="stat"><div class="num" style="color:{c}">{_esc(n)}</div>'
+        f'<div class="lab">{_esc(l)}</div></div>'
+        for n, l, c in tiles
+    )
+    return f'<div class="stats">{cells}</div>'
 
 
 def _render_origin(o: dict | None) -> str:
@@ -152,19 +188,52 @@ def _render_timeline(prop: list[dict]) -> str:
             f'<ul class="timeline">{"".join(rows)}</ul></div>')
 
 
+def _heatmap_svg(confirms: list[str], silent: list[str]) -> str:
+    """The 'grey sea of silence' as an inline SVG grid — one cell per live sphere.
+
+    Green = covers the story, grey = live but silent. Cells inherit theme CSS
+    variables (works in day & night). Hover shows the sphere name."""
+    cells = [("c", s) for s in confirms] + [("s", s) for s in silent]
+    if not cells:
+        return '<div class="meta">No live spheres to map.</div>'
+    COLS, CELL, GAP = 18, 22, 6
+    n = len(cells)
+    rows = math.ceil(n / COLS)
+    cols = min(COLS, n)
+    W = cols * (CELL + GAP) - GAP
+    H = rows * (CELL + GAP) - GAP
+    rects = []
+    for i, (kind, name) in enumerate(cells):
+        r, c = divmod(i, COLS)
+        x, y = c * (CELL + GAP), r * (CELL + GAP)
+        fill = "var(--green)" if kind == "c" else "var(--grey-sea)"
+        label = f'{name} — {"covers" if kind == "c" else "silent"}'
+        rects.append(
+            f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" rx="4" '
+            f'fill="{fill}" stroke="var(--border)" stroke-width="1">'
+            f'<title>{_esc(label)}</title></rect>'
+        )
+    return (
+        f'<svg viewBox="0 0 {W} {H}" width="100%" style="max-width:{W}px;height:auto" '
+        f'role="img" aria-label="sphere coverage heatmap">{"".join(rects)}</svg>'
+    )
+
+
 def _render_heatmap(cm: dict) -> str:
     confirms = cm.get("confirms", [])
     silent = cm.get("silent", [])
-    chips = "".join(f'<span class="chip c">{_esc(s)}</span>' for s in confirms[:60])
-    chips += "".join(f'<span class="chip s">{_esc(s)}</span>' for s in silent[:80])
     note = cm.get("silence_note") or ""
+    total = len(confirms) + len(silent)
+    caption = (f'<b style="color:var(--green)">{len(confirms)}</b> of {total} live spheres '
+               f'carry this story — the rest is the grey sea of silence.') if total else ""
     return (
         '<div class="card"><h3>Corroboration — covers vs. silent</h3>'
         '<div class="legend">'
         '<span><span class="sw" style="background:var(--green)"></span>covers this story</span>'
         '<span><span class="sw" style="background:var(--grey-sea)"></span>live but silent</span>'
         '</div>'
-        f'<div class="heat">{chips or "<span class=meta>no live spheres</span>"}</div>'
+        f'<div class="heatmap">{_heatmap_svg(confirms, silent)}</div>'
+        f'<div class="note">{caption}</div>'
         f'<div class="note">{_esc(note)}</div></div>'
     )
 
@@ -208,6 +277,7 @@ def render_passport_page(passport: dict | None, *, claim: str = "",
     else:
         body = (
             _render_verdict(passport.get("verdict") or {})
+            + _render_stat_strip(passport)
             + _render_origin(passport.get("origin"))
             + _render_timeline(passport.get("propagation") or [])
             + _render_heatmap(passport.get("corroboration_matrix") or {})
