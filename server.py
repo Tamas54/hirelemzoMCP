@@ -56,6 +56,11 @@ from echolot_brave_client import fetch_sync as brave_fetch_sync
 from echolot_og_fastpath import match_platform, fetch_og
 from echolot_content_extract import extract_main_text
 from echolot_passport import build_passport
+from echolot_analytics import (
+    frame_divergence as _frame_divergence,
+    source_profile as _source_profile,
+    entity_portrait as _entity_portrait,
+)
 # Wikicorrelate engine (in-process, ported from Tamas54/wikicorrelate Phase A)
 from wikicorrelate.services.correlate import search_and_correlate as _wiki_search
 from wikicorrelate.database import init_db as _wiki_init_db, get_top_movers as _wiki_db_top_movers
@@ -835,6 +840,73 @@ def narrative_passport(claim_or_url: str,
             "error_class": type(exc).__name__,
             "data_freshness_utc": now,
         }, ensure_ascii=False)
+
+
+@mcp.tool()
+def frame_divergence(query: str, days: int = 7) -> str:
+    """How differently do media spheres FRAME the same topic? Returns, per sphere, the dominant news frame and the full frame distribution (Semetko–Valkenburg 9 frames: conflict, human_interest, economic, morality, vulnerability, responsibility, security_threat, progress, other). Use to expose framing bias on a contested topic. Input a topic/keyword phrase (e.g. 'migration', 'central bank rate', 'Gaza ceasefire'), NOT a full sentence.
+
+    Args:
+        query: Topic keywords (e.g. 'energy prices', 'Orbán EU funds'). 2+ chars/word.
+        days: Look back N days (default 7, max 90).
+
+    Returns:
+        JSON: by_sphere{sphere: {dominant_frame, frame_distribution, articles}} plus
+        a classification_coverage block. If the F1 classifier has not run yet, the
+        sphere/article structure is returned with frames pending (never an error).
+    """
+    try:
+        return json.dumps(_frame_divergence(query, days=days, db_path=DB_PATH),
+                          ensure_ascii=False, default=str)
+    except Exception as exc:
+        logger.exception("frame_divergence failed")
+        return json.dumps({"error": type(exc).__name__, "query": query,
+                           "by_sphere": {}}, ensure_ascii=False)
+
+
+@mcp.tool()
+def source_profile(source: str = "", days: int = 30, limit: int = 40) -> str:
+    """Source-intelligence profile: per outlet, its framing tendency, emotion mix, average sentiment, political lean, trust tier, and spheres. Use to characterize how a specific outlet covers the news, or to compare outlets. Leave 'source' empty for all outlets, or pass a substring (e.g. 'Reuters', 'HVG') to filter.
+
+    Args:
+        source: Substring of the source name, or empty for all. (e.g. 'BBC')
+        days: Look back N days (default 30, max 90).
+        limit: Max sources to return (default 40, max 200).
+
+    Returns:
+        JSON: profiles{source: {dominant_frame, frame_distribution, emotion_distribution,
+        avg_sentiment, lean, trust_tier, spheres, articles}} + classification_coverage.
+        Frame/emotion/sentiment are pending until the F1 classifier runs; lean/trust/
+        spheres/article-counts are available immediately.
+    """
+    try:
+        return json.dumps(_source_profile(source, days=days, limit=limit, db_path=DB_PATH),
+                          ensure_ascii=False, default=str)
+    except Exception as exc:
+        logger.exception("source_profile failed")
+        return json.dumps({"error": type(exc).__name__, "profiles": {}}, ensure_ascii=False)
+
+
+@mcp.tool()
+def entity_portrait(name_or_qid: str, days: int = 30) -> str:
+    """Portrait of how a person/org/place is covered across spheres and sources: where they appear, average sentiment toward them, and their narrative ROLE (Van Dijk: protagonist, responsible, victim, commentator, mentioned) per the entity-role layer. Resolves the entity via Wikidata (multilingual aliases), so 'Trump' / 'Donald Trump' / 'Q22686' all work. Input one entity name or QID, not a sentence.
+
+    Args:
+        name_or_qid: An entity name in any language, or a Wikidata QID
+            (e.g. 'Orbán Viktor', 'European Union', 'Q22686').
+        days: Look back N days (default 30, max 90).
+
+    Returns:
+        JSON: qid, by_sphere coverage, top_sources, avg_sentiment, role_distribution,
+        and classification_coverage. Coverage/sphere data is available now; sentiment
+        and role_distribution fill in once the F1 classifier / entity-role pass runs.
+    """
+    try:
+        return json.dumps(_entity_portrait(name_or_qid, days=days, db_path=DB_PATH),
+                          ensure_ascii=False, default=str)
+    except Exception as exc:
+        logger.exception("entity_portrait failed")
+        return json.dumps({"error": type(exc).__name__, "input": name_or_qid}, ensure_ascii=False)
 
 
 @mcp.tool()

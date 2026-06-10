@@ -126,10 +126,36 @@ def brave_fetcher_thread():
         time.sleep(interval_s)
 
 
+def classifier_thread():
+    """F1 analytical classifier (frame/emotion/sentiment). Self-gates: returns
+    immediately if CLASSIFIER_API_KEY is unset (no cost, columns stay 'pending')."""
+    time.sleep(30)  # let the scraper ingest a first batch
+    try:
+        from echolot_classifier import worker_loop
+        worker_loop()
+    except Exception as e:
+        log.error("classifier thread crashed: %s", e, exc_info=True)
+
+
+def translator_thread():
+    """English-pivot translator (sibling of the classifier, same key gate)."""
+    time.sleep(35)
+    try:
+        from echolot_translator import worker_loop
+        worker_loop()
+    except Exception as e:
+        log.error("translator thread crashed: %s", e, exc_info=True)
+
+
 def main():
     t = threading.Thread(target=scraper_thread, daemon=True, name="scraper")
     t.start()
     log.info("scraper thread launched")
+
+    # F1 analytical layer — both self-gate on CLASSIFIER_API_KEY (no key = no-op).
+    threading.Thread(target=classifier_thread, daemon=True, name="classifier").start()
+    threading.Thread(target=translator_thread, daemon=True, name="translator").start()
+    log.info("F1 classifier + translator threads launched (gated on CLASSIFIER_API_KEY)")
 
     # Brave fetcher activates when BRAVE_MCP_URL env var is set.
     # No URL = no fetcher (safe default for local/dev runs).

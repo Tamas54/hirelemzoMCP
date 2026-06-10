@@ -288,6 +288,47 @@ def init_db() -> None:
         _ensure_column(conn, "articles", "full_text_fetched_at", "TEXT")
         _ensure_column(conn, "articles", "full_text_block_reason", "TEXT")
         _ensure_fts_has_full_text(conn)
+        # F1 analytical layer (frame/emotion/sentiment) — populated by the
+        # echolot_classifier batch worker (LLM, key-gated). Columns added now so
+        # the schema is ready and reads degrade gracefully to "pending" until the
+        # classifier runs. See spec §2.1 (Semetko–Valkenburg 9 frames), §2.2
+        # (Plutchik emotions), §2.4 (sentiment + intensity).
+        _ensure_column(conn, "articles", "frame", "TEXT")             # 9-frame enum
+        _ensure_column(conn, "articles", "frame_confidence", "REAL")
+        _ensure_column(conn, "articles", "emotion", "TEXT")           # Plutchik
+        _ensure_column(conn, "articles", "sentiment", "REAL")         # -1..+1
+        _ensure_column(conn, "articles", "sentiment_intensity", "TEXT")  # low|medium|high
+        _ensure_column(conn, "articles", "classification_status", "TEXT")  # pending|ok|failed|NULL
+        _ensure_column(conn, "articles", "classified_at", "TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_articles_frame ON articles(frame)")
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_articles_classification "
+                     "ON articles(classification_status)")
+        # Entity-role layer (§2.3 Van Dijk roles). Entities currently resolve
+        # on-the-fly via Wikidata; this table persists per-article mentions +
+        # role + sentiment so entity_portrait / role-divergence can aggregate.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS article_entities (
+                article_id  TEXT NOT NULL,
+                qid         TEXT,
+                label       TEXT NOT NULL,
+                entity_type TEXT,                 -- person|org|place|other
+                role        TEXT,                 -- protagonist|responsible|victim|commentator|mentioned
+                sentiment   REAL,                 -- -1..+1, sentiment toward the entity
+                PRIMARY KEY (article_id, label)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_artent_qid ON article_entities(qid)")
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_artent_article ON article_entities(article_id)")
+        # Translation layer (English pivot) — filled by the echolot_translator
+        # sibling worker (LLM, key-gated, same gate as the classifier). Lets the
+        # passport show headline_translated and cross-lingual summaries. Frame is
+        # still judged on the ORIGINAL language (spec §2.1); EN is the pivot only.
+        _ensure_column(conn, "articles", "title_en", "TEXT")
+        _ensure_column(conn, "articles", "lead_en", "TEXT")
+        _ensure_column(conn, "articles", "translation_status", "TEXT")  # ok|failed|NULL
+        _ensure_column(conn, "articles", "translated_at", "TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_articles_translation "
+                     "ON articles(translation_status)")
     log.info("DB initialised at %s", DB_PATH)
 
 
