@@ -52,7 +52,9 @@ MAX_WINDOW_DAYS = 90
 MAX_ARTICLES = 1000
 MAX_PROPAGATION = 40
 MAX_CITATIONS = 10
-CACHE_TTL_SECONDS = 3600  # 1h, per spec
+CACHE_TTL_SECONDS = 3600  # 1h for real hits, per spec
+CACHE_TTL_EMPTY_SECONDS = 120  # not_found: short TTL so a breaking story isn't
+                               # frozen as "no coverage" for an hour while it floods in
 CACHE_MAXSIZE = 500  # hard cap on cached passports (bounded memory)
 LIVE_SPHERE_MAX_AGE_HOURS = 24  # green+yellow definition shared with get_spheres
 
@@ -701,7 +703,10 @@ def build_passport(
         if len(_CACHE) >= CACHE_MAXSIZE:
             for k in list(_CACHE.keys())[: CACHE_MAXSIZE // 2]:
                 del _CACHE[k]
-    _CACHE[ck] = (time.time() + CACHE_TTL_SECONDS, passport)
+    # Empty/not_found gets a short TTL: a story breaking right now must not be
+    # pinned as "no coverage" for a full hour. Real hits cache for the full TTL.
+    ttl = CACHE_TTL_SECONDS if articles else CACHE_TTL_EMPTY_SECONDS
+    _CACHE[ck] = (time.time() + ttl, passport)
     return passport
 
 
