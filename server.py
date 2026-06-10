@@ -1705,6 +1705,37 @@ async def health(request):
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
 
 
+@mcp.custom_route("/passport", methods=["GET"])
+async def page_passport(request):
+    """Human-facing narrative_passport view — the browser/shareable surface.
+
+    GET /passport                      -> input form (empty state)
+    GET /passport?claim=...&days=&detail=  -> rendered passport card
+    Renders server-side (no client fetch); the same build_passport() the MCP
+    tool uses, so the human view and the agent view are identical.
+    """
+    import asyncio
+    from echolot_passport_page import render_passport_page
+
+    claim = (request.query_params.get("claim") or "").strip()
+    try:
+        days = int(request.query_params.get("days", "14"))
+    except ValueError:
+        days = 14
+    detail = request.query_params.get("detail", "summary")
+    detail = detail if detail in ("summary", "full") else "summary"
+
+    passport = None
+    if claim:
+        # full detail so the timeline renders; cheap (no LLM, cached 1h)
+        passport = await asyncio.to_thread(
+            build_passport, claim,
+            time_window_days=days, detail="full", db_path=DB_PATH,
+        )
+    html = render_passport_page(passport, claim=claim, days=days, detail=detail)
+    return HTMLResponse(html)
+
+
 @mcp.custom_route("/robots.txt", methods=["GET"])
 async def robots(request):
     """robots.txt — allow all crawlers + explicit AI-bot welcome blocks
