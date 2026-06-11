@@ -171,11 +171,22 @@ def _sanitize_entities(rec: dict) -> list[dict]:
 def _persist_entities(conn: sqlite3.Connection, article_id: str,
                       entities: list[dict]) -> None:
     for e in entities:
+        # QID a cache-ből (entity_alias) írás-időben — ha még nincs linkelve,
+        # NULL marad és a linker-worker tölti ki utólag (_backfill_mentions).
+        qid = None
+        try:
+            row = conn.execute(
+                "SELECT qid FROM entity_alias WHERE alias=? COLLATE NOCASE "
+                "AND qid IS NOT NULL LIMIT 1", (e["label"],)).fetchone()
+            qid = row[0] if row else None
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """INSERT OR REPLACE INTO article_entities
                (article_id, qid, label, entity_type, role, sentiment)
-               VALUES (?, NULL, ?, ?, ?, ?)""",
-            (article_id, e["label"], e["entity_type"], e["role"], e["sentiment"]))
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (article_id, qid, e["label"], e["entity_type"], e["role"],
+             e["sentiment"]))
 
 
 def _build_user_prompt(batch: list[dict]) -> str:

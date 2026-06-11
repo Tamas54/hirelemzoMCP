@@ -4086,7 +4086,7 @@ async def entities_page(request):
     except (ValueError, TypeError):
         days = 7
     ents = await asyncio.to_thread(
-        query_entities, str(DB_PATH), days, etype, art_lang)
+        query_entities, str(DB_PATH), days, etype, art_lang, 60, lang)
     page = render_entities_page(ents, lang, etype=etype, days=days,
                                 art_lang=art_lang, request=request)
     resp = HTMLResponse(page)

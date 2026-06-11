@@ -37,6 +37,7 @@ _L = {
         "roles": "Szerep-eloszlás", "recent": "Friss említések",
         "sent_dist": "Hangulat-eloszlás", "narratives": "Aktív narratívák · 48h",
         "coverage": "elemzett említés", "coverage_of": "szöveges találatból",
+        "variants_lbl": "nyelvi alak",
         "coverage_note": "az elemzés folyamatosan bővül",
         "most_pos": "Legpozitívabb narratíva", "most_neg": "Legnegatívabb narratíva",
         "neg": "Negatív", "neu": "Semleges", "pos": "Pozitív",
@@ -62,6 +63,7 @@ _L = {
         "roles": "Role distribution", "recent": "Recent mentions",
         "sent_dist": "Sentiment distribution", "narratives": "Active narratives · 48h",
         "coverage": "analyzed mentions", "coverage_of": "text matches",
+        "variants_lbl": "language forms",
         "coverage_note": "analysis keeps expanding",
         "most_pos": "Most positive narrative", "most_neg": "Most negative narrative",
         "neg": "Negative", "neu": "Neutral", "pos": "Positive",
@@ -122,19 +124,26 @@ def _sent_bar(v: float | None, width: int = 90) -> str:
 # ─── SQL aggregációk ────────────────────────────────────────────────────
 
 def query_entities(db_path: str, days: int = 7, etype: str = "",
-                   art_lang: str = "", limit: int = 60) -> list[dict]:
+                   art_lang: str = "", limit: int = 60,
+                   ui_lang: str = "") -> list[dict]:
     """Top entitások az ablakban: említés-szám, átlag-hangulat, forrás-szám.
     art_lang: ha megadva (pl. "hu"), csak az adott NYELVŰ cikkek entitásai —
     különben a worker épp feldolgozott nyelve dominálna (Kommandant: a HU
     oldalon csupa cirill entitás jött, mert a backfill orosz cikkeknél járt)."""
     con = sqlite3.connect(db_path)
     try:
+        # QID-dedup (entity-dedup-spec §5): GROUP BY COALESCE(qid, label) —
+        # a linkelt nyelvi variánsok ("Trump"/"Трамп") EGY sorba olvadnak,
+        # a még linkeletlen labelek változatlanul külön (zéró regresszió).
         sql = """
-            SELECT ae.label,
+            SELECT COALESCE(ae.qid, ae.label) COLLATE NOCASE AS gkey,
+                   MAX(ae.qid)                    AS qid,
+                   MIN(ae.label)                  AS any_label,
                    MAX(ae.entity_type)            AS etype,
                    COUNT(*)                       AS mentions,
                    AVG(ae.sentiment)              AS avg_sent,
-                   COUNT(DISTINCT a.source_id)    AS n_sources
+                   COUNT(DISTINCT a.source_id)    AS n_sources,
+                   COUNT(DISTINCT ae.label COLLATE NOCASE) AS variants
             FROM article_entities ae
             JOIN articles a ON a.article_id = ae.article_id
             WHERE a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)
@@ -146,16 +155,29 @@ def query_entities(db_path: str, days: int = 7, etype: str = "",
         if art_lang:
             sql += " AND a.language = ?"
             params.append(art_lang)
-        sql += " GROUP BY ae.label COLLATE NOCASE ORDER BY mentions DESC LIMIT ?"
+        sql += " GROUP BY gkey ORDER BY mentions DESC LIMIT ?"
         params.append(limit)
         rows = con.execute(sql, params).fetchall()
     except sqlite3.OperationalError:
         return []
     finally:
         con.close()
-    return [{"label": r[0], "etype": r[1] or "other", "mentions": r[2],
-             "avg_sent": round(r[3], 2) if r[3] is not None else None,
-             "n_sources": r[4]} for r in rows]
+    out = [{"gkey": r[0], "qid": r[1], "label": r[2], "etype": r[3] or "other",
+            "mentions": r[4],
+            "avg_sent": round(r[5], 2) if r[5] is not None else None,
+            "n_sources": r[6], "variants": r[7]} for r in rows]
+    # Kanonikus megjelenítési név az olvasó nyelvén (hu → label_hu, más → en)
+    try:
+        from echolot_entity_linker import canonical_labels
+        canon = canonical_labels(db_path, [e["qid"] for e in out if e["qid"]])
+        for e in out:
+            c = canon.get(e.get("qid") or "")
+            if c:
+                e["label"] = (c.get("hu") if (ui_lang or art_lang) == "hu"
+                              else None) or c.get("en") or e["label"]
+    except Exception:
+        pass
+    return out
 
 
 def _label_variants(label: str) -> list[str]:
@@ -169,27 +191,54 @@ def _label_variants(label: str) -> list[str]:
 
 def query_entity_detail(db_path: str, label: str, days: int = 30) -> dict | None:
     """Egy entitás portréja: átfogó hangulat, forrás-bontás, szerepek, friss cikkek.
-    A 'lefedettség' is visszamegy: hány NYERS szöveg-találat van a korpuszban
-    (FTS) az elemzett említések mellett — őszinte 'X elemzett / Y találat'."""
+
+    QID-dedup: a bemenet lehet label VAGY Wikidata-azonosító (Q22686). Ha a
+    label linkelve van, a TELJES nyelvközi csoport jön (Trump = Трамп);
+    linkeletlen labelnél a régi variáns-illesztés (zéró regresszió).
+    A 'lefedettség' is visszamegy: nyers FTS-találat vs elemzett említés."""
+    import re as _re
+    qid = label if _re.match(r"^Q\d+$", label) else None
+    if not qid:
+        try:
+            from echolot_entity_linker import lookup_qid
+            qid = lookup_qid(db_path, label)
+        except Exception:
+            qid = None
     variants = _label_variants(label)
-    vq = " OR ".join("ae.label = ? COLLATE NOCASE" for _ in variants)
+    if qid:
+        cond = "(ae.qid = ? OR ae.label = ? COLLATE NOCASE)"
+        cond_params = [qid, label]
+    else:
+        cond = "(" + " OR ".join("ae.label = ? COLLATE NOCASE" for _ in variants) + ")"
+        cond_params = list(variants)
     con = sqlite3.connect(db_path)
     try:
         base = f"""
             FROM article_entities ae
             JOIN articles a ON a.article_id = ae.article_id
-            WHERE ({vq})
+            WHERE {cond}
               AND a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)
         """
-        params = [*variants, f"-{int(days)} days"]
+        params = [*cond_params, f"-{int(days)} days"]
         head = con.execute(
-            f"SELECT COUNT(*), AVG(ae.sentiment), MAX(ae.entity_type) {base}",
+            f"SELECT COUNT(*), AVG(ae.sentiment), MAX(ae.entity_type), "
+            f"COUNT(DISTINCT ae.label COLLATE NOCASE) {base}",
             params).fetchone()
         if not head or not head[0]:
             return None
         fts_total = 0
         try:
-            fq = " OR ".join(f'"{v}"' for v in variants)
+            fts_terms = list(variants)
+            if qid:
+                try:
+                    al = con.execute(
+                        "SELECT alias FROM entity_alias WHERE qid=? AND hits>0",
+                        (qid,)).fetchall()
+                    fts_terms = list(dict.fromkeys(
+                        [label] + [a[0] for a in al]))[:8]
+                except sqlite3.OperationalError:
+                    pass
+            fq = " OR ".join(f'"{v}"' for v in fts_terms)
             fts_total = con.execute(
                 """SELECT COUNT(*) FROM articles a
                    JOIN articles_fts f ON f.article_id = a.article_id
@@ -218,8 +267,17 @@ def query_entity_detail(db_path: str, label: str, days: int = 30) -> dict | None
         return None
     finally:
         con.close()
+    disp = label
+    if qid:
+        try:
+            from echolot_entity_linker import canonical_labels
+            c = canonical_labels(db_path, [qid]).get(qid) or {}
+            disp = c.get("hu") or c.get("en") or label
+        except Exception:
+            pass
     return {
-        "label": label, "mentions": head[0], "fts_total": fts_total,
+        "label": disp, "qid": qid, "variants": head[3],
+        "mentions": head[0], "fts_total": fts_total,
         "avg_sent": round(head[1], 2) if head[1] is not None else None,
         "etype": head[2] or "other",
         "by_source": [{"source": r[0], "n": r[1],
@@ -242,12 +300,25 @@ def query_entity_narratives(db_path: str, label: str, hours: int = 48) -> list[d
     irányú átlag-hangulatot adja (article_entities.sentiment), NEM a cikkekét."""
     con = sqlite3.connect(db_path)
     try:
+        import re as _re
+        qid = label if _re.match(r"^Q\d+$", label) else None
+        if not qid:
+            try:
+                r0 = con.execute(
+                    "SELECT qid FROM entity_alias WHERE alias=? COLLATE NOCASE "
+                    "AND qid IS NOT NULL LIMIT 1", (label,)).fetchone()
+                qid = r0[0] if r0 else None
+            except sqlite3.OperationalError:
+                qid = None
+        cond = "(ae.qid = ? OR ae.label = ? COLLATE NOCASE)" if qid \
+            else "ae.label = ? COLLATE NOCASE"
+        cp = [qid, label] if qid else [label]
         rows = con.execute(
-            """SELECT ae.article_id, ae.sentiment FROM article_entities ae
+            f"""SELECT ae.article_id, ae.sentiment FROM article_entities ae
                JOIN articles a ON a.article_id = ae.article_id
-               WHERE ae.label = ? COLLATE NOCASE
+               WHERE {cond}
                  AND a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)""",
-            (label, f"-{int(hours)} hours")).fetchall()
+            (*cp, f"-{int(hours)} hours")).fetchall()
     except sqlite3.OperationalError:
         return []
     finally:
@@ -409,7 +480,7 @@ def render_entities_page(entities: list[dict], lang: str, etype: str = "",
             sent = e["avg_sent"]
             scol = _sent_color(sent)
             slbl = t["sent"][_sent_bucket(sent)]
-            href = f"/entities/{quote(e['label'])}?lang={lang}"
+            href = f"/entities/{quote(e.get('qid') or e['label'])}?lang={lang}"
             items.append(f"""
               <a class="ent-card" href="{href}">
                 <div class="ent-card-head">
@@ -423,6 +494,7 @@ def render_entities_page(entities: list[dict], lang: str, etype: str = "",
                 <div class="ent-card-meta">
                   <span>📰 {e["mentions"]} {_escape(t["articles"])}</span>
                   <span>{e["n_sources"]} {_escape(t["sources"])}</span>
+                  {f'<span title="Wikidata: {e["qid"]}">🌐 {e["variants"]} {_escape(t["variants_lbl"])}</span>' if e.get("variants", 1) > 1 else ''}
                 </div>
               </a>""")
         cards = f'<div class="ent-grid">{"".join(items)}</div>'
@@ -562,7 +634,8 @@ def render_entity_detail_page(d: dict, lang: str, days: int = 30,
       {theme_toggle_html(lang)}
     </div>
     <div class="ent-det-head">
-      <h1 class="ent-h1">{_TYPE_ICON.get(d["etype"], "▪")} {_escape(d["label"])}</h1>
+      <h1 class="ent-h1">{_TYPE_ICON.get(d["etype"], "▪")} {_escape(d["label"])}
+        {f'<span style="font-size:13px;color:var(--fg-3);font-weight:400">🌐 {d["variants"]} {_escape(t["variants_lbl"])} · <a href="https://www.wikidata.org/wiki/{d["qid"]}" target="_blank" rel="noopener" style="color:var(--fg-3)">{d["qid"]}</a></span>' if d.get("qid") else ''}</h1>
       <div class="ent-det-stats">
         <span>{_escape(t["overall"])}:
           <strong style="color:{scol}">{_escape(slbl)}

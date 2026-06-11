@@ -167,6 +167,13 @@ def main():
     else:
         log.info("brave-fetcher disabled (set BRAVE_MCP_URL to enable)")
 
+    # Entitás-dedup linker (Wikidata QID) — spec: echolot-entity-dedup
+    def linker():
+        from echolot_entity_linker import worker_loop
+        from scraper import DB_PATH as _dbp
+        worker_loop(str(_dbp))
+    threading.Thread(target=linker, daemon=True, name="entity-linker").start()
+
     # Olvasó-analytics flusher (plan 7a) — memóriapuffer → SQLite 20s-onként
     def metrics_flusher():
         from echolot_metrics import flusher_thread
