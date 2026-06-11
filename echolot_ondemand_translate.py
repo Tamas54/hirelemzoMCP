@@ -44,7 +44,7 @@ def _ensure_cache(conn: sqlite3.Connection) -> None:
 
 
 def _call_translate(cfg: dict, texts: list[str], target_lang: str,
-                    retries: int = 2) -> dict[str, str]:
+                    retries: int = 4) -> dict[str, str]:
     """Translate a small batch; return {original: translated}. {} on failure."""
     name = _LANG_NAME.get(target_lang, target_lang)
     numbered = "\n".join(f"[{i}] {t}" for i, t in enumerate(texts))
@@ -87,7 +87,7 @@ def _call_translate(cfg: dict, texts: list[str], target_lang: str,
                     return out
         except Exception:
             pass
-        time.sleep(1.0 * (attempt + 1))
+        time.sleep(2.0 * (attempt + 1))  # 429-fojtás ellen erősebb backoff
     return {}
 
 

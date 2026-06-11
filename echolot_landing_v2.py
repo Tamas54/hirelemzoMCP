@@ -2483,6 +2483,42 @@ def _panel_tr(o: dict, field: str, lang: str, tr_lang: str | None) -> str:
     return (o.get("_tr") or {}).get(field, {}).get(tr_lang) or val
 
 
+# Landing-utótöltő: ha a kártya-fordítások még készülnek (tr_pending),
+# a kliens 8s-onként (max 6×) újrahúzza az oldalt és kicseréli a kártya-
+# címeket/leadeket, amint a fordítás-cache feltöltődött.
+_TR_LATEFILL_JS = """
+<script>
+(function(){
+  if (document.body.getAttribute('data-trpending') !== '1') return;
+  var tries = 0;
+  function refresh(){
+    tries++;
+    fetch(location.href, {cache:'no-store'}).then(function(r){return r.text();}).then(function(html){
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var changed = false;
+      var fresh = {};
+      doc.querySelectorAll('a[href*="/story/"]').forEach(function(a){
+        var h2 = a.querySelector('.story-title-v2');
+        if (h2) fresh[a.getAttribute('href')] = a;
+      });
+      document.querySelectorAll('a[href*="/story/"]').forEach(function(a){
+        var f = fresh[a.getAttribute('href')];
+        if (!f) return;
+        var oh = a.querySelector('.story-title-v2'), nh = f.querySelector('.story-title-v2');
+        if (oh && nh && oh.innerHTML !== nh.innerHTML) { oh.innerHTML = nh.innerHTML; changed = true; }
+        var ol = a.querySelector('.story-lead'), nl = f.querySelector('.story-lead');
+        if (ol && nl && ol.innerHTML !== nl.innerHTML) { ol.innerHTML = nl.innerHTML; }
+      });
+      var pending = doc.body.getAttribute('data-trpending') === '1';
+      if (pending && tries < 6) setTimeout(refresh, 8000);
+    }).catch(function(){ if (tries < 6) setTimeout(refresh, 8000); });
+  }
+  setTimeout(refresh, 8000);
+})();
+</script>
+"""
+
+
 # ── Main render fn ────────────────────────────────────────────────────
 
 async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
@@ -2608,6 +2644,18 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     except Exception as exc:
         log.warning("card translations failed: %s", exc)
 
+    # Van-e még fordításra váró kártya? Ha igen, a kliens-oldali utótöltő
+    # (lent: _TR_LATEFILL_JS) pár másodpercenként újrahúzza az oldalt és
+    # beúsztatja a kész fordításokat — reload nélkül.
+    tr_pending = 0
+    if tr_target:
+        for c in ((stories or []) + (tech_stories or []) + (sport_stories or [])
+                  + (tabloid_stories or []) + (economy_stories or [])):
+            if (c.get("languages") and tr_target not in (c.get("languages") or [])
+                    and tr_target not in (c.get("_tr_title") or {})):
+                tr_pending = 1
+                break
+
     # SEO head (megőrzött, ugyanaz mint az augment_landing-ben)
     seo_head = seo_head_html(
         origin=origin, lang=lang, path="/",
@@ -2724,7 +2772,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
-<body>
+<body data-trpending="{tr_pending}">
   <div class="ambient" aria-hidden="true">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -2804,5 +2852,6 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     }});
   </script>
   {THEME_TOGGLE_JS}
+  {_TR_LATEFILL_JS}
 </body>
 </html>""", lang)
