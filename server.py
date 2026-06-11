@@ -3522,6 +3522,10 @@ async def landing(request):
     page, lang = await render_landing_v2(request, str(DB_PATH))
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    # "Eredeti / Fordított" preferencia perzisztálása (?tr=on|off → cookie)
+    tr_q = (request.query_params.get("tr") or "").strip().lower()
+    if tr_q in ("on", "off"):
+        resp.set_cookie("echolot_tr", tr_q, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
 
 
@@ -3588,6 +3592,21 @@ async def story_detail(request):
             f"<h1>Story not found</h1><p><a href='/?lang={lang}'>← Vissza</a></p>",
             status_code=404,
         )
+
+    # Cache-elt teljes-szöveg fordítások hozzácsatolása (lang-kulcsos,
+    # mert a cluster dict nyelvek közt osztott). Egy bulk-query, gyors.
+    try:
+        from echolot_ondemand_translate import get_fulltext_translations_bulk
+        _arts = cluster.get("articles") or []
+        _ft = await asyncio.to_thread(
+            get_fulltext_translations_bulk, str(DB_PATH),
+            [a.get("article_id") for a in _arts if a.get("article_id")], lang)
+        for a in _arts:
+            tr = _ft.get(a.get("article_id"))
+            if tr:
+                a.setdefault("_ft_tr", {})[lang] = tr
+    except Exception as exc:
+        logger.warning("fulltext translation attach failed: %s", exc)
 
     # On-demand gazdagítás HÁTTÉRBEN (create_task) — az oldal azonnal
     # renderelődik, a háttér-task a cache-elt cluster dict-be ír vissza:
@@ -3739,6 +3758,30 @@ async def source_page(request):
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
+
+
+@mcp.custom_route("/api/translate_article", methods=["GET"])
+async def api_translate_article(request):
+    """Teljes cikkszöveg fordítása kattintásra (keresztfordító 1b).
+
+    Cache-first (egy cikk+nyelv párért egyszer fizetünk); a fordítás a
+    fulltext_translations táblába kerül. A story-oldal JS-e hívja."""
+    article_id = (request.query_params.get("article_id") or "").strip()
+    lang = (request.query_params.get("lang") or "en").strip().lower()[:5]
+    if not article_id or len(article_id) > 40:
+        return JSONResponse({"ok": False, "error": "bad article_id"}, status_code=400)
+    try:
+        from echolot_ondemand_translate import translate_fulltext
+        from echolot_story_detail import _paras_html
+        async with _enrich_sem:
+            text = await asyncio.to_thread(
+                translate_fulltext, str(DB_PATH), article_id, lang)
+        if not text:
+            return JSONResponse({"ok": False, "error": "unavailable"}, status_code=404)
+        return JSONResponse({"ok": True, "html": _paras_html(text)})
+    except Exception as exc:
+        logger.warning("translate_article failed: %s", exc)
+        return JSONResponse({"ok": False, "error": type(exc).__name__}, status_code=500)
 
 
 @mcp.custom_route("/entities", methods=["GET"])

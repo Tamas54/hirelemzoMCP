@@ -418,7 +418,8 @@ def _render_frame_badge(s: dict, lang: str) -> str:
     return f'<span class="frame-badge" style="background:{color}">{_escape(label)}</span>'
 
 
-def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") -> str:
+def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu",
+                     show_tr: bool = True) -> str:
     """Render a single story card in the v2 mockup style.
 
     ``variant`` is 'hero', 'sub', or 'sub compact'. The hero gets a
@@ -435,7 +436,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") ->
     title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
     # Keresztfordító: ha van UI-nyelvű cache-elt fordítás, azt mutatjuk;
     # az eredeti a title-attribútumban marad (hover), plusz halvány jelölő.
-    _tr_t = (s.get("_tr_title") or {}).get(lang)
+    _tr_t = (s.get("_tr_title") or {}).get(lang) if show_tr else None
     _orig_title_attr = ""
     tr_mark_html = ""
     if _tr_t:
@@ -449,7 +450,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") ->
     # legalább ~200 char. Compact mode is kap lead-et, csak rövidebb fonttal
     # és tighter clamp-pal.
     lead = (s.get("lead_summary") or "")
-    _tr_l = (s.get("_tr_lead") or {}).get(lang)
+    _tr_l = (s.get("_tr_lead") or {}).get(lang) if show_tr else None
     if _tr_l:
         lead = _tr_l
     cluster_id = s.get("cluster_id") or ""
@@ -588,7 +589,7 @@ def _render_tv_panel(lang: str = "hu") -> str:
     """
 
 
-def _render_top_stories(stories: list[dict], lang: str) -> str:
+def _render_top_stories(stories: list[dict], lang: str, show_tr: bool = True) -> str:
     """Top Stories — eredeti layout (hero + 2-col sub-grid) mockup v2 vizuálisan.
 
     Az ELSŐ cluster (legtöbb-source) teljes szélességű hero-kártya, a
@@ -602,12 +603,12 @@ def _render_top_stories(stories: list[dict], lang: str) -> str:
     src_label = _escape(t("article.source", lang)).lower()
     section_label = _escape(t("landing.section.top_stories", lang))
 
-    hero_html = _render_story_v2(stories[0], "hero", src_label, lang)
+    hero_html = _render_story_v2(stories[0], "hero", src_label, lang, show_tr)
     # Lépcsős méretcsökkentés: első 4 sub-medium, utána sub-compact (cím-only)
     sub_cards = []
     for i, s in enumerate(stories[1:13]):
         variant = "sub" if i < 4 else "sub compact"
-        sub_cards.append(_render_story_v2(s, variant, src_label, lang))
+        sub_cards.append(_render_story_v2(s, variant, src_label, lang, show_tr))
     sub_html = (
         f'<div class="stories-grid">{"".join(sub_cards)}</div>' if sub_cards else ""
     )
@@ -736,7 +737,7 @@ def _render_local_trending(local: dict, lang: str) -> str:
     """
 
 
-def _render_rovat(stories: list[dict], lang: str) -> str:
+def _render_rovat(stories: list[dict], lang: str, show_tr: bool = True) -> str:
     """Tematikus rovat-oszlop — v2 mockup stílus, sub.compact kártyák.
 
     Az új v2 design tokenrendszerre kapcsolva: a kártyák `_render_story_v2`
@@ -747,7 +748,7 @@ def _render_rovat(stories: list[dict], lang: str) -> str:
         return f'<div class="empty">{_escape(t("landing.empty_panel", lang))}</div>'
     src_label = _escape(t("article.source", lang)).lower()
     cards = [
-        _render_story_v2(s, "sub compact", src_label, lang) for s in stories[:6]
+        _render_story_v2(s, "sub compact", src_label, lang, show_tr) for s in stories[:6]
     ]
     return f"""
       <div class="rovat-shell">
@@ -832,7 +833,7 @@ def _humanize_geo_sphere(sphere: str | None) -> str:
     return _GEO_SPHERE_LABEL.get(key, sphere.replace("regional_", "").replace("_", " "))
 
 
-def _render_blindspots(political: list[dict], lang: str) -> str:
+def _render_blindspots(political: list[dict], lang: str, show_tr: bool = True) -> str:
     """Blindspot panel — csak politikai (L/R) aszimmetria.
 
     Kommandant ux-feedback 2026-05-20: a geo-blindspot ("csak orosz sajtó"
@@ -854,7 +855,7 @@ def _render_blindspots(political: list[dict], lang: str) -> str:
         )
         # Keresztfordító: a blindspot-kártya is kapja a UI-nyelvű címet
         # (az _attach_card_translations a political listát is feltölti).
-        _tr_t = (p.get("_tr_title") or {}).get(lang)
+        _tr_t = (p.get("_tr_title") or {}).get(lang) if show_tr else None
         _title_attr = ""
         if _tr_t:
             _title_attr = f' title="{_escape(title)}"'
@@ -2439,7 +2440,15 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     "cannot be called from a running event loop".
     """
     lang = _request_lang(request)
-    log.info("landing_v2 render: lang=%s", lang)
+    # Globális "Eredeti / Fordított" kapcsoló (Kommandant: a főoldal minden
+    # nyelven menjen anyanyelven ÉS eredetiben is). ?tr=off|on felülírja,
+    # a cookie-t a route perzisztálja.
+    _tr_q = (request.query_params.get("tr") or "").strip().lower()
+    if _tr_q in ("on", "off"):
+        show_tr = _tr_q == "on"
+    else:
+        show_tr = request.cookies.get("echolot_tr", "on") != "off"
+    log.info("landing_v2 render: lang=%s show_tr=%s", lang, show_tr)
     origin = public_origin(request)
 
     # Backend lekérések — local_trending async-ben fut, await-eljük.
@@ -2563,6 +2572,26 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     answer_blocks_html = answer_blocks_section_html(lang)
     theme_attr = theme_html_attr(request)
     theme_toggle = theme_toggle_html(lang)
+    # "Eredeti / Fordított" kapcsoló-gomb — cookie-perzisztens (route írja).
+    _TR_TOGGLE_LBL = {
+        "hu": ("Eredeti címek", "Fordított címek"),
+        "en": ("Original titles", "Translated titles"),
+        "de": ("Originaltitel", "Übersetzte Titel"),
+        "fr": ("Titres originaux", "Titres traduits"),
+        "pl": ("Tytuły oryginalne", "Tytuły tłumaczone"),
+        "ru": ("Оригинальные заголовки", "Переведённые"),
+        "uk": ("Оригінальні заголовки", "Перекладені"),
+        "it": ("Titoli originali", "Titoli tradotti"),
+        "es": ("Títulos originales", "Títulos traducidos"),
+        "zh": ("原文标题", "翻译标题"),
+    }
+    _to_orig, _to_tr = _TR_TOGGLE_LBL.get(lang, _TR_TOGGLE_LBL["en"])
+    if show_tr:
+        tr_toggle_html = (f'<a href="/?lang={lang}&tr=off" class="btn-secondary" '
+                          f'title="A→">🔤 {_to_orig}</a>')
+    else:
+        tr_toggle_html = (f'<a href="/?lang={lang}&tr=on" class="btn-secondary">'
+                          f'🌐 {_to_tr}</a>')
     # A weather-widget külön iframe-dokumentum → a témát query-paraméterrel adjuk át.
     weather_theme = "&theme=day" if theme_attr else ""
 
@@ -2574,9 +2603,9 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     # Render blokkok
     entity_chips = _render_entity_chip_row(entities, lang)
     bias_legend = _render_bias_legend(lang)
-    top_stories_html = _render_top_stories(stories, lang)
+    top_stories_html = _render_top_stories(stories, lang, show_tr)
     local_trending_html = _render_local_trending(local, lang)
-    blindspot_html = _render_blindspots(political_blind, lang)
+    blindspot_html = _render_blindspots(political_blind, lang, show_tr)
     yt_trending_html = _render_youtube_trending(yt_videos, lang, yt_region)
 
     title_html = _escape(t("landing.hero_title", lang))
@@ -2596,10 +2625,10 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     section_tabloid = _escape(t("landing.section.tabloid", lang))
     section_economy = _escape(t("landing.section.economy", lang))
 
-    tech_html = _render_rovat(tech_stories, lang)
-    sport_html = _render_rovat(sport_stories, lang)
-    tabloid_html = _render_rovat(tabloid_stories, lang)
-    economy_html = _render_rovat(economy_stories, lang)
+    tech_html = _render_rovat(tech_stories, lang, show_tr)
+    sport_html = _render_rovat(sport_stories, lang, show_tr)
+    tabloid_html = _render_rovat(tabloid_stories, lang, show_tr)
+    economy_html = _render_rovat(economy_stories, lang, show_tr)
 
     # Live TV panel — bal landing-col, Top Stories ALATT (Kommandant döntés)
     tv_panel_html = _render_tv_panel(lang)
@@ -2625,6 +2654,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   </div>
 
   <div class="top-actions">
+    {tr_toggle_html}
     {theme_toggle}
     <a href="/weather?lang={lang}" class="btn-secondary">🌍 {live_earth_label} →</a>
     <a href="/landing-classic?lang={lang}" class="btn-secondary">{legacy_label} →</a>

@@ -106,6 +106,24 @@ _REV_TITLE_LBL = {"hu": "Cím", "en": "Title", "de": "Titel", "fr": "Titre",
 _REV_LEAD_LBL = {"hu": "Lead", "en": "Lead", "de": "Lead", "fr": "Chapeau",
                  "ru": "Лид", "uk": "Лід"}
 
+# Teljes szöveg fordítás-gomb + eredeti/fordítás váltó (keresztfordító 1b).
+_FT_BTN = {"hu": "Fordítás magyarra", "en": "Translate to English",
+           "de": "Auf Deutsch übersetzen", "fr": "Traduire en français",
+           "pl": "Przetłumacz na polski", "ru": "Перевести на русский",
+           "uk": "Перекласти українською", "it": "Traduci in italiano",
+           "es": "Traducir al español"}
+_FT_ORIG_LBL = {"hu": "Eredeti szöveg", "en": "Original text",
+                "de": "Originaltext", "fr": "Texte original",
+                "pl": "Tekst oryginalny", "ru": "Оригинал", "uk": "Оригінал",
+                "it": "Testo originale", "es": "Texto original"}
+_FT_TR_LBL = {"hu": "Fordítás", "en": "Translation", "de": "Übersetzung",
+              "fr": "Traduction", "pl": "Tłumaczenie", "ru": "Перевод",
+              "uk": "Переклад", "it": "Traduzione", "es": "Traducción"}
+_FT_LOADING = {"hu": "Fordítás folyamatban…", "en": "Translating…",
+               "de": "Übersetzung läuft…", "fr": "Traduction en cours…",
+               "pl": "Tłumaczenie…", "ru": "Перевод…", "uk": "Переклад…",
+               "it": "Traduzione…", "es": "Traduciendo…"}
+
 # Perspektíva-bontás + idővonal szekció-címkék.
 _PERSP_LBL = {
     "hu": "Így írták meg", "en": "How each side framed it",
@@ -147,34 +165,69 @@ def _readmore_label(lang: str) -> str:
     return _READMORE_LBL.get(lang, _READMORE_LBL["hu"])
 
 
-def _render_full_text(full_text: str, lang: str) -> str:
-    """A kinyert teljes cikkszöveget bekezdésekre bontva, kinyitható
-    <details> blokkban adja vissza. Üres/rövid szövegnél üres stringet ad."""
-    text = (full_text or "").strip()
-    if len(text) < 200:
-        return ""
-    # Defense in depth: never render binary/garbage (undecoded brotli etc.).
-    # Real article text has ~no U+FFFD replacement chars; garbage is full of them.
-    sample = text[:4000]
-    bad = sum(1 for c in sample if c == "�" or (ord(c) < 32 and c not in "\t\n\r"))
-    if bad / len(sample) >= 0.05:
-        return ""
-    # Bekezdésekre bontás: dupla, majd egyszeres sortörés mentén.
-    chunks = [c.strip() for c in text.replace("\r", "").split("\n") if c.strip()]
-    if not chunks:
-        return ""
-    # Védőkorlát: ne dőljön be óriás szövegtől (kb. 8000 karakter).
+def _paras_html(text: str) -> str:
+    """Bekezdésekre tört, escape-elt HTML egy nyers szövegből (cap ~8000)."""
+    chunks = [c.strip() for c in (text or "").replace("\r", "").split("\n") if c.strip()]
     paras, total = [], 0
     for c in chunks:
         if total > 8000:
             break
         paras.append(f"<p>{_escape(c)}</p>")
         total += len(c)
-    body = "\n".join(paras)
+    return "\n".join(paras)
+
+
+def _render_full_text(article: dict, lang: str) -> str:
+    """Teljes cikkszöveg kinyitható <details> blokkban — keresztfordítóval.
+
+    - Ha van cache-elt fordítás (_ft_tr[lang]): a fordítás nyílik, de az
+      EREDETI mindig egy kattintás (váltógomb, reload nélkül).
+    - Ha idegen nyelvű és nincs még fordítás: "Fordítás magyarra" gomb →
+      /api/translate_article (kattintásra fordul, cache-be örökre).
+    Üres/rövid/bináris szövegnél üres stringet ad."""
+    text = (article.get("full_text") or "").strip()
+    if len(text) < 200:
+        return ""
+    sample = text[:4000]
+    bad = sum(1 for c in sample if c == "�" or (ord(c) < 32 and c not in "\t\n\r"))
+    if bad / len(sample) >= 0.05:
+        return ""
+    body_orig = _paras_html(text)
+    if not body_orig:
+        return ""
+
+    aid = article.get("article_id") or ""
+    art_lang = (article.get("language") or "").lower()
+    ft_tr = (article.get("_ft_tr") or {}).get(lang)
+    tr_lbl = _escape(_FT_TR_LBL.get(lang, _FT_TR_LBL["en"]))
+    orig_lbl = _escape(_FT_ORIG_LBL.get(lang, _FT_ORIG_LBL["en"]))
+
+    controls = ""
+    if ft_tr:
+        body_html = (
+            f'<div class="ft-body ft-tr">{_paras_html(ft_tr)}</div>'
+            f'<div class="ft-body ft-orig" style="display:none">{body_orig}</div>')
+        controls = (
+            f'<div class="ft-controls">'
+            f'<button class="ft-toggle active" data-show="tr">{tr_lbl}</button>'
+            f'<button class="ft-toggle" data-show="orig">{orig_lbl}</button></div>')
+    else:
+        body_html = f'<div class="ft-body ft-orig">{body_orig}</div>'
+        if aid and art_lang and lang and art_lang != lang:
+            btn_lbl = _escape(_FT_BTN.get(lang, _FT_BTN["en"]))
+            loading = _escape(_FT_LOADING.get(lang, _FT_LOADING["en"]))
+            controls = (
+                f'<div class="ft-controls">'
+                f'<button class="ft-translate-btn" data-aid="{_escape(aid)}" '
+                f'data-lang="{lang}" data-loading="{loading}" '
+                f'data-trlbl="{tr_lbl}" data-origlbl="{orig_lbl}">'
+                f'🌐 {btn_lbl}</button></div>')
+
     return (
         '<details class="src-card-fulltext">'
         f'<summary>{_escape(_readmore_label(lang))} ▾</summary>'
-        f'<div class="src-card-fulltext-body">{body}</div>'
+        f'{controls}'
+        f'<div class="src-card-fulltext-body">{body_html}</div>'
         "</details>"
     )
 
@@ -258,7 +311,7 @@ def _render_source_card(article: dict, lang: str) -> str:
     lead_html = (
         f'<p class="src-card-lead">{_escape(lead_disp)}</p>' if lead_disp else ""
     )
-    fulltext_html = _render_full_text(article.get("full_text") or "", lang)
+    fulltext_html = _render_full_text(article, lang)
     revisions_html = _render_revisions(article, lang)
 
     # FENT: a forrás neve belső link a forrás-kártyára (aznapi hírei).
@@ -633,6 +686,23 @@ _STORY_DETAIL_CSS = """
     .rev-old { text-decoration: line-through; opacity: 0.75; }
     .rev-new { color: var(--text); font-weight: 500; }
 
+    /* Cikkszöveg-fordítás gombok (keresztfordító 1b) */
+    .ft-controls { display:flex; gap:8px; margin:8px 0 4px; }
+    .ft-translate-btn, .ft-toggle {
+      background: var(--bg-2, rgba(255,255,255,0.04));
+      border: 1px solid var(--line);
+      color: var(--accent, #6cb6ff);
+      border-radius: 6px; padding: 4px 12px;
+      font-size: 12.5px; cursor: pointer; font-family: inherit;
+      transition: all .15s ease;
+    }
+    .ft-translate-btn:hover, .ft-toggle:hover { border-color: var(--accent, #6cb6ff); }
+    .ft-translate-btn[disabled] { opacity: .55; cursor: wait; }
+    .ft-toggle.active {
+      background: var(--accent, #6cb6ff); color: #0d1117;
+      border-color: var(--accent, #6cb6ff); font-weight: 600;
+    }
+
     /* Perspektíva-bontás */
     .story-perspective, .story-timeline { margin: 0 0 var(--sp-5); }
     .story-perspective > h2, .story-timeline > h2 {
@@ -721,6 +791,52 @@ _STORY_DETAIL_CSS = """
       .src-card-title { font-size: 16px; }
       .persp-grid { grid-template-columns: 1fr; }
     }
+"""
+
+
+# Kliens-JS: fordítás-gomb (fetch → beszúrás) + eredeti/fordítás váltó.
+_FT_JS = """
+<script>
+document.addEventListener('click', function(e){
+  var b = e.target.closest('.ft-translate-btn');
+  if (b) {
+    e.preventDefault();
+    b.disabled = true;
+    var orig_label = b.textContent;
+    b.textContent = b.dataset.loading;
+    fetch('/api/translate_article?article_id=' + encodeURIComponent(b.dataset.aid)
+          + '&lang=' + encodeURIComponent(b.dataset.lang))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.html) { b.textContent = '⚠ ' + orig_label; b.disabled = false; return; }
+        var box = b.closest('.src-card-fulltext');
+        var body = box.querySelector('.src-card-fulltext-body');
+        var origDiv = body.querySelector('.ft-orig');
+        var trDiv = document.createElement('div');
+        trDiv.className = 'ft-body ft-tr';
+        trDiv.innerHTML = d.html;
+        body.insertBefore(trDiv, origDiv);
+        origDiv.style.display = 'none';
+        var ctr = b.closest('.ft-controls');
+        ctr.innerHTML = '<button class="ft-toggle active" data-show="tr">' + b.dataset.trlbl +
+          '</button><button class="ft-toggle" data-show="orig">' + b.dataset.origlbl + '</button>';
+      })
+      .catch(function(){ b.textContent = '⚠ ' + orig_label; b.disabled = false; });
+    return;
+  }
+  var t = e.target.closest('.ft-toggle');
+  if (t) {
+    e.preventDefault();
+    var box = t.closest('.src-card-fulltext');
+    var showTr = t.dataset.show === 'tr';
+    var tr = box.querySelector('.ft-tr'), og = box.querySelector('.ft-orig');
+    if (tr) tr.style.display = showTr ? '' : 'none';
+    if (og) og.style.display = showTr ? 'none' : '';
+    box.querySelectorAll('.ft-toggle').forEach(function(x){ x.classList.remove('active'); });
+    t.classList.add('active');
+  }
+});
+</script>
 """
 
 
@@ -947,5 +1063,6 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     </section>
   </main>
   {THEME_TOGGLE_JS}
+  {_FT_JS}
 </body>
 </html>"""

@@ -164,6 +164,152 @@ def translate_map(texts, target_lang: str, db_path: str = "echolot.db") -> dict[
         conn.close()
 
 
+# ─── Teljes cikkszöveg fordítás (keresztfordító 1b) ─────────────────────
+
+def _ensure_ft_cache(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS fulltext_translations (
+            article_id  TEXT NOT NULL,
+            target_lang TEXT NOT NULL,
+            translated  TEXT NOT NULL,
+            created_at  TEXT,
+            PRIMARY KEY (article_id, target_lang)
+        )""")
+
+
+def get_fulltext_translation(db_path: str, article_id: str,
+                             target_lang: str) -> str | None:
+    """Cache-olvasás (render-safe, LLM nélkül)."""
+    conn = sqlite3.connect(str(db_path), timeout=5)
+    try:
+        _ensure_ft_cache(conn)
+        row = conn.execute(
+            "SELECT translated FROM fulltext_translations "
+            "WHERE article_id=? AND target_lang=?",
+            (article_id, (target_lang or "en").lower())).fetchone()
+        return row[0] if row else None
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        conn.close()
+
+
+def get_fulltext_translations_bulk(db_path: str, article_ids: list[str],
+                                   target_lang: str) -> dict[str, str]:
+    """Több cikk cache-elt fordítása egy lekérdezéssel (story-oldal render)."""
+    ids = [a for a in (article_ids or []) if a]
+    if not ids:
+        return {}
+    conn = sqlite3.connect(str(db_path), timeout=5)
+    try:
+        _ensure_ft_cache(conn)
+        qmarks = ",".join("?" * len(ids))
+        rows = conn.execute(
+            f"SELECT article_id, translated FROM fulltext_translations "
+            f"WHERE target_lang=? AND article_id IN ({qmarks})",
+            [(target_lang or "en").lower(), *ids]).fetchall()
+        return dict(rows)
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        conn.close()
+
+
+_FT_CHUNK = 4500  # karakter/LLM-hívás — flash-nek kényelmes, JSON-biztos
+
+
+def translate_fulltext(db_path: str, article_id: str,
+                       target_lang: str) -> str | None:
+    """Teljes cikkszöveg fordítása a cél-nyelvre — cache-first, darabolva.
+
+    A /api/translate_article endpoint hívja (kattintásra, SOSEM automatikusan
+    — token-költség!). Az eredmény a fulltext_translations táblába kerül:
+    egy (cikk, nyelv) párért egyszer fizetünk. None ha nincs full_text/kulcs."""
+    target_lang = (target_lang or "en").lower()
+    cached = get_fulltext_translation(db_path, article_id, target_lang)
+    if cached:
+        return cached
+    cfg = _config()
+    if cfg is None:
+        return None
+    conn = sqlite3.connect(str(db_path), timeout=10)
+    try:
+        row = conn.execute(
+            "SELECT full_text FROM articles WHERE article_id=?",
+            (article_id,)).fetchone()
+    finally:
+        conn.close()
+    text = (row[0] or "").strip() if row else ""
+    if len(text) < 200:
+        return None
+    text = text[:9000]  # a render is ~8000-nél vág — ne fordítsunk a semmibe
+
+    # Bekezdés-határon darabolás, hogy a fordítás ne törjön mondatot.
+    chunks, cur = [], ""
+    for para in text.replace("\r", "").split("\n"):
+        if len(cur) + len(para) > _FT_CHUNK and cur:
+            chunks.append(cur)
+            cur = para
+        else:
+            cur = f"{cur}\n{para}" if cur else para
+    if cur:
+        chunks.append(cur)
+
+    name = _LANG_NAME.get(target_lang, target_lang)
+    out_parts: list[str] = []
+    for chunk in chunks:
+        body = json.dumps({
+            "model": cfg["model"],
+            "messages": [
+                {"role": "system", "content":
+                    f"You are a precise news translator. Translate the article "
+                    f"text into {name}. Keep paragraph breaks, proper nouns and "
+                    f"numbers intact; translate faithfully, do not summarize or "
+                    f"add commentary. Return ONLY the translated text."},
+                {"role": "user", "content": chunk},
+            ],
+            "temperature": 0.1, "max_tokens": 4000,
+            "thinking": {"type": "disabled"},
+        }).encode()
+        ok = False
+        for attempt in range(2):
+            try:
+                req = urllib.request.Request(
+                    f"{cfg['base']}/chat/completions", data=body,
+                    headers={"Authorization": f"Bearer {cfg['key']}",
+                             "Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = json.loads(resp.read().decode())
+                part = (data.get("choices") or [{}])[0].get(
+                    "message", {}).get("content", "").strip()
+                if part:
+                    out_parts.append(part)
+                    ok = True
+                    break
+            except Exception:
+                time.sleep(2 * (attempt + 1))
+        if not ok:
+            return None  # csonka fordítást NEM cache-elünk
+    translated = "\n\n".join(out_parts).strip()
+    if len(translated) < 100:
+        return None
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    conn = sqlite3.connect(str(db_path), timeout=15)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        _ensure_ft_cache(conn)
+        conn.execute(
+            "INSERT OR REPLACE INTO fulltext_translations VALUES (?,?,?,?)",
+            (article_id, target_lang, translated, now))
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # cache-írás bukhat (lock) — a fordítást akkor is visszaadjuk
+    finally:
+        conn.close()
+    return translated
+
+
 if __name__ == "__main__":
     import sys
     lang = sys.argv[1] if len(sys.argv) > 1 else "hu"
