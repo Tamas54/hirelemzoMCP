@@ -1266,10 +1266,15 @@ _LANDING_V2_EXTRA_CSS = """
     .legacy-link a { color: var(--primary); text-decoration: none; }
     .legacy-link a:hover { text-decoration: underline; }
 
-    /* Top-right floating action buttons — duplázza a lent lévő legacy-link-et */
+    /* Top action buttons — NORMÁL flow-ban, jobbra igazítva. Korábban
+       position:absolute lebegett, és a nav-sor (tabok + nyelv-választó)
+       minden pixel-foglalási kísérlet ellenére alá tudott csúszni
+       (a gombsor szélessége nyelvenként változik, ~590px magyarul).
+       Statikus sorként átfedés SZERKEZETILEG nem lehetséges. */
     .top-actions {
-      position: absolute; top: 1rem; right: 1.5rem; z-index: 10;
       display: flex; gap: 0.5rem; align-items: center;
+      justify-content: flex-end; flex-wrap: wrap;
+      padding: 0.9rem 1.5rem 0; position: relative; z-index: 10;
     }
     .top-actions a {
       display: inline-flex; align-items: center; gap: 0.35rem;
@@ -1293,16 +1298,7 @@ _LANDING_V2_EXTRA_CSS = """
       border-color: var(--primary); color: var(--primary);
     }
     @media (max-width: 700px) {
-      .top-actions { position: static; padding: 0.7rem 1rem 0;
-                     flex-wrap: wrap; justify-content: flex-end; }
-    }
-    /* A nav-sor (tabok + nyelv-választó) ne csússzon a jobb-fent lebegő
-       top-actions gombsor alá — MINDEN 700px feletti szélességen helyet
-       foglalunk neki (a magyar fülfeliratokkal a sor ~1850px-ig is alá
-       érne); a flex-wrap a nyelv-választót inkább új sorba töri.
-       (Kommandant screenshot ×2: a Magyar-select a téma-kapcsoló alatt.) */
-    @media (min-width: 701px) {
-      .echolot-augment { padding-right: 440px; }
+      .top-actions { padding: 0.7rem 1rem 0; }
     }
 
     /* =====================================================================
