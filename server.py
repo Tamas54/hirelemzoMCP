@@ -31,6 +31,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import shlex
 import sqlite3
 from collections import Counter, defaultdict
@@ -3438,6 +3439,36 @@ async def landing(request):
     return resp
 
 
+# Cluster-enkénti throttle az on-demand háttér-letöltésre: az utótöltő
+# poll (és több párhuzamos látogató) ne indítson duplikált fetch-eket.
+_story_fill_started: dict[str, float] = {}
+
+# A story-oldal utótöltő scriptje — lásd a story_detail route kommentjét.
+_STORY_LATEFILL_JS = """
+<script>
+(function(){
+  var tries = 0;
+  function refresh(){
+    tries++;
+    fetch(location.href, {cache:'no-store'}).then(function(r){return r.text();}).then(function(html){
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var fresh = doc.querySelectorAll('.src-card-fulltext').length;
+      var cur = document.querySelectorAll('.src-card-fulltext').length;
+      if (fresh > cur) {
+        var nl = doc.querySelector('.src-card-list');
+        var ol = document.querySelector('.src-card-list');
+        if (nl && ol) ol.innerHTML = nl.innerHTML;
+      } else if (tries < 3) {
+        setTimeout(refresh, 5000);
+      }
+    }).catch(function(){});
+  }
+  setTimeout(refresh, 6000);
+})();
+</script>
+"""
+
+
 @mcp.custom_route("/story/{cluster_id}", methods=["GET"])
 async def story_detail(request):
     """In-site story detail page: a top-story cluster MINDEN forrását
@@ -3477,7 +3508,8 @@ async def story_detail(request):
             and not (a.get("full_text") or "").strip()
             and (a.get("full_text_status") or "") == ""
         ][:6]
-        if pending:
+        if pending and (time.monotonic() - _story_fill_started.get(cluster_id, 0)) > 30:
+            _story_fill_started[cluster_id] = time.monotonic()
             from echolot_brave_fetcher import fetch_on_demand
             arts_by_id = {a.get("article_id"): a for a in arts}
 
@@ -3493,8 +3525,15 @@ async def story_detail(request):
             asyncio.create_task(_bg_fill())
     except Exception as exc:
         logger.warning("story on-demand full-text failed: %s", exc)
+        pending = []
 
     page = render_story_detail_page(cluster, lang, request=request)
+    if pending:
+        # Utótöltés: a háttérben most töltődő cikkszövegek ("Tovább olvasom")
+        # automatikusan beúsznak az első látogatónak is — a kliens 6s múlva
+        # újrahúzza az oldalt fetch-csel és kicseréli a forrás-listát, ha
+        # több teljes szöveg érkezett. Max 3 próba, utána abbahagyja.
+        page = page.replace("</body>", _STORY_LATEFILL_JS + "</body>")
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
