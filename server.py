@@ -3787,10 +3787,40 @@ async def entity_detail(request):
         days = 30
     d = await asyncio.to_thread(query_entity_detail, str(DB_PATH), label, days)
     if not d:
+        # Nincs még adat → soron kívüli osztályozást indítunk az entitásra
+        # illeszkedő cikkekre (FTS, max 3 batch), és az oldal magától
+        # újratölt — a keresett entitás percek alatt feltöltődik.
+        tkey = f"entlabel:{label.lower()}"
+        if (time.monotonic() - _story_fill_started.get(tkey, 0)) > 120:
+            _story_fill_started[tkey] = time.monotonic()
+
+            async def _bg_classify(lbl=label):
+                try:
+                    from echolot_classifier import classify_for_query
+                    async with _enrich_sem:
+                        n = await asyncio.to_thread(
+                            classify_for_query, str(DB_PATH), lbl)
+                    logger.info("entity kick-start %r: %d classified", lbl, n)
+                except Exception as exc:
+                    logger.warning("entity kick-start failed: %s", exc)
+
+            asyncio.create_task(_bg_classify())
+        wait_msg = {
+            "hu": "Még nincs elemzett adat erről az entitásról — most indítottuk "
+                  "a hozzá tartozó cikkek elemzését. Az oldal fél perc múlva "
+                  "magától újratölt.",
+            "en": "No analyzed data for this entity yet — we just kicked off "
+                  "classification of its articles. This page reloads in ~30s.",
+        }.get(lang if lang in ("hu", "en") else "en")
         return HTMLResponse(
-            f"<h1>{_t(lang)['not_found']}</h1>"
-            f"<p><a href='/entities?lang={lang}'>← Entities</a></p>",
-            status_code=404)
+            f"<!doctype html><html lang='{lang}'><head><meta charset='utf-8'>"
+            f"<meta http-equiv='refresh' content='30'>"
+            f"<style>body{{background:#0d1117;color:#c9d1d9;font-family:sans-serif;"
+            f"display:flex;align-items:center;justify-content:center;height:90vh;"
+            f"text-align:center;padding:0 20px}}a{{color:#6cb6ff}}</style></head>"
+            f"<body><div><h2>⏳ {label}</h2><p>{wait_msg}</p>"
+            f"<p><a href='/entities?lang={lang}'>← Entities</a></p></div></body></html>",
+            status_code=202)
     from echolot_entities_page import query_entity_narratives
     try:
         narratives = await asyncio.to_thread(

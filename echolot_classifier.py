@@ -489,6 +489,38 @@ def classify_on_demand(db_path: str | Path, items: list[dict]) -> dict[str, dict
     return out
 
 
+def classify_for_query(db_path: str | Path, query: str,
+                       max_batches: int = 3) -> int:
+    """Egy keresőkifejezésre (pl. entitás-név) illeszkedő, MÉG OSZTÁLYOZATLAN
+    cikkek soron kívüli osztályozása (FTS match, legfrissebbek először,
+    max 3 × BATCH_SIZE). A /entities/{label} 'még nincs adat' útvonala
+    triggerli — így egy keresett entitás percek alatt feltöltődik, nem kell
+    megvárni, míg a backfill-worker odaér. Visszaadja az osztályozott számot."""
+    q = " ".join((query or "").split()).strip()
+    if len(q) < 3 or _config() is None:
+        return 0
+    conn = sqlite3.connect(str(db_path), timeout=15)
+    try:
+        rows = conn.execute(
+            """SELECT a.article_id, a.title, a.lead
+               FROM articles a JOIN articles_fts f ON f.article_id = a.article_id
+               WHERE articles_fts MATCH ? AND a.classification_status IS NULL
+               ORDER BY a.published_at DESC LIMIT ?""",
+            (f'"{q}"', max_batches * BATCH_SIZE)).fetchall()
+    except sqlite3.OperationalError as exc:
+        log.warning("classify_for_query FTS failed (%r): %s", q, exc)
+        return 0
+    finally:
+        conn.close()
+    items = [{"article_id": r[0], "title": r[1], "lead": r[2]} for r in rows]
+    done = 0
+    for i in range(0, len(items), BATCH_SIZE):
+        done += len(classify_on_demand(db_path, items[i:i + BATCH_SIZE]))
+    if done:
+        log.info("classify_for_query(%r): %d articles", q, done)
+    return done
+
+
 def worker_loop(db_path: str | Path = None) -> None:
     """Background loop for start.py. No-ops politely (and stops) if no key."""
     if not is_enabled():
