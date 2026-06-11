@@ -523,6 +523,22 @@ def _strip_html(text: str) -> str:
     return text.strip()
 
 
+# Reddit (és hasonló aggregátor) RSS-boilerplate a summary-ben:
+# "submitted by /u/xyz [link] [comments]" + numerikus entitások (&#32;).
+_JUNK_LEAD_RE = re.compile(r"submitted by\s+/?u/\S+|\[link\]|\[comments\]", re.I)
+
+
+def _clean_lead(text: str) -> str:
+    """Lead-tisztítás: HTML-entitás dekód + reddit-boilerplate kivágás.
+    Ha a maradék túl rövid (csak boilerplate volt), üres stringet adunk —
+    a kártya lead nélkül jelenik meg, nem szeméttel."""
+    import html as _html
+    s = _html.unescape(text or "")
+    s = _JUNK_LEAD_RE.sub("", s)
+    s = " ".join(s.split())
+    return s if len(s) >= 25 else ""
+
+
 # ============================================================
 # RSS fetcher
 # ============================================================
@@ -552,7 +568,8 @@ async def fetch_rss(session: aiohttp.ClientSession, src: Source) -> tuple[Source
     for entry in feed.entries[:MAX_ENTRIES_PER_FEED]:
         url = (entry.get("link") or "").strip()
         title = (entry.get("title") or "").strip()
-        lead = _strip_html(entry.get("summary") or entry.get("description") or "")[:1500]
+        lead = _clean_lead(
+            _strip_html(entry.get("summary") or entry.get("description") or "")[:1500])
         if not url:
             continue
         if not title:

@@ -113,6 +113,17 @@ _by_id_cache: dict[str, tuple[float, dict]] = {}
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
+# Reddit-boilerplate lead a régebbi (ingest-tisztítás előtti) DB-sorokban —
+# render-oldalon is kiszűrjük, ne jelenjen meg "submitted by /u/x [link]".
+_JUNK_LEAD_RE = re.compile(r"submitted by\s+/?u/|\[link\]|\[comments\]|&#\d+;", re.I)
+
+
+def _clean_lead_txt(s: str | None) -> str | None:
+    s = (s or "").strip()
+    if not s or _JUNK_LEAD_RE.search(s):
+        return None
+    return s
+
 
 def _strip_accents(s: str) -> str:
     nfkd = unicodedata.normalize("NFKD", s)
@@ -305,6 +316,17 @@ def _fetch_articles(db_path: str, hours: int, lang: str | None = None) -> list[d
 # ---------------------------------------------------------------------------
 # Clustering
 
+def _meaningful_tokens(tokset: set[str]) -> bool:
+    """Klaszterezésre alkalmas-e a token-halmaz?
+
+    CJK címeknél (koreai/kínai/japán) a latin tokenizáló mindent eldob, és
+    tipikusan csak egy évszám marad ({'2026'}) vagy egyetlen latin szó
+    ({'rise'}) — ezek Jaccard=1.0-val HAMIS clusterbe rántottak minden
+    hasonló címet (Kommandant screenshotja: koreai egyetemi PR mint Top
+    Story, 5 'forrással'). Minimum 2 token ÉS legalább egy nem-szám kell."""
+    return len(tokset) >= 2 and any(not t.isdigit() for t in tokset)
+
+
 def _build_clusters(articles: list[dict]) -> list[list[int]]:
     """3-shingle bucket → kandidát-párok → Jaccard ≥ THRESHOLD → union-find.
 
@@ -358,7 +380,7 @@ def _build_clusters(articles: list[dict]) -> list[list[int]]:
                 if uf.find(i) == uf.find(j):
                     continue
                 ti, tj = tokset_list[i], tokset_list[j]
-                if not ti or not tj:
+                if not _meaningful_tokens(ti) or not _meaningful_tokens(tj):
                     continue
                 inter = len(ti & tj)
                 if inter == 0:
@@ -390,7 +412,7 @@ def _build_clusters(articles: list[dict]) -> list[list[int]]:
                     if uf.find(i) == uf.find(j):
                         continue
                     ti, tj = tokset_list[i], tokset_list[j]
-                    if not ti or not tj:
+                    if not _meaningful_tokens(ti) or not _meaningful_tokens(tj):
                         continue
                     inter = len(ti & tj)
                     union_sz = len(ti) + len(tj) - inter
@@ -508,7 +530,7 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                 pure_topical_set.add(sp)
 
         ts = a.get("published_at") or a.get("fetched_at")
-        lead_txt = (a.get("lead") or "").strip() or None
+        lead_txt = _clean_lead_txt(a.get("lead"))
         if lead_txt and any_lead is None:
             any_lead = lead_txt
         if ts and (earliest_ts is None or ts < earliest_ts):
@@ -530,7 +552,7 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                 per_source[sid] = {
                     "article_id": a.get("article_id"),
                     "title": a.get("title") or "",
-                    "lead": (a.get("lead") or "").strip(),
+                    "lead": _clean_lead_txt(a.get("lead")) or "",
                     "url": a.get("url") or "",
                     "source_id": sid,
                     "source_name": a.get("source_name") or sid,
