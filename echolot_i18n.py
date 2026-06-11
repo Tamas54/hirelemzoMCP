@@ -40,6 +40,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     'tab.health': {'hu': 'Állapot', 'en': 'Health', 'de': 'Status', 'es': 'Estado', 'zh': '状态', 'fr': 'État', 'pl': 'Status', 'ru': 'Статус', 'uk': 'Стан', 'it': 'Stato'},
     'tab.passport': {'hu': 'Nyomkövető', 'en': 'Tracer', 'de': 'Tracer', 'es': 'Rastreador', 'zh': '溯源', 'fr': 'Traceur', 'pl': 'Tropiciel', 'ru': 'Трассировка', 'uk': 'Трасування', 'it': 'Tracciatore'},
     'tab.analysis': {'hu': 'Elemzés', 'en': 'Analysis', 'de': 'Analyse', 'es': 'Análisis', 'zh': '分析', 'fr': 'Analyse', 'pl': 'Analiza', 'ru': 'Анализ', 'uk': 'Аналіз', 'it': 'Analisi'},
+    'tab.entities': {'hu': 'Entitások', 'en': 'Entities', 'de': 'Entitäten', 'es': 'Entidades', 'zh': '实体', 'fr': 'Entités', 'pl': 'Encje', 'ru': 'Сущности', 'uk': 'Сутності', 'it': 'Entità'},
     'article.source': {'hu': 'Forrás', 'en': 'Source', 'de': 'Quelle', 'es': 'Fuente', 'zh': '来源', 'fr': 'Source', 'pl': 'Źródło', 'ru': 'Источник', 'uk': 'Джерело', 'it': 'Fonte'},
     'article.published_at': {'hu': 'Megjelenés', 'en': 'Published', 'de': 'Veröffentlicht', 'es': 'Publicado', 'zh': '发布时间', 'fr': 'Publié', 'pl': 'Opublikowano', 'ru': 'Опубликовано', 'uk': 'Опубліковано', 'it': 'Pubblicato'},
     'article.trust': {'hu': 'Megbízhatóság', 'en': 'Trust', 'de': 'Vertrauen', 'es': 'Confianza', 'zh': '可信度', 'fr': 'Fiabilité', 'pl': 'Wiarygodność', 'ru': 'Надёжность', 'uk': 'Надійність', 'it': 'Affidabilità'},
