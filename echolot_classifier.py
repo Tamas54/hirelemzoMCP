@@ -60,7 +60,9 @@ FRAMES = {"conflict", "human_interest", "economic", "morality", "vulnerability",
 EMOTIONS = {"anger", "fear", "joy", "surprise", "sadness", "trust", "disgust", "other"}
 INTENSITIES = {"low", "medium", "high"}
 
-BATCH_SIZE = int(os.environ.get("CLASSIFIER_BATCH", "12"))
+# 20-as batch: ugyanannyi cikk KEVESEBB API-hívásból → kisebb RPM-nyomás,
+# több levegő az interaktív (fordítás/on-demand) hívásoknak a 429-plafonnál.
+BATCH_SIZE = int(os.environ.get("CLASSIFIER_BATCH", "20"))
 LOOP_SLEEP = int(os.environ.get("CLASSIFIER_LOOP_SLEEP", "30"))  # seconds between batches
 REQUEST_TIMEOUT = int(os.environ.get("CLASSIFIER_TIMEOUT", "60"))
 
@@ -214,7 +216,7 @@ def _call_llm(cfg: dict, batch: list[dict], retries: int = 3) -> list[dict] | No
             {"role": "user", "content": _build_user_prompt(batch)},
         ],
         "temperature": 0.1,
-        "max_tokens": 2000,
+        "max_tokens": 3600,
         "response_format": {"type": "json_object"},
         # DeepSeek-V4-Flash defaults to Think mode; disable it (reasoning tokens
         # would eat the budget and can wrap the JSON). V4 form, NOT enable_thinking.
@@ -540,10 +542,10 @@ def worker_loop(db_path: str | Path = None) -> None:
         if n:
             log.info("classified %d articles", n)
             idle = 0
-            # 5s a 2s helyett: hagyjunk rate-limit fejteret az on-demand
-            # (story-oldali) osztályozásnak — ugyanaz a kulcs, a 429-ek
-            # a user-facing hívást ütötték. Backfill így is ~4000 cikk/óra.
-            time.sleep(5)
+            # 8s szünet + 20-as batch: backfill ~6-7000 cikk/óra, de a
+            # kérés-ráta fele — az interaktív fordítás/elemzés kap levegőt
+            # a megosztott kulcs RPM-plafonjánál.
+            time.sleep(8)
         elif pending_count(db_path) > 0:
             log.info("batch wrote 0 but work remains — retry in 15s")
             # Batch yielded nothing but work REMAINS → transient (rate limit / bad
