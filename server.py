@@ -3676,12 +3676,19 @@ async def entities_page(request):
 
     lang = _request_lang(request)
     etype = (request.query_params.get("type") or "").strip()
+    # Nyelv-szűrő: default a UI nyelve (ne a backfill épp futó nyelve
+    # dominálja a listát); ?artlang=all → minden nyelv.
+    art_lang = (request.query_params.get("artlang") or lang).strip()
+    if art_lang == "all":
+        art_lang = ""
     try:
         days = max(1, min(90, int(request.query_params.get("days", "7"))))
     except (ValueError, TypeError):
         days = 7
-    ents = await asyncio.to_thread(query_entities, str(DB_PATH), days, etype)
-    page = render_entities_page(ents, lang, etype=etype, days=days, request=request)
+    ents = await asyncio.to_thread(
+        query_entities, str(DB_PATH), days, etype, art_lang)
+    page = render_entities_page(ents, lang, etype=etype, days=days,
+                                art_lang=art_lang, request=request)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp

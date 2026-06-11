@@ -36,6 +36,7 @@ _L = {
         "by_source_sub": "Hogyan tudósítanak a források erről az entitásról.",
         "roles": "Szerep-eloszlás", "recent": "Friss említések",
         "empty": "Még nincs entitás-adat — az elemző most dolgozza fel a cikkeket.",
+        "lang_own": "Csak magyar nyelvű", "lang_all": "Minden nyelv",
         "not_found": "Nincs ilyen entitás (vagy még nincs adat róla).",
         "sent": {-2: "Nagyon negatív", -1: "Negatív", 0: "Semleges",
                  1: "Pozitív", 2: "Nagyon pozitív"},
@@ -55,6 +56,7 @@ _L = {
         "by_source_sub": "How each source covers this entity.",
         "roles": "Role distribution", "recent": "Recent mentions",
         "empty": "No entity data yet — the analyzer is processing articles.",
+        "lang_own": "This language only", "lang_all": "All languages",
         "not_found": "Entity not found (or no data yet).",
         "sent": {-2: "Very negative", -1: "Negative", 0: "Neutral",
                  1: "Positive", 2: "Very positive"},
@@ -110,8 +112,11 @@ def _sent_bar(v: float | None, width: int = 90) -> str:
 # ─── SQL aggregációk ────────────────────────────────────────────────────
 
 def query_entities(db_path: str, days: int = 7, etype: str = "",
-                   limit: int = 60) -> list[dict]:
-    """Top entitások az ablakban: említés-szám, átlag-hangulat, forrás-szám."""
+                   art_lang: str = "", limit: int = 60) -> list[dict]:
+    """Top entitások az ablakban: említés-szám, átlag-hangulat, forrás-szám.
+    art_lang: ha megadva (pl. "hu"), csak az adott NYELVŰ cikkek entitásai —
+    különben a worker épp feldolgozott nyelve dominálna (Kommandant: a HU
+    oldalon csupa cirill entitás jött, mert a backfill orosz cikkeknél járt)."""
     con = sqlite3.connect(db_path)
     try:
         sql = """
@@ -128,6 +133,9 @@ def query_entities(db_path: str, days: int = 7, etype: str = "",
         if etype in ("person", "org", "place"):
             sql += " AND ae.entity_type = ?"
             params.append(etype)
+        if art_lang:
+            sql += " AND a.language = ?"
+            params.append(art_lang)
         sql += " GROUP BY ae.label COLLATE NOCASE ORDER BY mentions DESC LIMIT ?"
         params.append(limit)
         rows = con.execute(sql, params).fetchall()
@@ -288,14 +296,24 @@ def _page_frame(title: str, body: str, lang: str, request=None) -> str:
 # ─── Lista-oldal ────────────────────────────────────────────────────────
 
 def render_entities_page(entities: list[dict], lang: str, etype: str = "",
-                         days: int = 7, request=None) -> str:
+                         days: int = 7, art_lang: str = "", request=None) -> str:
     t = _t(lang)
+    al_q = f"&artlang={art_lang}" if art_lang else "&artlang=all"
     chips = []
     for key, lbl in (("", t["all"]), ("person", t["person"]),
                      ("org", t["org"]), ("place", t["place"])):
         active = " active" if key == etype else ""
-        href = f"/entities?lang={lang}" + (f"&type={key}" if key else "")
+        href = f"/entities?lang={lang}" + (f"&type={key}" if key else "") + al_q
         chips.append(f'<a class="ent-chip{active}" href="{href}">{_escape(lbl)}</a>')
+    # Nyelv-szűrő: saját nyelvű cikkek (default) ↔ minden nyelv. E nélkül a
+    # backfill épp futó nyelve dominálná a listát (pl. cirill a HU oldalon).
+    type_q = f"&type={etype}" if etype else ""
+    chips.append('<span style="width:10px"></span>')
+    for key, lbl in ((lang, t["lang_own"]), ("all", t["lang_all"])):
+        active = " active" if (art_lang or "all") == key else ""
+        chips.append(
+            f'<a class="ent-chip{active}" '
+            f'href="/entities?lang={lang}{type_q}&artlang={key}">{_escape(lbl)}</a>')
 
     if not entities:
         cards = f'<div class="ent-empty">{_escape(t["empty"])}</div>'
