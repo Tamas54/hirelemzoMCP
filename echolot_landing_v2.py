@@ -852,6 +852,13 @@ def _render_blindspots(political: list[dict], lang: str) -> str:
             or (p.get("sample_titles") or [""])[0]
             or "?"
         )
+        # Keresztfordító: a blindspot-kártya is kapja a UI-nyelvű címet
+        # (az _attach_card_translations a political listát is feltölti).
+        _tr_t = (p.get("_tr_title") or {}).get(lang)
+        _title_attr = ""
+        if _tr_t:
+            _title_attr = f' title="{_escape(title)}"'
+            title = _tr_t
         url = p.get("lead_url") or "#"
         bias = p.get("bias_dist", {})
         side = p.get("dominant_side", "?")
@@ -861,7 +868,7 @@ def _render_blindspots(political: list[dict], lang: str) -> str:
         cards.append(f"""
           <a href="{_escape(url)}" target="_blank" rel="noopener" class="blindspot-card {side_class}">
             <div class="blindspot-tag">{side_label}</div>
-            <div class="blindspot-title">{_escape(title)}</div>
+            <div class="blindspot-title"{_title_attr}>{_escape(title)}</div>
             {_render_bias_bar(bias)}
             <div class="blindspot-meta">{p.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
             {_render_reach_badge(p.get("source_ids"), p.get("first_published"), p.get("latest_published"))}
@@ -2381,8 +2388,9 @@ async def _attach_card_translations(cards: list[dict], lang: str,
     cache-elt és nyelvek közt OSZTOTT — ezért kell a lang-kulcs)."""
     import time as _time
     foreign = [c for c in cards
-               if isinstance(c, dict) and c.get("languages")
-               and lang not in (c.get("languages") or [])]
+               if isinstance(c, dict)
+               and ((c.get("languages") and lang not in (c.get("languages") or []))
+                    or (not c.get("languages") and c.get("dominant_side")))]
     if not foreign:
         return
     texts: list[str] = []
