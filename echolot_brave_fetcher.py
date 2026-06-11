@@ -343,7 +343,10 @@ async def fetch_on_demand(
                         except (asyncio.TimeoutError, Exception):
                             result = None
                     try:
-                        _persist(db_path, article_id, result)
+                        # to_thread: a sqlite write lock-ra várás (timeout=30s!)
+                        # ne blokkolja az event loopot — e nélkül egy háttér-írás
+                        # alatt az EGÉSZ szerver állt, minden route lassult.
+                        await asyncio.to_thread(_persist, db_path, article_id, result)
                     except Exception as exc:
                         log.warning("on-demand persist failed for %s: %s", article_id, exc)
                     if result and result.get("content_usable"):

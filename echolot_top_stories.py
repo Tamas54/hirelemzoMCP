@@ -223,6 +223,9 @@ class _UF:
 # ---------------------------------------------------------------------------
 # DB-fetch
 
+# full_text szándékosan NINCS a SELECT-ben: a 24-48h ablakban sok MB lenne,
+# és a clusteringnek nem kell. A /story oldal attach_full_texts()-szel tölti
+# be csak a megjelenített cluster cikkeihez.
 _FETCH_SQL = """
 SELECT
     a.article_id,
@@ -235,7 +238,6 @@ SELECT
     a.category,
     a.published_at,
     a.fetched_at,
-    a.full_text,
     a.full_text_status,
     a.spheres_json    AS article_spheres,
     a.frame           AS frame,
@@ -669,6 +671,18 @@ def cluster_top_stories(
             continue
         out.append(agg)
 
+    # ID → cluster mapping a /story/<id> detail-route lookup-hoz — MÉG a
+    # sphere-szűrés és limit-truncation ELŐTT, hogy a top-N-en kívüli
+    # clusterek is megtalálhatók legyenek (különben minden kattintás
+    # újraklaszterezne). Stale entry-k pruningja, hogy ne nőjön korlátlanul.
+    for cid, (ts_c, _) in list(_by_id_cache.items()):
+        if (now - ts_c) > 2 * CACHE_TTL:
+            _by_id_cache.pop(cid, None)
+    for c in out:
+        cid = c.get("cluster_id")
+        if cid:
+            _by_id_cache[cid] = (now, c)
+
     # Recency-súlyú rangsor: a frissebb sztori magasabb pontszámot kap,
     # a régiebb lassan csúszik lefelé. Súly:
     #   0-3 óra:  1.00× (full weight)
@@ -703,12 +717,6 @@ def cluster_top_stories(
     out = out[:limit]
 
     _cache[cache_key] = (now, out)
-    # ID → cluster mapping a /story/<id> detail-route lookup-hoz.
-    # Minden visszaadott cluster bekerül a globális by-id cache-be.
-    for c in out:
-        cid = c.get("cluster_id")
-        if cid:
-            _by_id_cache[cid] = (now, c)
     logger.info(
         "top_stories: returning %d clusters (min_sources=%d, limit=%d), total %.2fs",
         len(out),
@@ -717,6 +725,35 @@ def cluster_top_stories(
         t_fetch + t_cluster,
     )
     return out
+
+
+def attach_full_texts(db_path: str, cluster: dict) -> None:
+    """A cluster cikkeihez betölti a DB-ből a full_text-et (csak a hiányzókhoz).
+
+    A clustering fetch szándékosan nem hozza a full_text-et (sok MB lenne);
+    itt csak a megjelenített cluster max. néhány tucat cikkjét töltjük be.
+    In-place mutál — a by-id cache-elt dict gazdagodik, így a következő
+    látogatónak már nem kell DB-hez nyúlni."""
+    arts = cluster.get("articles") or []
+    missing = [a["article_id"] for a in arts
+               if a.get("article_id") and not (a.get("full_text") or "").strip()]
+    if not missing:
+        return
+    qmarks = ",".join("?" * len(missing))
+    con = sqlite3.connect(db_path)
+    try:
+        rows = con.execute(
+            f"SELECT article_id, full_text FROM articles "
+            f"WHERE article_id IN ({qmarks}) AND full_text IS NOT NULL",
+            missing,
+        ).fetchall()
+    finally:
+        con.close()
+    texts = {aid: ft for aid, ft in rows if ft}
+    for a in arts:
+        ft = texts.get(a.get("article_id"))
+        if ft:
+            a["full_text"] = ft
 
 
 def get_cluster_by_id(
@@ -733,6 +770,7 @@ def get_cluster_by_id(
     now = time.time()
     cached = _by_id_cache.get(cluster_id)
     if cached and (now - cached[0]) < CACHE_TTL:
+        attach_full_texts(db_path, cached[1])
         return cached[1]
 
     # Cache-miss → fresh full clustering (lang=None, min_sources=1, nagy limit).
@@ -742,6 +780,7 @@ def get_cluster_by_id(
     )
     cached = _by_id_cache.get(cluster_id)
     if cached:
+        attach_full_texts(db_path, cached[1])
         return cached[1]
     return None
 

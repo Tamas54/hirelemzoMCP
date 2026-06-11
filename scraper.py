@@ -189,6 +189,7 @@ CREATE TABLE IF NOT EXISTS articles (
 );
 
 CREATE INDEX IF NOT EXISTS ix_articles_published ON articles(published_at DESC);
+CREATE INDEX IF NOT EXISTS ix_articles_fetched   ON articles(fetched_at DESC);
 CREATE INDEX IF NOT EXISTS ix_articles_source    ON articles(source_id);
 CREATE INDEX IF NOT EXISTS ix_articles_category  ON articles(category);
 CREATE INDEX IF NOT EXISTS ix_articles_language  ON articles(language);

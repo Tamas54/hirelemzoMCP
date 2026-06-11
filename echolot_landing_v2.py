@@ -2370,11 +2370,16 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 
     # min_sources lang-filtered query-re lazább (kevesebb forrás van nyelvenként):
     # 2 source elég hogy "story" legyen. Limit 13 = hero + 12-grid (6×2 sor).
+    # to_thread mindenhol: cache-miss esetén a clustering/blindspot/entity
+    # query másodperces CPU+DB munka — workerszálon fusson, ne az event loopon
+    # (különben minden más request áll, amíg a landing épül).
     try:
-        stories = cluster_top_stories(db_path, hours=24, min_sources=2, limit=13, lang=lang)
+        stories = await asyncio.to_thread(
+            cluster_top_stories, db_path, hours=24, min_sources=2, limit=13, lang=lang)
         if len(stories) < 4:
             # Fallback: egyetlen-source clusterek is jelennek meg (egyedi cikkek)
-            stories = cluster_top_stories(db_path, hours=24, min_sources=1, limit=13, lang=lang)
+            stories = await asyncio.to_thread(
+                cluster_top_stories, db_path, hours=24, min_sources=1, limit=13, lang=lang)
     except Exception as exc:
         log.warning("top_stories failed: %s", exc)
         stories = []
@@ -2385,7 +2390,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     # GEO-blindspot LEVÉVE: a "csak orosz/kínai sajtó" jellegű sztorik nagyrészt
     # állami propaganda, magyar olvasónak zaj. Lásd _render_blindspots docstring.
     try:
-        political_blind = find_political_blindspots(db_path, hours=24, min_sources=2, limit=3, lang=lang)
+        political_blind = await asyncio.to_thread(
+            find_political_blindspots, db_path, hours=24, min_sources=2, limit=3, lang=lang)
         # Kommandant kérés 2026-05-21: NINCS globális fallback. Ha pl. a
         # HU-szűrt blindspot üres, akkor üresen marad — ne keveredjenek be
         # orosz/kínai/stb. cikkek a magyar olvasónak (cirill betűs címek a
@@ -2396,28 +2402,31 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         political_blind = []
 
     try:
-        entities = top_entities_24h(db_path, hours=24, limit=15, lang=lang)
+        entities = await asyncio.to_thread(
+            top_entities_24h, db_path, hours=24, limit=15, lang=lang)
     except Exception as exc:
         log.warning("top_entities failed: %s", exc)
         entities = []
 
     # Rovatok: Tech / Sport / Bulvár. Először lang-szűrt, ha üres → all-lang.
-    def _rovat(spheres: frozenset[str], label: str) -> list[dict]:
+    async def _rovat(spheres: frozenset[str], label: str) -> list[dict]:
         try:
-            res = cluster_top_stories(db_path, hours=24, min_sources=1, limit=6,
-                                       lang=lang, sphere_filter=spheres)
+            res = await asyncio.to_thread(
+                cluster_top_stories, db_path, hours=24, min_sources=1, limit=6,
+                lang=lang, sphere_filter=spheres)
             if not res:
-                res = cluster_top_stories(db_path, hours=24, min_sources=1, limit=6,
-                                           lang=None, sphere_filter=spheres)
+                res = await asyncio.to_thread(
+                    cluster_top_stories, db_path, hours=24, min_sources=1, limit=6,
+                    lang=None, sphere_filter=spheres)
             return res
         except Exception as exc:
             log.warning("rovat %s failed: %s", label, exc)
             return []
 
-    tech_stories = _rovat(TECH_SPHERES, "tech")
-    sport_stories = _rovat(SPORT_SPHERES, "sport")
-    tabloid_stories = _rovat(TABLOID_SPHERES, "tabloid")
-    economy_stories = _rovat(ECONOMY_SPHERES, "economy")
+    tech_stories = await _rovat(TECH_SPHERES, "tech")
+    sport_stories = await _rovat(SPORT_SPHERES, "sport")
+    tabloid_stories = await _rovat(TABLOID_SPHERES, "tabloid")
+    economy_stories = await _rovat(ECONOMY_SPHERES, "economy")
 
     # SEO head (megőrzött, ugyanaz mint az augment_landing-ben)
     seo_head = seo_head_html(

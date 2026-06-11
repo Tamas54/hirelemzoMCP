@@ -27,6 +27,7 @@ REST routes (for landing page):
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -3449,10 +3450,14 @@ async def story_detail(request):
 
     cluster_id = request.path_params["cluster_id"]
     lang = _request_lang(request)
-    cluster = get_cluster_by_id(str(DB_PATH), cluster_id, hours=24)
+    # to_thread: cache-miss esetén teljes újraklaszterezés fut (CPU + DB) —
+    # workerszálon, hogy ne blokkolja az event loopot (= a többi requestet).
+    cluster = await asyncio.to_thread(
+        get_cluster_by_id, str(DB_PATH), cluster_id, 24)
     if not cluster:
         # 24h cache-miss → 48h ablak fallback (régebbi sztori is megnyitható)
-        cluster = get_cluster_by_id(str(DB_PATH), cluster_id, hours=48)
+        cluster = await asyncio.to_thread(
+            get_cluster_by_id, str(DB_PATH), cluster_id, 48)
     if not cluster:
         return HTMLResponse(
             f"<h1>Story not found</h1><p><a href='/?lang={lang}'>← Vissza</a></p>",
@@ -3460,9 +3465,9 @@ async def story_detail(request):
         )
 
     # On-demand full text: fill sources that the background fetcher hasn't
-    # reached yet, so a freshly-clustered story already has readable body text.
-    # Bounded + cached to the DB, so only the first visitor to a new story ever
-    # waits, and only articles never attempted (status NULL) are touched.
+    # reached yet. HÁTTÉRBEN fut (create_task) — az oldal azonnal renderelődik
+    # a lead-ekkel; a letöltött szöveg a cache-elt cluster dict-be íródik
+    # vissza, így reload-ra / a következő látogatónak már megjelenik.
     try:
         arts = cluster.get("articles") or []
         pending = [
@@ -3474,11 +3479,18 @@ async def story_detail(request):
         ][:6]
         if pending:
             from echolot_brave_fetcher import fetch_on_demand
-            filled = await fetch_on_demand(pending, DB_PATH)
-            if filled:
-                for a in arts:
-                    if a.get("article_id") in filled:
-                        a["full_text"] = filled[a["article_id"]]
+            arts_by_id = {a.get("article_id"): a for a in arts}
+
+            async def _bg_fill(items=pending, amap=arts_by_id):
+                try:
+                    filled = await fetch_on_demand(items, DB_PATH)
+                    for aid, txt in filled.items():
+                        if aid in amap:
+                            amap[aid]["full_text"] = txt
+                except Exception as exc:
+                    logger.warning("story bg full-text failed: %s", exc)
+
+            asyncio.create_task(_bg_fill())
     except Exception as exc:
         logger.warning("story on-demand full-text failed: %s", exc)
 
@@ -3512,13 +3524,14 @@ async def source_page(request):
     if days not in SOURCE_WINDOW_DAYS:
         days = DEFAULT_WINDOW_DAYS
 
-    source = query_source(str(DB_PATH), source_id)
+    source = await asyncio.to_thread(query_source, str(DB_PATH), source_id)
     if not source:
         return HTMLResponse(
             f"<h1>Source not found</h1><p><a href='/?lang={lang}'>← Vissza</a></p>",
             status_code=404,
         )
-    articles = query_source_articles(str(DB_PATH), source_id, days)
+    articles = await asyncio.to_thread(
+        query_source_articles, str(DB_PATH), source_id, days)
     page = render_source_page(source, articles, days, lang, request=request)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
