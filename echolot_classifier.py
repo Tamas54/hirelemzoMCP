@@ -121,16 +121,57 @@ _SYSTEM = (
     "You are a precise news-analysis classifier. For each numbered article you "
     "receive (title + lead, in its ORIGINAL language — judge framing in that "
     "language, do not translate), return its dominant news frame, dominant "
-    "emotion, and sentiment. Respond ONLY with JSON.\n\n"
+    "emotion, sentiment, and the salient named entities. Respond ONLY with JSON.\n\n"
     "frame ∈ [conflict, human_interest, economic, morality, vulnerability, "
     "responsibility, security_threat, progress, other] (Semetko–Valkenburg).\n"
     "emotion ∈ [anger, fear, joy, surprise, sadness, trust, disgust, other] (Plutchik).\n"
     "sentiment: float in [-1,1] (negative→positive). intensity ∈ [low, medium, high].\n"
-    "frame_confidence: float in [0,1].\n\n"
+    "frame_confidence: float in [0,1].\n"
+    "entities: up to 4 named entities (people, organizations, places) CENTRAL to "
+    "the article. name = canonical form in the article's language (e.g. 'Orbán "
+    "Viktor'); type ∈ [person, org, place]; role ∈ [protagonist, responsible, "
+    "victim, commentator, mentioned] (Van Dijk); sent: float in [-1,1] — the "
+    "article's sentiment TOWARD this entity.\n\n"
     'Return: {"results":[{"i":<number>,"frame":"...","frame_confidence":0.0,'
-    '"emotion":"...","sentiment":0.0,"intensity":"..."}, ...]} — one object per '
-    "article, same i numbers, nothing else."
+    '"emotion":"...","sentiment":0.0,"intensity":"...",'
+    '"entities":[{"name":"...","type":"...","role":"...","sent":0.0}]}, ...]} '
+    "— one object per article, same i numbers, nothing else."
 )
+
+ENTITY_TYPES = {"person", "org", "place"}
+ENTITY_ROLES = {"protagonist", "responsible", "victim", "commentator", "mentioned"}
+
+
+def _sanitize_entities(rec: dict) -> list[dict]:
+    """A modell entity-listájából max 4 validált rekord (label/type/role/sent)."""
+    out = []
+    for e in (rec.get("entities") or [])[:4]:
+        try:
+            name = " ".join(str(e.get("name", "")).split()).strip()
+            if not (2 <= len(name) <= 80):
+                continue
+            etype = str(e.get("type", "")).lower().strip()
+            role = str(e.get("role", "")).lower().strip()
+            sent = float(e.get("sent", 0.0))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        out.append({
+            "label": name,
+            "entity_type": etype if etype in ENTITY_TYPES else "other",
+            "role": role if role in ENTITY_ROLES else "mentioned",
+            "sentiment": max(-1.0, min(1.0, sent)),
+        })
+    return out
+
+
+def _persist_entities(conn: sqlite3.Connection, article_id: str,
+                      entities: list[dict]) -> None:
+    for e in entities:
+        conn.execute(
+            """INSERT OR REPLACE INTO article_entities
+               (article_id, qid, label, entity_type, role, sentiment)
+               VALUES (?, NULL, ?, ?, ?, ?)""",
+            (article_id, e["label"], e["entity_type"], e["role"], e["sentiment"]))
 
 
 def _build_user_prompt(batch: list[dict]) -> str:
@@ -288,6 +329,10 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
                    WHERE article_id=?""",
                 (vals["frame"], vals["frame_confidence"], vals["emotion"],
                  vals["sentiment"], vals["sentiment_intensity"], now, a["article_id"]))
+            try:
+                _persist_entities(conn, a["article_id"], _sanitize_entities(rec))
+            except sqlite3.OperationalError:
+                pass  # entitás-réteg opcionális, sose blokkolja a fő írást
             written += 1
         conn.commit()
         return written
@@ -409,10 +454,13 @@ def classify_on_demand(db_path: str | Path, items: list[dict]) -> dict[str, dict
     # láthatatlan volt. Ha az írás végleg bukik, az IN-MEMORY eredményt
     # akkor is visszaadjuk: az oldal elemzése megjelenik, a DB-perzisztencia
     # pedig a workerre marad (újra fogja osztályozni).
+    ents_by_id: dict[str, list[dict]] = {}
     for n, a in enumerate(batch):
-        vals = _sanitize(by_i.get(n)) if by_i.get(n) else None
+        rec = by_i.get(n)
+        vals = _sanitize(rec) if rec else None
         if vals is not None:
             out[a["article_id"]] = vals
+            ents_by_id[a["article_id"]] = _sanitize_entities(rec)
     for attempt in range(2):
         try:
             conn = sqlite3.connect(str(db_path), timeout=30)
@@ -428,6 +476,7 @@ def classify_on_demand(db_path: str | Path, items: list[dict]) -> dict[str, dict
                                  OR classification_status='failed')""",
                         (vals["frame"], vals["frame_confidence"], vals["emotion"],
                          vals["sentiment"], vals["sentiment_intensity"], now, aid))
+                    _persist_entities(conn, aid, ents_by_id.get(aid) or [])
                 conn.commit()
             finally:
                 conn.close()

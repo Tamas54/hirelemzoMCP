@@ -3667,6 +3667,55 @@ async def source_page(request):
     return resp
 
 
+@mcp.custom_route("/entities", methods=["GET"])
+async def entities_page(request):
+    """Entitás-felfedező (HírSpektrum-stílus): top személyek/szervezetek/
+    helyszínek aggregált hangulattal. Pure SQL, LLM nélkül renderel."""
+    from echolot_dashboard import _request_lang
+    from echolot_entities_page import query_entities, render_entities_page
+
+    lang = _request_lang(request)
+    etype = (request.query_params.get("type") or "").strip()
+    try:
+        days = max(1, min(90, int(request.query_params.get("days", "7"))))
+    except (ValueError, TypeError):
+        days = 7
+    ents = await asyncio.to_thread(query_entities, str(DB_PATH), days, etype)
+    page = render_entities_page(ents, lang, etype=etype, days=days, request=request)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
+@mcp.custom_route("/entities/{label:path}", methods=["GET"])
+async def entity_detail(request):
+    """Entitás-portré: hangulat, forrás-bontás, Van Dijk szerep-eloszlás,
+    friss említések."""
+    from echolot_dashboard import _request_lang
+    from echolot_entities_page import (
+        _t,
+        query_entity_detail,
+        render_entity_detail_page,
+    )
+
+    lang = _request_lang(request)
+    label = (request.path_params.get("label") or "").strip()
+    try:
+        days = max(1, min(90, int(request.query_params.get("days", "30"))))
+    except (ValueError, TypeError):
+        days = 30
+    d = await asyncio.to_thread(query_entity_detail, str(DB_PATH), label, days)
+    if not d:
+        return HTMLResponse(
+            f"<h1>{_t(lang)['not_found']}</h1>"
+            f"<p><a href='/entities?lang={lang}'>← Entities</a></p>",
+            status_code=404)
+    page = render_entity_detail_page(d, lang, days=days, request=request)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 @mcp.custom_route("/landing-classic", methods=["GET"])
 async def landing_classic(request):
     """The previous main landing page (LANDING_HTML augmented with

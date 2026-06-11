@@ -233,9 +233,12 @@ def _render_entity_chip_row(entities: list[dict], lang: str) -> str:
         )
     if not chips:
         return ""
+    ent_lbl = {"hu": "Entitások", "en": "Entities", "de": "Entitäten",
+               "fr": "Entités", "ru": "Сущности", "uk": "Сутності"}.get(lang, "Entities")
     return f"""
       <div class="entity-row">
-        <div class="entity-row-label">Legkeresettebb kulcsszavak · 24h</div>
+        <div class="entity-row-label">Legkeresettebb kulcsszavak · 24h
+          · <a href="/entities?lang={lang}" style="color:var(--accent,#6cb6ff);text-decoration:none">{_escape(ent_lbl)} →</a></div>
         <div class="entity-chips">{''.join(chips)}</div>
       </div>
     """
