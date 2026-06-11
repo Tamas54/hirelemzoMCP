@@ -1997,6 +1997,18 @@ async def api_stats(request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@mcp.custom_route("/static/og-image.png", methods=["GET"])
+async def static_og_image_png(request):
+    """GEO OG-kép (1200×630 PNG, rajta a kanonikus számok) — a preview-k
+    és multimodális crawlerek ezt olvassák."""
+    from pathlib import Path as _P
+    p = _P(__file__).parent / "static" / "og-image.png"
+    if not p.is_file():
+        return Response(status_code=404)
+    return Response(p.read_bytes(), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 @mcp.custom_route("/static/og-image.svg", methods=["GET"])
 async def static_og_image(request):
     """Open Graph share image (1200×630 SVG, immutable cache)."""
@@ -4064,6 +4076,40 @@ failed: {counts.get('failed',0)} · él: {diag.get('thread_alive')}</td></tr>
 Railway env <code>MCP_REQUIRE_KEY=true</code> (most: {esc(os.environ.get('MCP_REQUIRE_KEY','ki'))})</p>
 <h2>Feedback ({len(fb)})</h2>
 <table><tr><th>mikor</th><th>oldal</th><th>üzenet</th></tr>{fb_rows}</table>
+</body></html>""")
+
+
+@mcp.custom_route("/about", methods=["GET"])
+async def about_page(request):
+    """Enciklopédikus /about (GEO-spec §4): harmadik személyű, tényközlő
+    szöveg — az LLM-ek idézhetőbb forrásként kezelik, mint a marketinget.
+    HU/EN; a kanonikus claimek + JSON-LD @graph ugyanazok, mint a landingen."""
+    from echolot_dashboard import _request_lang
+    from echolot_seo import (GEO_ABOUT, geo_title, geo_description,
+                             geo_graph_jsonld_html, seo_head_html, public_origin)
+    lang = _request_lang(request)
+    body_lang = "hu" if lang == "hu" else "en"
+    origin = public_origin(request)
+    seo = seo_head_html(
+        origin=origin, lang=lang, path="/about",
+        description=geo_description(lang),
+        og_title=("Rólunk — Echolot" if body_lang == "hu" else "About Echolot"),
+    ) + geo_graph_jsonld_html(origin)
+    h1 = "Az Echolotról" if body_lang == "hu" else "About Echolot"
+    back = "Vissza a főoldalra" if body_lang == "hu" else "Back to home"
+    return HTMLResponse(f"""<!doctype html><html lang="{lang}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{h1} — Echolot</title>
+{seo}
+<style>body{{background:#0d1117;color:#c9d1d9;font-family:Georgia,serif;
+max-width:720px;margin:60px auto;padding:0 22px;line-height:1.75;font-size:17px}}
+h1{{font-family:sans-serif;color:#e8eef0}}a{{color:#6cb6ff}}
+p{{margin:0 0 18px}}strong{{color:#e8eef0}}</style></head>
+<body><h1>{h1}</h1>
+{GEO_ABOUT[body_lang]}
+<p style="margin-top:30px"><a href="/?lang={lang}">← {back}</a> ·
+<a href="/entities?lang={lang}">Entities</a> ·
+<a href="/passport?lang={lang}">Narrative Tracer</a></p>
 </body></html>""")
 
 

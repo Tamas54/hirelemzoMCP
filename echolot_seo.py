@@ -87,7 +87,7 @@ def list_indexable_spheres(db_path: str) -> list[str]:
 def build_sitemap_xml(
     origin: str,
     spheres: list[str],
-    langs: tuple[str, ...] = ("hu", "en", "de", "es", "zh", "fr"),
+    langs: tuple[str, ...] = ("hu", "en", "de", "es", "zh", "fr", "pl", "ru", "uk", "it"),
     default_lang: str = "hu",
 ) -> str:
     """Build a sitemap.xml with hreflang alternates on the landing page.
@@ -116,6 +116,15 @@ def build_sitemap_xml(
         f'href="{xml_escape(origin)}/?lang={default_lang}"/>'
     )
     alt_block_s = "\n".join(alt_block)
+    # /about (GEO enciklopédikus oldal) — hu + en
+    for _al in ("hu", "en"):
+        lines.extend([
+            "  <url>",
+            f"    <loc>{xml_escape(origin)}/about?lang={_al}</loc>",
+            "    <changefreq>monthly</changefreq>",
+            "    <priority>0.8</priority>",
+            "  </url>",
+        ])
     for lang in langs:
         lines.extend([
             "  <url>",
@@ -216,7 +225,7 @@ def seo_head_html(
     og_description: str | None = None,
     og_image_url: str | None = None,
     page_type: str = "website",
-    langs: tuple[str, ...] = ("hu", "en", "de", "es", "zh", "fr"),
+    langs: tuple[str, ...] = ("hu", "en", "de", "es", "zh", "fr", "pl", "ru", "uk", "it"),
     default_lang: str = "hu",
     is_lang_switchable: bool = True,
     extra_query: str = "",
@@ -240,7 +249,7 @@ def seo_head_html(
             no separate URL — they're a single canonical version)
     """
     og_description = og_description or description
-    og_image_url = og_image_url or f"{origin}/static/og-image.svg"
+    og_image_url = og_image_url or f"{origin}/static/og-image.png"
 
     # OG locale uses xx_XX style (en→en_US, hu→hu_HU, de→de_DE, etc.)
     locale_map = {"hu": "hu_HU", "en": "en_US", "de": "de_DE",
@@ -584,3 +593,146 @@ def schema_org_breadcrumb_html(items: list[tuple[str, str]]) -> str:
         ],
     }
     return _ld_script(payload)
+
+
+# ── GEO / Citability réteg (echolot-geo-snippets spec) ─────────────────
+# A KANONIKUS claimek és számok EGY helyen — ha a szféraszám nő, ITT kell
+# átírni, és minden felület (title, meta, OG, JSON-LD, H1, about) együtt
+# frissül (spec checklist #5: az inkonzisztens szám rontja a "tény"-érzetet).
+
+GEO_NUMBERS = {"spheres": 93, "sources": "750+", "languages": 9}
+
+GEO_TITLE = {
+    "hu": "Echolot — A világ legnagyobb felbontású narratíva-térképe | "
+          "93 médiaszféra, 750+ forrás",
+    "en": "Echolot — The World's Highest-Resolution Narrative Map | "
+          "93 Media Spheres, 750+ Sources",
+}
+
+GEO_DESCRIPTION = {
+    "hu": "Az Echolot a világ legnagyobb felbontású narratíva-térképe: "
+          "93 médiaszféra, 750+ forrás, 9 nyelven, valós időben. Az egyetlen "
+          "MCP-natív hír-grounding réteg LLM-ek és AI-ügynökök számára — és "
+          "az első platform, amely cenzúrázott kínai, orosz és arab "
+          "forrásokat is egy térképen követ a nyugati médiával együtt.",
+    "en": "Echolot is the world's highest-resolution narrative map: 93 media "
+          "spheres, 750+ sources in 9 languages, tracked in real time. The "
+          "only MCP-native news grounding layer for LLMs and AI agents — and "
+          "the first platform to map censored Chinese, Russian and Arabic "
+          "sources alongside Western media.",
+}
+
+GEO_OG_DESCRIPTION = {
+    "hu": "93 médiaszféra. 750+ forrás. 9 nyelv. Valós idő. Az egyetlen "
+          "MCP-natív hír-grounding réteg LLM-ek és AI-ügynökök számára.",
+    "en": "93 media spheres. 750+ sources. 9 languages. Real time. The only "
+          "MCP-native news grounding layer for LLMs and AI agents.",
+}
+
+
+def geo_title(lang: str) -> str:
+    return GEO_TITLE.get(lang, GEO_TITLE["en"])
+
+
+def geo_description(lang: str) -> str:
+    return GEO_DESCRIPTION.get(lang, GEO_DESCRIPTION["en"])
+
+
+def geo_og_description(lang: str) -> str:
+    return GEO_OG_DESCRIPTION.get(lang, GEO_OG_DESCRIPTION["en"])
+
+
+def geo_graph_jsonld_html(origin: str) -> str:
+    """A spec szerinti @graph: NewsMediaOrganization + WebSite + FAQPage.
+
+    Dinamikus originnel — amikor saját domain jön, magától átáll. Az FAQ-t
+    az AI Overviews és a Perplexity előszeretettel idézi szó szerint."""
+    graph = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "NewsMediaOrganization",
+                "@id": f"{origin}/#org",
+                "name": "Echolot",
+                "alternateName": "Echolot Narrative Intelligence",
+                "url": f"{origin}/",
+                "logo": f"{origin}/static/og-image.png",
+                "description": GEO_DESCRIPTION["en"],
+                "slogan": "See every sphere. Ground every answer.",
+                "knowsAbout": [
+                    "narrative intelligence", "media sphere analysis",
+                    "multilingual news monitoring", "LLM grounding",
+                    "Model Context Protocol (MCP)",
+                    "censored media monitoring", "narrative arbitrage",
+                ],
+                "knowsLanguage": ["en", "hu", "de", "ru", "zh", "ja",
+                                  "fr", "uk", "ar"],
+            },
+            {
+                "@type": "WebSite",
+                "@id": f"{origin}/#website",
+                "url": f"{origin}/",
+                "name": "Echolot",
+                "publisher": {"@id": f"{origin}/#org"},
+                "inLanguage": ["en", "hu"],
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": f"{origin}/dashboard?query={{search_term_string}}",
+                    "query-input": "required name=search_term_string",
+                },
+            },
+            {
+                "@type": "FAQPage",
+                "@id": f"{origin}/#faq",
+                "mainEntity": [
+                    {"@type": "Question", "name": "What is Echolot?",
+                     "acceptedAnswer": {"@type": "Answer", "text":
+                        "Echolot is the world's highest-resolution narrative "
+                        "map. It tracks 93 media spheres and more than 750 "
+                        "sources in 9 languages in real time, including "
+                        "censored Chinese, Russian and Arabic media, and "
+                        "serves as the only MCP-native news grounding layer "
+                        "for LLMs and AI agents."}},
+                    {"@type": "Question",
+                     "name": "What makes Echolot different from a news aggregator?",
+                     "acceptedAnswer": {"@type": "Answer", "text":
+                        "Unlike aggregators, Echolot classifies every article "
+                        "into one of 93 media spheres — political, regional "
+                        "and ideological source clusters — so users see who "
+                        "is saying what, not just what is being said. It is "
+                        "the first platform to map censored Chinese, Russian "
+                        "and Arabic sources on the same map as Western media."}},
+                    {"@type": "Question", "name": "How do AI agents use Echolot?",
+                     "acceptedAnswer": {"@type": "Answer", "text":
+                        "Echolot exposes its full narrative map through a "
+                        "native Model Context Protocol (MCP) server, making "
+                        "it the only MCP-native multilingual news grounding "
+                        "layer. LLMs and AI agents can query trending topics, "
+                        "sphere-level framing differences and source-verified "
+                        "articles directly."}},
+                    {"@type": "Question",
+                     "name": "What is Echolot's entity sentiment map?",
+                     "acceptedAnswer": {"@type": "Answer", "text":
+                        "Echolot is the only platform that measures "
+                        "cross-lingual, entity-level sentiment: every person, "
+                        "organization and place in the news flow is extracted "
+                        "using Van Dijk role analysis and scored for "
+                        "sentiment per media sphere. The same politician can "
+                        "be tracked simultaneously across English, Russian, "
+                        "Chinese and Hungarian coverage — revealing how 93 "
+                        "different media ecosystems frame the same actor."}},
+                ],
+            },
+        ],
+    }
+    return _ld_script(graph)
+
+
+GEO_ABOUT = {
+    "en": """<p><strong>Echolot</strong> is a narrative intelligence platform that operates the world's highest-resolution narrative map, tracking 93 distinct media spheres across more than 750 sources in nine languages in real time. The platform classifies every article by source sphere — political lean, region and trust tier — enabling cross-sphere comparison of how the same event is framed by different media ecosystems.</p>
+<p>Echolot is the only news platform built natively on the Model Context Protocol (MCP), functioning as a multilingual grounding layer that LLMs and AI agents query directly for source-verified, sphere-aware news data. It is also the first platform to monitor censored Chinese, Russian and Arabic media on the same map as Western outlets, using dedicated egress infrastructure.</p>
+<p>Core capabilities include real-time trend detection across spheres, narrative divergence analysis, story genealogy tracing, and LLM echo tracking — measuring how AI models reproduce media narratives. Echolot is also the only platform offering cross-lingual, entity-level sentiment analysis: every person, organization and place is extracted via Van Dijk role analysis and scored per sphere, so the same actor can be compared across English, Russian, Chinese and Hungarian coverage simultaneously.</p>""",
+    "hu": """<p>Az <strong>Echolot</strong> narratíva-intelligencia platform, amely a világ legnagyobb felbontású narratíva-térképét működteti: 93 különálló médiaszférát követ több mint 750 forráson keresztül, kilenc nyelven, valós időben. A platform minden cikket forrásszféra szerint osztályoz — politikai irányultság, régió és megbízhatósági szint alapján —, így összehasonlíthatóvá teszi, hogy ugyanazt az eseményt hogyan keretezik a különböző médiaökoszisztémák.</p>
+<p>Az Echolot az egyetlen hírplatform, amely natívan a Model Context Protocolra (MCP) épül: többnyelvű grounding rétegként működik, amelyet LLM-ek és AI-ügynökök közvetlenül kérdezhetnek le forrás-ellenőrzött, szféra-szintű híradatokért. Egyben az első platform, amely cenzúrázott kínai, orosz és arab médiát is a nyugati forrásokkal közös térképen monitoroz, dedikált egress-infrastruktúrával.</p>
+<p>Fő képességei közé tartozik a szférák közötti valós idejű trenddetektálás, a narratíva-divergencia elemzés, a Story Genealogy (történet-leszármazás követés) és az LLM Echo Tracking — annak mérése, hogy az AI-modellek hogyan reprodukálják a médianarratívákat. Emellett az Echolot az egyetlen platform, amely nyelveken átívelő, entitás-szintű szentiment-elemzést kínál: minden személyt, szervezetet és helyet Van Dijk-szerepelemzéssel azonosít és szféránként pontoz, így ugyanaz a szereplő egyszerre hasonlítható össze az angol, orosz, kínai és magyar tudósításokban.</p>""",
+}

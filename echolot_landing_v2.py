@@ -2657,23 +2657,25 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
                 break
 
     # SEO head (megőrzött, ugyanaz mint az augment_landing-ben)
+    from echolot_seo import (geo_title, geo_description, geo_og_description,
+                             geo_graph_jsonld_html)
     seo_head = seo_head_html(
         origin=origin, lang=lang, path="/",
-        description=t("seo.site.description", lang),
-        og_title=f"Echolot — {t('landing.hero_title', lang)}",
+        description=geo_description(lang),
+        og_title=geo_title(lang).split(" | ")[0],
+        og_description=geo_og_description(lang),
     )
     # GEO A-front: emit schema.org JSON-LD so AI search engines can identify
     # and consolidate the Echolot entity (SoftwareApplication + Organization +
     # WebSite, with a sameAs array linking landing ↔ GitHub ↔ Railway).
+    # GEO-spec @graph: NewsMediaOrganization + WebSite + FAQPage (a korábbi
+    # Organization/WebSite/FAQ blokkok HELYETT — nincs duplikált típus);
+    # a SoftwareApplication (MCP-szerver) megmarad mellette.
     seo_head += (
         "\n"
         + schema_org_software_application_html(origin)
         + "\n"
-        + schema_org_organization_html(origin)
-        + "\n"
-        + schema_org_website_html(origin, lang)
-        + "\n"
-        + schema_org_faqpage_html()
+        + geo_graph_jsonld_html(origin)
     )
     # GEO answer blocks: question-form, self-contained citable copy (A-graded
     # by citability_scorer), rendered as visible SSR HTML for crawlers.
@@ -2765,7 +2767,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="600">
-  <title>Echolot — {title_html}</title>
+  <title>{_escape(geo_title(lang))}</title>
   {seo_head}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
