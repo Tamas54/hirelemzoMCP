@@ -3791,6 +3791,123 @@ async def api_translate_article(request):
         return JSONResponse({"ok": False, "error": type(exc).__name__}, status_code=500)
 
 
+@mcp.custom_route("/feedback", methods=["GET", "POST"])
+async def feedback_page(request):
+    """UX-teszt feedback-csatorna (plan 2.): név nélküli szabad szöveg +
+    az oldal-URL, amiről jött. POST → mentés + köszönő oldal."""
+    from echolot_dashboard import _request_lang
+    lang = _request_lang(request)
+    L = {"hu": ("Visszajelzés", "Mi működik jól? Mi zavaró? Mit hiányolsz?",
+                "Melyik oldalról? (opcionális URL)", "Küldés", "Köszönjük! 🙌",
+                "Vissza a főoldalra"),
+         "en": ("Feedback", "What works? What's confusing? What's missing?",
+                "Which page? (optional URL)", "Send", "Thank you! 🙌",
+                "Back to home")}.get(lang if lang in ("hu",) else "en")
+    if request.method == "POST":
+        try:
+            form = await request.form()
+            from echolot_metrics import save_feedback
+            ok = await asyncio.to_thread(
+                save_feedback, str(DB_PATH),
+                str(form.get("page") or ""), str(form.get("message") or ""),
+                request.headers.get("user-agent", ""))
+        except Exception as exc:
+            logger.warning("feedback save failed: %s", exc)
+            ok = False
+        body = (f"<h2>{L[4] if ok else '⚠'}</h2>"
+                f"<p><a href='/?lang={lang}' style='color:#6cb6ff'>{L[5]}</a></p>")
+    else:
+        body = f"""
+        <h2>{L[0]}</h2>
+        <form method="post" style="display:flex;flex-direction:column;gap:12px;max-width:560px">
+          <textarea name="message" rows="6" required minlength="3" placeholder="{L[1]}"
+            style="background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;padding:12px;font-family:inherit"></textarea>
+          <input name="page" placeholder="{L[2]}"
+            style="background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;padding:10px;font-family:inherit">
+          <button type="submit" style="background:#238636;color:#fff;border:0;border-radius:8px;padding:10px 18px;cursor:pointer;font-weight:600">{L[3]}</button>
+        </form>
+        <p style="margin-top:18px"><a href="/?lang={lang}" style="color:#6cb6ff">← {L[5]}</a></p>"""
+    return HTMLResponse(
+        f"<!doctype html><html lang='{lang}'><head><meta charset='utf-8'>"
+        f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        f"<title>{L[0]} — Echolot</title></head>"
+        f"<body style='background:#0d1117;color:#c9d1d9;font-family:sans-serif;"
+        f"max-width:680px;margin:60px auto;padding:0 20px'>{body}</body></html>")
+
+
+@mcp.custom_route("/admin", methods=["GET"])
+async def admin_page(request):
+    """Admin-lap (plan 7b minimál): olvasó-számok + feedback + rendszer-állapot.
+
+    Védelem: ?key=<ADMIN_KEY> (Railway env). Kulcs nélkül 403."""
+    admin_key = os.environ.get("ADMIN_KEY", "").strip()
+    if not admin_key:
+        return HTMLResponse(
+            "<h2>ADMIN_KEY nincs beállítva</h2><p>Railway → Variables → "
+            "ADMIN_KEY=&lt;titkos kulcs&gt;, aztán /admin?key=...</p>",
+            status_code=403)
+    if (request.query_params.get("key") or "") != admin_key:
+        return HTMLResponse("<h2>403</h2>", status_code=403)
+    from echolot_metrics import summary, list_feedback
+    try:
+        days = max(1, min(90, int(request.query_params.get("days", "14"))))
+    except (ValueError, TypeError):
+        days = 14
+    S = await asyncio.to_thread(summary, str(DB_PATH), days)
+    fb = await asyncio.to_thread(list_feedback, str(DB_PATH), 50)
+    import echolot_classifier as _ec
+    diag = await asyncio.to_thread(_ec.diagnostics, str(DB_PATH))
+
+    def esc(x):
+        import html as _h
+        return _h.escape(str(x))
+
+    max_v = max((d["views"] for d in S["daily"]), default=1) or 1
+    daily_rows = "".join(
+        f"<tr><td>{d['day']}</td><td>{d['uniques']}</td><td>{d['views']}</td>"
+        f"<td style='color:#8b949e'>{d['bot_views'] or 0}</td>"
+        f"<td><div style='background:#238636;height:10px;width:{int(d['views']/max_v*240)}px'></div></td></tr>"
+        for d in S["daily"])
+    cls_rows = "".join(f"<tr><td>{esc(c['path_class'])}</td><td>{c['n']}</td><td>{c['u']}</td></tr>"
+                       for c in S["classes"])
+    lang_rows = "".join(f"<tr><td>{esc(l['lang'])}</td><td>{l['n']}</td></tr>" for l in S["langs"])
+    ts_rows = "".join(f"<tr><td><a href='/story/{esc(t['detail'])}' style='color:#6cb6ff'>{esc(t['detail'])}</a></td><td>{t['n']}</td></tr>"
+                      for t in S["top_stories"])
+    te_rows = "".join(f"<tr><td>{esc(t['detail'])}</td><td>{t['n']}</td></tr>" for t in S["top_entities"])
+    fb_rows = "".join(f"<tr><td style='white-space:nowrap'>{esc(f['created_at'][:16])}</td>"
+                      f"<td>{esc(f['page'] or '')}</td><td>{esc(f['message'])}</td></tr>"
+                      for f in fb) or "<tr><td colspan=3>—</td></tr>"
+    counts = diag.get("counts") or {}
+    return HTMLResponse(f"""<!doctype html><html><head><meta charset="utf-8">
+<title>Echolot Admin</title><style>
+body{{background:#0d1117;color:#c9d1d9;font-family:sans-serif;max-width:1100px;margin:30px auto;padding:0 20px}}
+h2{{margin-top:34px;border-bottom:1px solid #30363d;padding-bottom:6px}}
+table{{border-collapse:collapse;width:100%}}td,th{{padding:5px 12px;border-bottom:1px solid #21262d;text-align:left;font-size:14px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:28px}}
+</style></head><body>
+<h1>Echolot Admin <span style="font-size:13px;color:#8b949e">utolsó {days} nap ·
+<a href="?key={esc(admin_key)}&days=7" style="color:#6cb6ff">7</a> /
+<a href="?key={esc(admin_key)}&days=14" style="color:#6cb6ff">14</a> /
+<a href="?key={esc(admin_key)}&days=30" style="color:#6cb6ff">30</a> nap</span></h1>
+<h2>Napi olvasók</h2>
+<table><tr><th>nap</th><th>unique</th><th>letöltés</th><th>bot</th><th></th></tr>{daily_rows}</table>
+<div class="grid">
+<div><h2>Oldal-osztályok</h2><table><tr><th>osztály</th><th>letöltés</th><th>unique</th></tr>{cls_rows}</table></div>
+<div><h2>Nyelvek</h2><table><tr><th>nyelv</th><th>letöltés</th></tr>{lang_rows}</table></div>
+<div><h2>Top sztorik</h2><table>{ts_rows}</table></div>
+<div><h2>Top entitások</h2><table>{te_rows}</table></div>
+</div>
+<h2>Rendszer</h2>
+<table>
+<tr><td>classifier</td><td>ok: {counts.get('ok',0)} · pending: {counts.get('pending',0)} ·
+failed: {counts.get('failed',0)} · él: {diag.get('thread_alive')}</td></tr>
+<tr><td>utolsó osztályozás</td><td>{esc(diag.get('last_classified_at'))}</td></tr>
+</table>
+<h2>Feedback ({len(fb)})</h2>
+<table><tr><th>mikor</th><th>oldal</th><th>üzenet</th></tr>{fb_rows}</table>
+</body></html>""")
+
+
 @mcp.custom_route("/entities", methods=["GET"])
 async def entities_page(request):
     """Entitás-felfedező (HírSpektrum-stílus): top személyek/szervezetek/

@@ -167,6 +167,13 @@ def main():
     else:
         log.info("brave-fetcher disabled (set BRAVE_MCP_URL to enable)")
 
+    # Olvasó-analytics flusher (plan 7a) — memóriapuffer → SQLite 20s-onként
+    def metrics_flusher():
+        from echolot_metrics import flusher_thread
+        from scraper import DB_PATH as _dbp
+        flusher_thread(str(_dbp))
+    threading.Thread(target=metrics_flusher, daemon=True, name="metrics").start()
+
     # Wikicorrelate cache-warmer (off by default — set WIKICORRELATE_WARM=true)
     t3 = threading.Thread(target=wikicorrelate_warmer_thread, daemon=True, name="wiki-warmer")
     t3.start()
