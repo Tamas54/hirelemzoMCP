@@ -2415,12 +2415,22 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
         log.warning("top_entities failed: %s", exc)
         entities = []
 
-    # Rovatok: Tech / Sport / Bulvár. Először lang-szűrt, ha üres → all-lang.
+    # Rovatok: Tech / Sport / Bulvár. Fallback-lánc: saját nyelv → ANGOL →
+    # minden nyelv. Korábban azonnal all-lang jött, így a lengyel oldalon
+    # magyar bulvár + portugál foci keveredett (Kommandant: "alul minden
+    # van"). Az angol a legkevésbé meglepő közvetítő-tartalom; a vegyes
+    # zagyvalék csak legvégső esetben. (Igazi megoldás: keresztfordító —
+    # plan20260611.md 1a pont.)
     async def _rovat(spheres: frozenset[str], label: str) -> list[dict]:
         try:
             res = await asyncio.to_thread(
                 cluster_top_stories, db_path, hours=24, min_sources=1, limit=6,
                 lang=lang, sphere_filter=spheres)
+            if len(res) < 2 and lang != "en":
+                res_en = await asyncio.to_thread(
+                    cluster_top_stories, db_path, hours=24, min_sources=1, limit=6,
+                    lang="en", sphere_filter=spheres)
+                res = res or res_en
             if not res:
                 res = await asyncio.to_thread(
                     cluster_top_stories, db_path, hours=24, min_sources=1, limit=6,
