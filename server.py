@@ -3454,6 +3454,10 @@ async def landing(request):
 # Cluster-enkénti throttle az on-demand háttér-letöltésre: az utótöltő
 # poll (és több párhuzamos látogató) ne indítson duplikált fetch-eket.
 _story_fill_started: dict[str, float] = {}
+# Globális párhuzamosság-korlát a háttér-gazdagításra (LLM + fetch): SOK
+# egyidejű olvasó se hajthatja 429-be a SiliconFlow-t / torlódásba a DB-t.
+# Cluster-enként amúgy is csak egyszer fut (throttle + DB-perzisztencia).
+_enrich_sem = asyncio.Semaphore(3)
 
 # A story-oldal utótöltő scriptje — lásd a story_detail route kommentjét.
 _STORY_LATEFILL_JS = """
@@ -3551,61 +3555,62 @@ async def story_detail(request):
             async def _bg_fill(items=pending, amap=arts_by_id,
                                to_translate=foreign, target=lang,
                                to_classify=unclassified, clu=cluster):
-                try:
-                    if to_classify:
-                        from echolot_classifier import classify_on_demand
-                        got = await asyncio.to_thread(
-                            classify_on_demand, str(DB_PATH), to_classify)
-                        if got:
-                            for a in to_classify:
-                                vals = got.get(a.get("article_id"))
-                                if vals:
-                                    a["frame"] = vals["frame"]
-                                    a["sentiment"] = vals["sentiment"]
-                                    a["classification_status"] = "ok"
-                            # Cluster-aggregátum frissítése in-place, hogy a
-                            # cache-elt dictből az elemzés-szekció renderelhető
-                            # legyen (latefill úsztatja be).
-                            from collections import Counter as _Counter
-                            fc = _Counter(a["frame"] for a in (clu.get("articles") or [])
-                                          if a.get("frame"))
-                            sv = [a["sentiment"] for a in (clu.get("articles") or [])
-                                  if a.get("sentiment") is not None]
-                            clu["frame_dist"] = dict(fc)
-                            clu["dominant_frame"] = (max(fc, key=fc.get) if fc else None)
-                            clu["avg_sentiment"] = (round(sum(sv) / len(sv), 2)
-                                                    if sv else None)
-                            clu["classified_count"] = sum(fc.values())
-                except Exception as exc:
-                    logger.warning("story bg classify failed: %s", exc)
-                try:
-                    if items:
-                        filled = await fetch_on_demand(items, DB_PATH)
-                        for aid, txt in filled.items():
-                            if aid in amap:
-                                amap[aid]["full_text"] = txt
-                except Exception as exc:
-                    logger.warning("story bg full-text failed: %s", exc)
-                try:
-                    if to_translate:
-                        from echolot_ondemand_translate import translate_map
-                        texts = [t for a in to_translate
-                                 for t in (a.get("title"), (a.get("lead") or "").strip())
-                                 if t]
-                        tmap = await asyncio.to_thread(
-                            translate_map, texts, target, str(DB_PATH))
-                        for a in to_translate:
-                            tr = {}
-                            ti, le = a.get("title") or "", (a.get("lead") or "").strip()
-                            if ti and tmap.get(ti) and tmap[ti] != ti:
-                                tr["title"] = tmap[ti]
-                            if le and tmap.get(le) and tmap[le] != le:
-                                tr["lead"] = tmap[le]
-                            # üres dict is bekerül: jelzi hogy próbáltuk,
-                            # ne forduljon újra minden megnyitásnál
-                            a.setdefault("_tr", {})[target] = tr
-                except Exception as exc:
-                    logger.warning("story bg translate failed: %s", exc)
+              async with _enrich_sem:
+                  try:
+                      if to_classify:
+                          from echolot_classifier import classify_on_demand
+                          got = await asyncio.to_thread(
+                              classify_on_demand, str(DB_PATH), to_classify)
+                          if got:
+                              for a in to_classify:
+                                  vals = got.get(a.get("article_id"))
+                                  if vals:
+                                      a["frame"] = vals["frame"]
+                                      a["sentiment"] = vals["sentiment"]
+                                      a["classification_status"] = "ok"
+                              # Cluster-aggregátum frissítése in-place, hogy a
+                              # cache-elt dictből az elemzés-szekció renderelhető
+                              # legyen (latefill úsztatja be).
+                              from collections import Counter as _Counter
+                              fc = _Counter(a["frame"] for a in (clu.get("articles") or [])
+                                            if a.get("frame"))
+                              sv = [a["sentiment"] for a in (clu.get("articles") or [])
+                                    if a.get("sentiment") is not None]
+                              clu["frame_dist"] = dict(fc)
+                              clu["dominant_frame"] = (max(fc, key=fc.get) if fc else None)
+                              clu["avg_sentiment"] = (round(sum(sv) / len(sv), 2)
+                                                      if sv else None)
+                              clu["classified_count"] = sum(fc.values())
+                  except Exception as exc:
+                      logger.warning("story bg classify failed: %s", exc)
+                  try:
+                      if items:
+                          filled = await fetch_on_demand(items, DB_PATH)
+                          for aid, txt in filled.items():
+                              if aid in amap:
+                                  amap[aid]["full_text"] = txt
+                  except Exception as exc:
+                      logger.warning("story bg full-text failed: %s", exc)
+                  try:
+                      if to_translate:
+                          from echolot_ondemand_translate import translate_map
+                          texts = [t for a in to_translate
+                                   for t in (a.get("title"), (a.get("lead") or "").strip())
+                                   if t]
+                          tmap = await asyncio.to_thread(
+                              translate_map, texts, target, str(DB_PATH))
+                          for a in to_translate:
+                              tr = {}
+                              ti, le = a.get("title") or "", (a.get("lead") or "").strip()
+                              if ti and tmap.get(ti) and tmap[ti] != ti:
+                                  tr["title"] = tmap[ti]
+                              if le and tmap.get(le) and tmap[le] != le:
+                                  tr["lead"] = tmap[le]
+                              # üres dict is bekerül: jelzi hogy próbáltuk,
+                              # ne forduljon újra minden megnyitásnál
+                              a.setdefault("_tr", {})[target] = tr
+                  except Exception as exc:
+                      logger.warning("story bg translate failed: %s", exc)
 
             asyncio.create_task(_bg_fill())
     except Exception as exc:

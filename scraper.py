@@ -248,6 +248,10 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
+    # WAL mellett a NORMAL a javasolt szint: commit-onkénti fsync nélkül.
+    # A Railway network-volume lassú fsync-je miatt FULL-lal a hosszú írási
+    # tranzakciók torlódtak → "database is locked" sorozatok minden workerben.
+    conn.execute("PRAGMA synchronous = NORMAL;")
     try:
         yield conn
         conn.commit()

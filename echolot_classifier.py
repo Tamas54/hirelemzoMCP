@@ -403,25 +403,38 @@ def classify_on_demand(db_path: str | Path, items: list[dict]) -> dict[str, dict
             continue
     out: dict[str, dict] = {}
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    conn = sqlite3.connect(str(db_path), timeout=15)
-    try:
-        conn.execute("PRAGMA journal_mode=WAL")
-        for n, a in enumerate(batch):
-            vals = _sanitize(by_i.get(n)) if by_i.get(n) else None
-            if vals is None:
-                continue
-            conn.execute(
-                """UPDATE articles SET frame=?, frame_confidence=?, emotion=?,
-                       sentiment=?, sentiment_intensity=?,
-                       classification_status='ok', classified_at=?
-                   WHERE article_id=? AND classification_status IS NULL""",
-                (vals["frame"], vals["frame_confidence"], vals["emotion"],
-                 vals["sentiment"], vals["sentiment_intensity"], now,
-                 a["article_id"]))
+    # A DB-írás lock-ütközésre retry-t kap, és a hibát a ringbuffer-logba
+    # írjuk (a /health?classifier=1 mutatja) — e nélkül az on-demand bukás
+    # láthatatlan volt. Ha az írás végleg bukik, az IN-MEMORY eredményt
+    # akkor is visszaadjuk: az oldal elemzése megjelenik, a DB-perzisztencia
+    # pedig a workerre marad (újra fogja osztályozni).
+    for n, a in enumerate(batch):
+        vals = _sanitize(by_i.get(n)) if by_i.get(n) else None
+        if vals is not None:
             out[a["article_id"]] = vals
-        conn.commit()
-    finally:
-        conn.close()
+    for attempt in range(2):
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=30)
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA synchronous=NORMAL")
+                for aid, vals in out.items():
+                    conn.execute(
+                        """UPDATE articles SET frame=?, frame_confidence=?, emotion=?,
+                               sentiment=?, sentiment_intensity=?,
+                               classification_status='ok', classified_at=?
+                           WHERE article_id=? AND classification_status IS NULL""",
+                        (vals["frame"], vals["frame_confidence"], vals["emotion"],
+                         vals["sentiment"], vals["sentiment_intensity"], now, aid))
+                conn.commit()
+            finally:
+                conn.close()
+            log.info("on-demand classified %d articles", len(out))
+            break
+        except sqlite3.OperationalError as exc:
+            log.warning("on-demand classify DB write failed (attempt %d/2): %s",
+                        attempt + 1, exc)
+            time.sleep(2)
     return out
 
 
