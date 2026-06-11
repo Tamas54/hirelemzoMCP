@@ -851,6 +851,7 @@ _SD_FRAME = {
     "responsibility":  ("#ff7b72", {"hu": "Felelősség", "en": "Responsibility", "de": "Verantwortung"}),
     "security_threat": ("#db61a2", {"hu": "Biztonsági fenyegetés", "en": "Security threat", "de": "Sicherheit"}),
     "progress":        ("#2ea043", {"hu": "Fejlődés", "en": "Progress", "de": "Fortschritt"}),
+    "crime":           ("#e3633d", {"hu": "Bűncselekmény", "en": "Crime", "de": "Kriminalität"}),
     "other":           ("#8b949e", {"hu": "Egyéb", "en": "Other", "de": "Sonstige"}),
 }
 

@@ -3871,6 +3871,25 @@ async def entity_detail(request):
     except Exception as exc:
         logger.warning("entity narratives failed: %s", exc)
         narratives = []
+    # Lefedettség-bővítés: ha a nyers találatok zöme még elemzetlen
+    # (pl. Magyar Péter: 10 elemzett / 109 találat), a megnyitás HÁTTÉRBEN
+    # folytatja az osztályozást — minden nézet ~36 cikkel többet fed le.
+    if d.get("fts_total", 0) > d.get("mentions", 0) * 3:
+        tkey = f"entlabel:{label.lower()}"
+        if (time.monotonic() - _story_fill_started.get(tkey, 0)) > 120:
+            _story_fill_started[tkey] = time.monotonic()
+
+            async def _bg_more(lbl=label):
+                try:
+                    from echolot_classifier import classify_for_query
+                    async with _enrich_sem:
+                        n = await asyncio.to_thread(
+                            classify_for_query, str(DB_PATH), lbl)
+                    logger.info("entity coverage boost %r: +%d", lbl, n)
+                except Exception as exc:
+                    logger.warning("entity coverage boost failed: %s", exc)
+
+            asyncio.create_task(_bg_more())
     page = render_entity_detail_page(d, lang, days=days,
                                      narratives=narratives, request=request)
     resp = HTMLResponse(page)

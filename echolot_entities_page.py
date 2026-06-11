@@ -36,6 +36,8 @@ _L = {
         "by_source_sub": "Hogyan tudósítanak a források erről az entitásról.",
         "roles": "Szerep-eloszlás", "recent": "Friss említések",
         "sent_dist": "Hangulat-eloszlás", "narratives": "Aktív narratívák · 48h",
+        "coverage": "elemzett említés", "coverage_of": "szöveges találatból",
+        "coverage_note": "az elemzés folyamatosan bővül",
         "most_pos": "Legpozitívabb narratíva", "most_neg": "Legnegatívabb narratíva",
         "neg": "Negatív", "neu": "Semleges", "pos": "Pozitív",
         "empty": "Még nincs entitás-adat — az elemző most dolgozza fel a cikkeket.",
@@ -59,6 +61,8 @@ _L = {
         "by_source_sub": "How each source covers this entity.",
         "roles": "Role distribution", "recent": "Recent mentions",
         "sent_dist": "Sentiment distribution", "narratives": "Active narratives · 48h",
+        "coverage": "analyzed mentions", "coverage_of": "text matches",
+        "coverage_note": "analysis keeps expanding",
         "most_pos": "Most positive narrative", "most_neg": "Most negative narrative",
         "neg": "Negative", "neu": "Neutral", "pos": "Positive",
         "empty": "No entity data yet — the analyzer is processing articles.",
@@ -154,22 +158,46 @@ def query_entities(db_path: str, days: int = 7, etype: str = "",
              "n_sources": r[4]} for r in rows]
 
 
+def _label_variants(label: str) -> list[str]:
+    """Név-permutációk: 'Magyar Péter' ↔ 'Péter Magyar' (angol cikkek
+    fordított szórenddel írják a magyar neveket). Két-szavas neveknél."""
+    parts = label.split()
+    if len(parts) == 2:
+        return [label, f"{parts[1]} {parts[0]}"]
+    return [label]
+
+
 def query_entity_detail(db_path: str, label: str, days: int = 30) -> dict | None:
-    """Egy entitás portréja: átfogó hangulat, forrás-bontás, szerepek, friss cikkek."""
+    """Egy entitás portréja: átfogó hangulat, forrás-bontás, szerepek, friss cikkek.
+    A 'lefedettség' is visszamegy: hány NYERS szöveg-találat van a korpuszban
+    (FTS) az elemzett említések mellett — őszinte 'X elemzett / Y találat'."""
+    variants = _label_variants(label)
+    vq = " OR ".join("ae.label = ? COLLATE NOCASE" for _ in variants)
     con = sqlite3.connect(db_path)
     try:
-        base = """
+        base = f"""
             FROM article_entities ae
             JOIN articles a ON a.article_id = ae.article_id
-            WHERE ae.label = ? COLLATE NOCASE
+            WHERE ({vq})
               AND a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)
         """
-        params = [label, f"-{int(days)} days"]
+        params = [*variants, f"-{int(days)} days"]
         head = con.execute(
             f"SELECT COUNT(*), AVG(ae.sentiment), MAX(ae.entity_type) {base}",
             params).fetchone()
         if not head or not head[0]:
             return None
+        fts_total = 0
+        try:
+            fq = " OR ".join(f'"{v}"' for v in variants)
+            fts_total = con.execute(
+                """SELECT COUNT(*) FROM articles a
+                   JOIN articles_fts f ON f.article_id = a.article_id
+                   WHERE articles_fts MATCH ?
+                     AND a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)""",
+                (fq, f"-{int(days)} days")).fetchone()[0]
+        except sqlite3.OperationalError:
+            pass
         by_source = con.execute(
             f"""SELECT a.source_name, COUNT(*) n, AVG(ae.sentiment) s {base}
                 GROUP BY a.source_id ORDER BY n DESC LIMIT 12""", params).fetchall()
@@ -191,7 +219,7 @@ def query_entity_detail(db_path: str, label: str, days: int = 30) -> dict | None
     finally:
         con.close()
     return {
-        "label": label, "mentions": head[0],
+        "label": label, "mentions": head[0], "fts_total": fts_total,
         "avg_sent": round(head[1], 2) if head[1] is not None else None,
         "etype": head[2] or "other",
         "by_source": [{"source": r[0], "n": r[1],
@@ -539,7 +567,9 @@ def render_entity_detail_page(d: dict, lang: str, days: int = 30,
         <span>{_escape(t["overall"])}:
           <strong style="color:{scol}">{_escape(slbl)}
           ({f"{sent:+.2f}" if sent is not None else "—"})</strong></span>
-        <span>📰 {d["mentions"]} {_escape(t["articles"])} · {days} {_escape(t["days"])}</span>
+        <span>📰 {d["mentions"]} {_escape(t["coverage"])}
+          {f' / {d["fts_total"]} {_escape(t["coverage_of"])} — {_escape(t["coverage_note"])}' if d.get("fts_total", 0) > d["mentions"] else ""}
+          · {days} {_escape(t["days"])}</span>
         {_sent_bar(sent, 120)}
         <span style="display:inline-flex;gap:6px;margin-left:auto">{day_btns}</span>
       </div>

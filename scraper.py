@@ -350,6 +350,14 @@ def init_db() -> None:
         # Cikk-revízió számláló (a article_revisions táblát a SCHEMA hozza
         # létre) — gyors szűréshez a story-oldali "✎ módosítva" jelvénynek.
         _ensure_column(conn, "articles", "revision_count", "INTEGER DEFAULT 0")
+        # Egyszeri újraosztályozás: a "crime" frame bevezetése (2026-06-11)
+        # ELŐTT 'other'-re sorolt cikkek vissza a sorba — a bűnügyi hírek
+        # addig 'Egyéb'-be estek (Kommandant: Morrison's-gyilkosság).
+        # Idempotens: az új osztályozás classified_at-ja a cutoff utáni.
+        conn.execute("""UPDATE articles
+                        SET classification_status=NULL, frame=NULL, classified_at=NULL
+                        WHERE classification_status='ok' AND frame='other'
+                          AND classified_at <= '2026-06-11T17:10:00Z'""")
     log.info("DB initialised at %s", DB_PATH)
 
 

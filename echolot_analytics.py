@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 from echolot_sphere_taxonomy import dedup_spheres, CHILD_TO_PARENT
 
 FRAMES = ["conflict", "human_interest", "economic", "morality", "vulnerability",
-          "responsibility", "security_threat", "progress", "other"]
+          "responsibility", "security_threat", "progress", "crime", "other"]
 _STOP = {"the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "is",
          "az", "egy", "es", "hogy", "nem", "der", "die", "das", "und", "von"}
 

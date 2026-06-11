@@ -56,7 +56,7 @@ log.setLevel(logging.INFO)
 DB_PATH = Path(os.environ.get("DB_PATH", "echolot.db"))
 
 FRAMES = {"conflict", "human_interest", "economic", "morality", "vulnerability",
-          "responsibility", "security_threat", "progress", "other"}
+          "responsibility", "security_threat", "progress", "crime", "other"}
 EMOTIONS = {"anger", "fear", "joy", "surprise", "sadness", "trust", "disgust", "other"}
 INTENSITIES = {"low", "medium", "high"}
 
@@ -123,7 +123,9 @@ _SYSTEM = (
     "language, do not translate), return its dominant news frame, dominant "
     "emotion, sentiment, and the salient named entities. Respond ONLY with JSON.\n\n"
     "frame ∈ [conflict, human_interest, economic, morality, vulnerability, "
-    "responsibility, security_threat, progress, other] (Semetko–Valkenburg).\n"
+    "responsibility, security_threat, progress, crime, other] "
+    "(Semetko–Valkenburg + crime). Use 'crime' for criminal acts, police "
+    "investigations, court trials, murders, fraud cases.\n"
     "emotion ∈ [anger, fear, joy, surprise, sadness, trust, disgust, other] (Plutchik).\n"
     "sentiment: float in [-1,1] (negative→positive). intensity ∈ [low, medium, high].\n"
     "frame_confidence: float in [0,1].\n"

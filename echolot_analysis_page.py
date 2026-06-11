@@ -14,12 +14,14 @@ from html import escape as _esc
 _FRAME_COLOR = {
     "conflict": "#f85149", "human_interest": "#58a6ff", "economic": "#3fb950",
     "morality": "#bc8cff", "vulnerability": "#d29922", "responsibility": "#ff7b72",
-    "security_threat": "#db61a2", "progress": "#2ea043", "other": "#8b949e",
+    "security_threat": "#db61a2", "progress": "#2ea043", "crime": "#e3633d",
+    "other": "#8b949e",
 }
 _FRAME_LABEL = {
     "conflict": "Conflict", "human_interest": "Human interest", "economic": "Economic",
     "morality": "Morality", "vulnerability": "Vulnerability", "responsibility": "Responsibility",
-    "security_threat": "Security threat", "progress": "Progress", "other": "Other",
+    "security_threat": "Security threat", "progress": "Progress",
+    "crime": "Crime", "other": "Other",
 }
 _EMO_COLOR = {
     "anger": "#f85149", "fear": "#8957e5", "joy": "#e3b341", "surprise": "#39c5cf",
