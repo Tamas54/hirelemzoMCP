@@ -128,7 +128,10 @@ def translate_map(texts, target_lang: str, db_path: str = "echolot.db") -> dict[
     Cache-first; misses translated in batches via flash and cached. Always
     returns an entry for every non-empty input (identity if no key / failure)."""
     target_lang = (target_lang or "en").lower()
-    uniq = list({t for t in (texts or []) if t and t.strip()})[:_MAX_TEXTS]
+    # SORRENDTARTÓ dedup (dict.fromkeys, NEM set!) — a hívó prioritás-sorrendje
+    # számít: a landing a top sztorikat adja először, azok forduljanak előbb.
+    # (A set hash-sorrendje miatt "lentről kezdte" a fordítást — Kommandant.)
+    uniq = [t for t in dict.fromkeys(texts or []) if t and t.strip()][:_MAX_TEXTS]
     if not uniq:
         return {}
     out: dict[str, str] = {}
