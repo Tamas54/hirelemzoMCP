@@ -255,6 +255,7 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
     conn = sqlite3.connect(str(db_path), timeout=15)
     try:
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
         batch = _claim_batch(conn, batch_size)
         if not batch:
             return 0
@@ -423,7 +424,8 @@ def classify_on_demand(db_path: str | Path, items: list[dict]) -> dict[str, dict
                         """UPDATE articles SET frame=?, frame_confidence=?, emotion=?,
                                sentiment=?, sentiment_intensity=?,
                                classification_status='ok', classified_at=?
-                           WHERE article_id=? AND classification_status IS NULL""",
+                           WHERE article_id=? AND (classification_status IS NULL
+                                 OR classification_status='failed')""",
                         (vals["frame"], vals["frame_confidence"], vals["emotion"],
                          vals["sentiment"], vals["sentiment_intensity"], now, aid))
                 conn.commit()

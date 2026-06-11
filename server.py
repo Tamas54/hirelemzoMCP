@@ -3478,7 +3478,7 @@ _STORY_LATEFILL_JS = """
         var na = doc.getElementById('frame-analysis-slot');
         var oa = document.getElementById('frame-analysis-slot');
         if (na && oa) oa.innerHTML = na.innerHTML;
-      } else if (tries < 3) {
+      } else if (tries < 7) {
         setTimeout(refresh, 5000);
       }
     }).catch(function(){});
@@ -3543,7 +3543,7 @@ async def story_detail(request):
         unclassified = [
             a for a in arts
             if a.get("article_id") and not a.get("frame")
-            and (a.get("classification_status") or "") == ""
+            and (a.get("classification_status") or "") in ("", "failed")
         ][:12]
         throttle_key = f"{cluster_id}:{lang}"
         if (pending or foreign or unclassified) and \

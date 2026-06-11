@@ -132,6 +132,7 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
     conn = sqlite3.connect(str(db_path), timeout=15)
     try:
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
         ident = _mark_english_identity(conn)
         batch = _claim_batch(conn, batch_size)
         written = ident

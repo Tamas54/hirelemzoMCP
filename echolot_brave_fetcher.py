@@ -129,13 +129,23 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds") + "Z"
 
 
+def _connect(db_path: Path) -> sqlite3.Connection:
+    """Writer-kapcsolat WAL + synchronous=NORMAL pragmákkal — a Railway
+    network-volume lassú fsync-je miatt FULL-lal a nagy full_text írások
+    hosszan tartották a write-lockot ("database is locked" mindenhol)."""
+    conn = sqlite3.connect(db_path, timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+
 def _claim_batch(db_path: Path, batch_size: int) -> list[tuple[str, str]]:
     """Atomically claim up to `batch_size` pending articles.
 
     Marks them as full_text_status='pending' so a concurrent cycle won't grab
     the same rows. Returns list of (article_id, url).
     """
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute("""
             SELECT article_id, url
             FROM articles
@@ -159,7 +169,7 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
     now = _utc_now_iso()
     if result is None:
         # Transport error — reset to NULL so it gets retried next cycle.
-        with sqlite3.connect(db_path, timeout=30.0) as conn:
+        with _connect(db_path) as conn:
             conn.execute(
                 "UPDATE articles SET full_text_status=NULL WHERE article_id=?",
                 (article_id,),
@@ -171,7 +181,7 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
         text = result.get("text") or result.get("markdown") or ""
         if not _looks_like_text(text):
             # Undecoded/binary payload masquerading as text — refuse to store it.
-            with sqlite3.connect(db_path, timeout=30.0) as conn:
+            with _connect(db_path) as conn:
                 conn.execute("""
                     UPDATE articles
                     SET full_text_status='blocked',
@@ -187,7 +197,7 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
             if result.get("_via") == "httpx_fallback"
             else None
         )
-        with sqlite3.connect(db_path, timeout=30.0) as conn:
+        with _connect(db_path) as conn:
             conn.execute("""
                 UPDATE articles
                 SET full_text=?, full_text_status='ok',
@@ -208,7 +218,7 @@ def _persist(db_path: Path, article_id: str, result: Optional[dict]) -> str:
         return "ok"
 
     block = result.get("block_reason") or "unknown"
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with _connect(db_path) as conn:
         conn.execute("""
             UPDATE articles
             SET full_text_status='blocked',
@@ -272,7 +282,7 @@ def reset_garbage_full_text(db_path: Path = DB_PATH) -> int:
 
     Cheap enough to run at startup: it samples the first 4 KB of each 'ok' row."""
     try:
-        with sqlite3.connect(db_path, timeout=30.0) as conn:
+        with _connect(db_path) as conn:
             rows = conn.execute("""
                 SELECT article_id, full_text FROM articles
                 WHERE full_text_status='ok'
