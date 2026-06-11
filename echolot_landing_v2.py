@@ -1296,13 +1296,13 @@ _LANDING_V2_EXTRA_CSS = """
       .top-actions { position: static; padding: 0.7rem 1rem 0;
                      flex-wrap: wrap; justify-content: flex-end; }
     }
-    /* Közepes szélességen a nav-sor (tabok + nyelv-választó) ne csússzon a
-       jobb-fent lebegő top-actions gombsor alá — helyet foglalunk neki, a
-       flex-wrap miatt a nyelv-választó inkább új sorba törik. (Kommandant
-       screenshot: a Magyar-select a téma-kapcsoló alá ért az új Entitások
-       fül szélesítése után.) */
-    @media (min-width: 701px) and (max-width: 1420px) {
-      .echolot-augment { padding-right: 420px; }
+    /* A nav-sor (tabok + nyelv-választó) ne csússzon a jobb-fent lebegő
+       top-actions gombsor alá — MINDEN 700px feletti szélességen helyet
+       foglalunk neki (a magyar fülfeliratokkal a sor ~1850px-ig is alá
+       érne); a flex-wrap a nyelv-választót inkább új sorba töri.
+       (Kommandant screenshot ×2: a Magyar-select a téma-kapcsoló alatt.) */
+    @media (min-width: 701px) {
+      .echolot-augment { padding-right: 440px; }
     }
 
     /* =====================================================================
