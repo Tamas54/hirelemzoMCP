@@ -893,6 +893,7 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     enrich = (
         sum(1 for a in articles if (a.get("full_text") or "").strip())
         + sum(1 for a in articles if (a.get("_tr") or {}).get(lang))
+        + sum(1 for a in articles if a.get("frame"))
     )
 
     title_html = _escape(title[:80])
@@ -932,7 +933,7 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
       {timeline_html}
     </header>
 
-    {frame_analysis_html}
+    <div id="frame-analysis-slot">{frame_analysis_html}</div>
 
     {perspective_html}
 

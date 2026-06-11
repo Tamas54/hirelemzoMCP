@@ -3471,6 +3471,9 @@ _STORY_LATEFILL_JS = """
       if (nl && ol && fresh > cur) {
         ol.innerHTML = nl.innerHTML;
         ol.setAttribute('data-enrich', String(fresh));
+        var na = doc.getElementById('frame-analysis-slot');
+        var oa = document.getElementById('frame-analysis-slot');
+        if (na && oa) oa.innerHTML = na.innerHTML;
       } else if (tries < 3) {
         setTimeout(refresh, 5000);
       }
@@ -3515,6 +3518,7 @@ async def story_detail(request):
     # A _STORY_LATEFILL_JS data-enrich alapján úsztatja be az eredményt.
     pending: list = []
     foreign: list = []
+    unclassified: list = []
     try:
         arts = cluster.get("articles") or []
         pending = [
@@ -3529,15 +3533,51 @@ async def story_detail(request):
             if (a.get("language") or "") and a["language"] != lang
             and lang not in (a.get("_tr") or {})
         ]
+        # On-demand F1: a worker a teljes backlogot published_at DESC darálja,
+        # a megnyitott sztori cikkei órákig sorban állnának — itt soron kívül
+        # osztályozzuk őket, hogy az elemzés-szekció percen belül megjelenjen.
+        unclassified = [
+            a for a in arts
+            if a.get("article_id") and not a.get("frame")
+            and (a.get("classification_status") or "") == ""
+        ][:12]
         throttle_key = f"{cluster_id}:{lang}"
-        if (pending or foreign) and \
+        if (pending or foreign or unclassified) and \
                 (time.monotonic() - _story_fill_started.get(throttle_key, 0)) > 30:
             _story_fill_started[throttle_key] = time.monotonic()
             from echolot_brave_fetcher import fetch_on_demand
             arts_by_id = {a.get("article_id"): a for a in arts}
 
             async def _bg_fill(items=pending, amap=arts_by_id,
-                               to_translate=foreign, target=lang):
+                               to_translate=foreign, target=lang,
+                               to_classify=unclassified, clu=cluster):
+                try:
+                    if to_classify:
+                        from echolot_classifier import classify_on_demand
+                        got = await asyncio.to_thread(
+                            classify_on_demand, str(DB_PATH), to_classify)
+                        if got:
+                            for a in to_classify:
+                                vals = got.get(a.get("article_id"))
+                                if vals:
+                                    a["frame"] = vals["frame"]
+                                    a["sentiment"] = vals["sentiment"]
+                                    a["classification_status"] = "ok"
+                            # Cluster-aggregátum frissítése in-place, hogy a
+                            # cache-elt dictből az elemzés-szekció renderelhető
+                            # legyen (latefill úsztatja be).
+                            from collections import Counter as _Counter
+                            fc = _Counter(a["frame"] for a in (clu.get("articles") or [])
+                                          if a.get("frame"))
+                            sv = [a["sentiment"] for a in (clu.get("articles") or [])
+                                  if a.get("sentiment") is not None]
+                            clu["frame_dist"] = dict(fc)
+                            clu["dominant_frame"] = (max(fc, key=fc.get) if fc else None)
+                            clu["avg_sentiment"] = (round(sum(sv) / len(sv), 2)
+                                                    if sv else None)
+                            clu["classified_count"] = sum(fc.values())
+                except Exception as exc:
+                    logger.warning("story bg classify failed: %s", exc)
                 try:
                     if items:
                         filled = await fetch_on_demand(items, DB_PATH)
@@ -3570,10 +3610,10 @@ async def story_detail(request):
             asyncio.create_task(_bg_fill())
     except Exception as exc:
         logger.warning("story on-demand enrich failed: %s", exc)
-        pending, foreign = [], []
+        pending, foreign, unclassified = [], [], []
 
     page = render_story_detail_page(cluster, lang, request=request)
-    if pending or foreign:
+    if pending or foreign or unclassified:
         # Utótöltés: a háttérben most töltődő cikkszövegek ("Tovább olvasom")
         # automatikusan beúsznak az első látogatónak is — a kliens 6s múlva
         # újrahúzza az oldalt fetch-csel és kicseréli a forrás-listát, ha

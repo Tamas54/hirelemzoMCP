@@ -377,6 +377,54 @@ def probe() -> dict:
                 "latency_ms": int((time.time() - t0) * 1000)}
 
 
+def classify_on_demand(db_path: str | Path, items: list[dict]) -> dict[str, dict]:
+    """Soron kívüli osztályozás a story-oldal cikkeinek (max 12, 1 LLM-hívás).
+
+    A háttér-worker a teljes backlogot published_at DESC sorrendben darálja —
+    a megnyitott sztori cikkei órákig sorban állnának. Ez a hívás a KONKRÉT
+    cikkeket osztályozza azonnal, perzisztálja a DB-be (a worker így már nem
+    fogja újra), és visszaadja {article_id: {frame, sentiment, ...}} formában.
+    Kulcs nélkül / hibánál üres dict — a hívó kecsesen degradál."""
+    cfg = _config()
+    if cfg is None or not items:
+        return {}
+    batch = [{"article_id": a["article_id"], "title": a.get("title") or "",
+              "lead": a.get("lead") or ""} for a in items[:BATCH_SIZE]]
+    # retries=3: a háttér-worker ugyanazt a kulcsot használja, 429-be
+    # futhatunk — ez a hívás user-facing (story-oldal elemzése), megéri várni.
+    results = _call_llm(cfg, batch, retries=3)
+    if results is None:
+        return {}
+    by_i = {}
+    for rec in (results or []):
+        try:
+            by_i[int(rec.get("i"))] = rec
+        except (TypeError, ValueError):
+            continue
+    out: dict[str, dict] = {}
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    conn = sqlite3.connect(str(db_path), timeout=15)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        for n, a in enumerate(batch):
+            vals = _sanitize(by_i.get(n)) if by_i.get(n) else None
+            if vals is None:
+                continue
+            conn.execute(
+                """UPDATE articles SET frame=?, frame_confidence=?, emotion=?,
+                       sentiment=?, sentiment_intensity=?,
+                       classification_status='ok', classified_at=?
+                   WHERE article_id=? AND classification_status IS NULL""",
+                (vals["frame"], vals["frame_confidence"], vals["emotion"],
+                 vals["sentiment"], vals["sentiment_intensity"], now,
+                 a["article_id"]))
+            out[a["article_id"]] = vals
+        conn.commit()
+    finally:
+        conn.close()
+    return out
+
+
 def worker_loop(db_path: str | Path = None) -> None:
     """Background loop for start.py. No-ops politely (and stops) if no key."""
     if not is_enabled():
@@ -394,7 +442,10 @@ def worker_loop(db_path: str | Path = None) -> None:
         if n:
             log.info("classified %d articles", n)
             idle = 0
-            time.sleep(2)
+            # 5s a 2s helyett: hagyjunk rate-limit fejteret az on-demand
+            # (story-oldali) osztályozásnak — ugyanaz a kulcs, a 429-ek
+            # a user-facing hívást ütötték. Backfill így is ~4000 cikk/óra.
+            time.sleep(5)
         elif pending_count(db_path) > 0:
             log.info("batch wrote 0 but work remains — retry in 15s")
             # Batch yielded nothing but work REMAINS → transient (rate limit / bad
