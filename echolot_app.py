@@ -63,7 +63,47 @@ def _metrics_middleware(app: ASGIApp) -> ASGIApp:
     return wrapped
 
 
+def _mcp_key_gate(app: ASGIApp) -> ASGIApp:
+    """MCP API-kulcs kapu (plan 3c). Alapból KI (a /mcp nyitva marad) —
+    élesítés: MCP_REQUIRE_KEY=true env. Kulcs: X-API-Key fejléc vagy
+    ?key= query-param; validálás + napi tier-kvóta az echolot_auth-ban."""
+    import asyncio as _aio
+    import json as _json
+    import os as _os
+
+    async def wrapped(scope: dict, receive: Any, send: Any) -> None:
+        if (scope.get("type") == "http" and scope.get("path") == "/mcp"
+                and _os.environ.get("MCP_REQUIRE_KEY", "").lower()
+                in ("1", "true", "yes")):
+            headers = {k.decode("latin1").lower(): v.decode("latin1")
+                       for k, v in (scope.get("headers") or [])}
+            key = headers.get("x-api-key", "")
+            if not key:
+                qs = (scope.get("query_string") or b"").decode("latin1")
+                for part in qs.split("&"):
+                    if part.startswith("key="):
+                        key = part[4:]
+                        break
+            from echolot_auth import validate_api_key
+            from scraper import DB_PATH as _dbp
+            ok, why = await _aio.to_thread(validate_api_key, str(_dbp), key)
+            if not ok:
+                status = 429 if why == "quota" else 401
+                body = _json.dumps({
+                    "error": why,
+                    "hint": "Get an API key at /account (register at /signup), "
+                            "then pass it as X-API-Key header or ?key= param.",
+                }).encode()
+                await send({"type": "http.response.start", "status": status,
+                            "headers": [(b"content-type", b"application/json")]})
+                await send({"type": "http.response.body", "body": body})
+                return
+        await app(scope, receive, send)
+    return wrapped
+
+
 def build_app() -> ASGIApp:
     """Return the Echolot ASGI app, ready to hand to uvicorn / hypercorn."""
     from server import mcp
-    return _metrics_middleware(_normalize_mcp_path(mcp.streamable_http_app()))
+    return _metrics_middleware(
+        _mcp_key_gate(_normalize_mcp_path(mcp.streamable_http_app())))

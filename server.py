@@ -3791,6 +3791,149 @@ async def api_translate_article(request):
         return JSONResponse({"ok": False, "error": type(exc).__name__}, status_code=500)
 
 
+_AUTH_PAGE_CSS = """
+body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;max-width:480px;
+margin:70px auto;padding:0 20px}
+input{background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;
+padding:11px;font-family:inherit;width:100%;box-sizing:border-box}
+button{background:#238636;color:#fff;border:0;border-radius:8px;padding:11px 18px;
+cursor:pointer;font-weight:600;font-size:15px}
+a{color:#6cb6ff}.err{color:#f85149}.muted{color:#8b949e;font-size:13px}
+form{display:flex;flex-direction:column;gap:12px}
+code{background:#161b22;padding:3px 8px;border-radius:5px;font-size:13px}
+"""
+
+
+def _auth_page(title: str, body: str, lang: str = "hu") -> "HTMLResponse":
+    return HTMLResponse(
+        f"<!doctype html><html lang='{lang}'><head><meta charset='utf-8'>"
+        f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        f"<title>{title} — Echolot</title><style>{_AUTH_PAGE_CSS}</style></head>"
+        f"<body><h2>{title}</h2>{body}</body></html>")
+
+
+def _session_user(request):
+    from echolot_auth import get_session_user
+    return get_session_user(str(DB_PATH), request.cookies.get("echolot_session", ""))
+
+
+@mcp.custom_route("/signup", methods=["GET", "POST"])
+async def signup_page(request):
+    """Regisztráció (plan 3a) — e-mail + jelszó, stdlib pbkdf2."""
+    from echolot_auth import create_user, verify_login, create_session
+    err = ""
+    if request.method == "POST":
+        form = await request.form()
+        email = str(form.get("email") or "")
+        pw = str(form.get("password") or "")
+        ok, why = await asyncio.to_thread(create_user, str(DB_PATH), email, pw)
+        if ok:
+            uid = await asyncio.to_thread(verify_login, str(DB_PATH), email, pw)
+            token = await asyncio.to_thread(create_session, str(DB_PATH), uid)
+            resp = RedirectResponse("/account", status_code=303)
+            resp.set_cookie("echolot_session", token, max_age=60*60*24*30,
+                            httponly=True, samesite="lax")
+            return resp
+        err = {"bad_email": "Hibás e-mail cím.", "short_password":
+               "A jelszó legalább 8 karakter legyen.",
+               "exists": "Ez az e-mail már regisztrált — lépj be!"}.get(why, "Hiba.")
+    body = f"""
+    {'<p class="err">' + err + '</p>' if err else ''}
+    <form method="post">
+      <input name="email" type="email" placeholder="e-mail" required>
+      <input name="password" type="password" placeholder="jelszó (min. 8 karakter)" required minlength="8">
+      <button type="submit">Fiók létrehozása</button>
+    </form>
+    <p class="muted">Van már fiókod? <a href="/login">Belépés</a> · <a href="/?lang=hu">← Főoldal</a></p>"""
+    return _auth_page("Regisztráció", body)
+
+
+@mcp.custom_route("/login", methods=["GET", "POST"])
+async def login_page(request):
+    from echolot_auth import verify_login, create_session
+    err = ""
+    if request.method == "POST":
+        form = await request.form()
+        uid = await asyncio.to_thread(
+            verify_login, str(DB_PATH),
+            str(form.get("email") or ""), str(form.get("password") or ""))
+        if uid:
+            token = await asyncio.to_thread(create_session, str(DB_PATH), uid)
+            resp = RedirectResponse("/account", status_code=303)
+            resp.set_cookie("echolot_session", token, max_age=60*60*24*30,
+                            httponly=True, samesite="lax")
+            return resp
+        err = "Hibás e-mail vagy jelszó."
+    body = f"""
+    {'<p class="err">' + err + '</p>' if err else ''}
+    <form method="post">
+      <input name="email" type="email" placeholder="e-mail" required>
+      <input name="password" type="password" placeholder="jelszó" required>
+      <button type="submit">Belépés</button>
+    </form>
+    <p class="muted">Nincs még fiókod? <a href="/signup">Regisztráció</a> · <a href="/?lang=hu">← Főoldal</a></p>"""
+    return _auth_page("Belépés", body)
+
+
+@mcp.custom_route("/logout", methods=["GET"])
+async def logout_page(request):
+    from echolot_auth import destroy_session
+    await asyncio.to_thread(
+        destroy_session, str(DB_PATH),
+        request.cookies.get("echolot_session", ""))
+    resp = RedirectResponse("/?lang=hu", status_code=303)
+    resp.delete_cookie("echolot_session")
+    return resp
+
+
+@mcp.custom_route("/account", methods=["GET", "POST"])
+async def account_page(request):
+    """Fiók-oldal: tier + MCP API-kulcsok (plan 3c). POST: új kulcs / visszavonás."""
+    from echolot_auth import create_api_key, revoke_api_key, list_api_keys, DAILY_QUOTA
+    user = await asyncio.to_thread(_session_user, request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    msg = ""
+    if request.method == "POST":
+        form = await request.form()
+        if form.get("action") == "newkey":
+            key = await asyncio.to_thread(
+                create_api_key, str(DB_PATH), user["id"])
+            msg = (f"Új kulcs: <code>{key}</code> — mentsd el!" if key
+                   else '<span class="err">Max 3 aktív kulcs lehet.</span>')
+        elif form.get("action") == "revoke":
+            await asyncio.to_thread(
+                revoke_api_key, str(DB_PATH), user["id"],
+                str(form.get("key") or ""))
+            msg = "Kulcs visszavonva."
+    keys = await asyncio.to_thread(list_api_keys, str(DB_PATH), user["id"])
+    quota = DAILY_QUOTA.get(user["tier"], 200)
+    key_rows = "".join(
+        f"<tr><td><code>{k['key'][:14]}…</code></td>"
+        f"<td>{k['calls_today']}/{quota} ma · {k['calls_total']} össz</td>"
+        f"<td><form method='post' style='display:inline'>"
+        f"<input type='hidden' name='action' value='revoke'>"
+        f"<input type='hidden' name='key' value='{k['key']}'>"
+        f"<button style='background:#6e2222;padding:4px 10px;font-size:12px'>visszavon</button>"
+        f"</form></td></tr>"
+        for k in keys) or "<tr><td colspan=3 class='muted'>még nincs kulcs</td></tr>"
+    body = f"""
+    <p>{user['email']} · csomag: <strong>{user['tier']}</strong>
+       · <a href="/logout">kilépés</a></p>
+    {f'<p>{msg}</p>' if msg else ''}
+    <h3>MCP API-kulcsok</h3>
+    <p class="muted">A kulcsot a claude.ai connectorban / MCP-kliensben add meg:
+    <code>?key=eck_…</code> query-paraméter vagy <code>X-API-Key</code> fejléc.
+    Napi kvóta a csomagod szerint: {quota} tool-hívás.</p>
+    <table style="width:100%;border-collapse:collapse">{key_rows}</table>
+    <form method="post" style="margin-top:14px">
+      <input type="hidden" name="action" value="newkey">
+      <button type="submit">+ Új API-kulcs</button>
+    </form>
+    <p class="muted" style="margin-top:22px"><a href="/?lang=hu">← Főoldal</a></p>"""
+    return _auth_page("Fiókom", body)
+
+
 @mcp.custom_route("/feedback", methods=["GET", "POST"])
 async def feedback_page(request):
     """UX-teszt feedback-csatorna (plan 2.): név nélküli szabad szöveg +
@@ -3853,6 +3996,13 @@ async def admin_page(request):
         days = max(1, min(90, int(request.query_params.get("days", "14"))))
     except (ValueError, TypeError):
         days = 14
+    # user-tier állítás (?setuser=ID&tier=pro) — plan 3b kézi vezérlés
+    from echolot_auth import list_users, set_user_tier, TIERS
+    set_uid = request.query_params.get("setuser")
+    set_tier = request.query_params.get("tier")
+    if set_uid and set_tier in TIERS:
+        await asyncio.to_thread(set_user_tier, str(DB_PATH), int(set_uid), set_tier)
+    users = await asyncio.to_thread(list_users, str(DB_PATH))
     S = await asyncio.to_thread(summary, str(DB_PATH), days)
     fb = await asyncio.to_thread(list_feedback, str(DB_PATH), 50)
     import echolot_classifier as _ec
@@ -3903,6 +4053,15 @@ table{{border-collapse:collapse;width:100%}}td,th{{padding:5px 12px;border-botto
 failed: {counts.get('failed',0)} · él: {diag.get('thread_alive')}</td></tr>
 <tr><td>utolsó osztályozás</td><td>{esc(diag.get('last_classified_at'))}</td></tr>
 </table>
+<h2>Userek ({len(users)})</h2>
+<table><tr><th>id</th><th>email</th><th>tier</th><th>kulcsok</th><th>regisztrált</th><th>tier-állítás</th></tr>
+{"".join(f"<tr><td>{u['id']}</td><td>{esc(u['email'])}</td><td><b>{esc(u['tier'])}</b></td>"
+         f"<td>{u['keys']}</td><td>{esc((u['created_at'] or '')[:10])}</td>"
+         f"<td>" + " · ".join(f"<a href='?key={esc(admin_key)}&setuser={u['id']}&tier={t}' style='color:#6cb6ff'>{t}</a>"
+                              for t in ('free','pro','power')) + "</td></tr>"
+         for u in users) or "<tr><td colspan=6>—</td></tr>"}</table>
+<p class="muted" style="color:#8b949e;font-size:13px">MCP-kulcs kötelezővé tétele:
+Railway env <code>MCP_REQUIRE_KEY=true</code> (most: {esc(os.environ.get('MCP_REQUIRE_KEY','ki'))})</p>
 <h2>Feedback ({len(fb)})</h2>
 <table><tr><th>mikor</th><th>oldal</th><th>üzenet</th></tr>{fb_rows}</table>
 </body></html>""")
