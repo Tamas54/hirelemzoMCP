@@ -278,14 +278,18 @@ def entity_portrait(name_or_qid, days=30, db_path="echolot.db"):
             rows = conn.execute(sql, (quoted, _since(days))).fetchall() if quoted else []
         except sqlite3.OperationalError:
             rows = []
-        # entity-role rows (populated by the classifier's entity pass — may be empty)
-        if qid:
-            try:
-                roles = conn.execute(
-                    """SELECT role, COUNT(*) n, AVG(sentiment) s FROM article_entities
-                       WHERE qid=? GROUP BY role""", (qid,)).fetchall()
-            except sqlite3.OperationalError:
-                roles = []
+        # entity-role rows — a classifier entitásai LABEL-lel (qid=NULL)
+        # kerülnek be, ezért qid MELLETT az aliasokra is illesztünk.
+        try:
+            alias_params = [a for a in aliases[:25] if a]
+            qmarks = ",".join("?" * len(alias_params))
+            roles = conn.execute(
+                f"""SELECT role, COUNT(*) n, AVG(sentiment) s FROM article_entities
+                    WHERE qid=? OR label COLLATE NOCASE IN ({qmarks})
+                    GROUP BY role""",
+                [qid or ""] + alias_params).fetchall()
+        except sqlite3.OperationalError:
+            roles = []
     finally:
         conn.close()
 

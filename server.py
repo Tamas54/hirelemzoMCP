@@ -867,6 +867,80 @@ def frame_divergence(query: str, days: int = 7) -> str:
 
 
 @mcp.tool()
+def top_entities(days: int = 7, entity_type: str = "", language: str = "",
+                 limit: int = 30) -> str:
+    """Top named entities (people, organizations, places) in the news flow with aggregate sentiment — the data behind the /entities page. Use to see WHO/WHAT dominates the coverage and how positively/negatively they are portrayed. Entities come from the F1 classifier's entity pass (Van Dijk roles), so coverage grows as articles get classified.
+
+    Args:
+        days: Look back N days (default 7, max 90).
+        entity_type: 'person' | 'org' | 'place' or empty for all.
+        language: ISO code (hu, en, ru, ...) to restrict to articles WRITTEN
+            in that language; empty = all languages.
+        limit: Max entities (default 30, max 100).
+
+    Returns:
+        JSON: entities[{label, etype, mentions, avg_sent (-1..1), n_sources}],
+        sorted by mention count. Empty list = no classified articles in window yet.
+    """
+    try:
+        from echolot_entities_page import query_entities
+        ents = query_entities(str(DB_PATH), days=max(1, min(90, int(days))),
+                              etype=entity_type, art_lang=language,
+                              limit=max(1, min(100, int(limit))))
+        return json.dumps({"days": days, "entity_type": entity_type or "all",
+                           "language": language or "all", "entities": ents},
+                          ensure_ascii=False, default=str)
+    except Exception as exc:
+        logger.exception("top_entities failed")
+        return json.dumps({"error": type(exc).__name__, "entities": []},
+                          ensure_ascii=False)
+
+
+@mcp.tool()
+def article_revisions(days: int = 7, source: str = "", limit: int = 30) -> str:
+    """STEALTH-EDIT detector: articles whose title/lead was silently rewritten by the source AFTER publication. The scraper diffs every re-seen URL against the stored version and records old→new pairs (feed-truncation variants are filtered out). Use to expose post-publication narrative changes — which outlet rewrote which headline, and how.
+
+    Args:
+        days: Look back N days for the revision time (default 7, max 90).
+        source: Substring filter on source name (e.g. 'Telex'), empty = all.
+        limit: Max revisions (default 30, max 100).
+
+    Returns:
+        JSON: revisions[{source, url, revised_at, old_title, new_title,
+        old_lead, new_lead, current_title}], newest first. Empty list = no
+        detected rewrites in the window (the detector went live 2026-06-11).
+    """
+    try:
+        days = max(1, min(90, int(days)))
+        limit = max(1, min(100, int(limit)))
+        with get_db() as conn:
+            sql = """
+                SELECT a.source_name, a.url, r.revised_at, r.old_title,
+                       r.new_title, r.old_lead, r.new_lead, a.title
+                FROM article_revisions r
+                JOIN articles a ON a.article_id = r.article_id
+                WHERE r.revised_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)
+            """
+            params: list = [f"-{days} days"]
+            if source.strip():
+                sql += " AND a.source_name LIKE ?"
+                params.append(f"%{source.strip()}%")
+            sql += " ORDER BY r.revised_at DESC LIMIT ?"
+            params.append(limit)
+            rows = conn.execute(sql, params).fetchall()
+        revs = [{"source": r[0], "url": r[1], "revised_at": r[2],
+                 "old_title": r[3], "new_title": r[4],
+                 "old_lead": r[5], "new_lead": r[6], "current_title": r[7]}
+                for r in rows]
+        return json.dumps({"days": days, "source": source or "all",
+                           "revisions": revs}, ensure_ascii=False, default=str)
+    except Exception as exc:
+        logger.exception("article_revisions failed")
+        return json.dumps({"error": type(exc).__name__, "revisions": []},
+                          ensure_ascii=False)
+
+
+@mcp.tool()
 def source_profile(source: str = "", days: int = 30, limit: int = 40) -> str:
     """Source-intelligence profile: per outlet, its framing tendency, emotion mix, average sentiment, political lean, trust tier, and spheres. Use to characterize how a specific outlet covers the news, or to compare outlets. Leave 'source' empty for all outlets, or pass a substring (e.g. 'Reuters', 'HVG') to filter.
 
