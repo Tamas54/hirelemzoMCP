@@ -100,6 +100,15 @@ STOP_TAGS: set[str] = {
     "TikTok", "Twitter", "Facebook", "Instagram", "YouTube", "X",
     "Telex", "Index", "HVG", "24.hu", "444", "Origo", "Mandiner",
     "Magyar Nemzet", "Magyar Hírlap", "Népszava", "Blikk",
+    # --- Magyar mondatkezdő határozók / kötőszók (cím-eleji nagybetű miatt
+    #     entitásnak néznek ki: "Továbbá 51", "Kiderült 32", "Itt 30"...) ---
+    "Továbbá", "Kiderült", "Itt", "Ott", "Most", "Eközben", "Közben",
+    "Ezért", "Azért", "Aztán", "Emellett", "Ráadásul", "Viszont", "Ugyanis",
+    "Végül", "Először", "Másrészt", "Egyrészt", "Mindeközben", "Időközben",
+    "Ezután", "Azonban", "Miközben", "Hamarosan", "Valamint", "Illetve",
+    "Például", "Sőt", "Bár", "Noha", "Habár", "Mégis", "Persze", "Tehát",
+    "Akár", "Vajon", "Talán", "Íme", "Mutatjuk", "Megvan", "Ismét", "Újra",
+    "Breaking", "Frissítés", "Élő", "Videó", "Fotó", "Galéria", "Podcast",
     # --- Weekdays (en + a few others) ---
     "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
     "Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap",

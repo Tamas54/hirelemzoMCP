@@ -35,6 +35,9 @@ _L = {
         "overall": "Átfogó hangulat", "by_source": "Források szerint",
         "by_source_sub": "Hogyan tudósítanak a források erről az entitásról.",
         "roles": "Szerep-eloszlás", "recent": "Friss említések",
+        "sent_dist": "Hangulat-eloszlás", "narratives": "Aktív narratívák · 48h",
+        "most_pos": "Legpozitívabb narratíva", "most_neg": "Legnegatívabb narratíva",
+        "neg": "Negatív", "neu": "Semleges", "pos": "Pozitív",
         "empty": "Még nincs entitás-adat — az elemző most dolgozza fel a cikkeket.",
         "lang_own": "Csak magyar nyelvű", "lang_all": "Minden nyelv",
         "not_found": "Nincs ilyen entitás (vagy még nincs adat róla).",
@@ -55,6 +58,9 @@ _L = {
         "overall": "Overall sentiment", "by_source": "By source",
         "by_source_sub": "How each source covers this entity.",
         "roles": "Role distribution", "recent": "Recent mentions",
+        "sent_dist": "Sentiment distribution", "narratives": "Active narratives · 48h",
+        "most_pos": "Most positive narrative", "most_neg": "Most negative narrative",
+        "neg": "Negative", "neu": "Neutral", "pos": "Positive",
         "empty": "No entity data yet — the analyzer is processing articles.",
         "lang_own": "This language only", "lang_all": "All languages",
         "not_found": "Entity not found (or no data yet).",
@@ -174,6 +180,12 @@ def query_entity_detail(db_path: str, label: str, days: int = 30) -> dict | None
             f"""SELECT a.title, a.url, a.source_name, a.published_at,
                        ae.sentiment, ae.role {base}
                 ORDER BY a.published_at DESC LIMIT 15""", params).fetchall()
+        sent_dist = con.execute(
+            f"""SELECT
+                  SUM(CASE WHEN ae.sentiment <= -0.1 THEN 1 ELSE 0 END),
+                  SUM(CASE WHEN ae.sentiment > -0.1 AND ae.sentiment < 0.1 THEN 1 ELSE 0 END),
+                  SUM(CASE WHEN ae.sentiment >= 0.1 THEN 1 ELSE 0 END)
+                {base}""", params).fetchone()
     except sqlite3.OperationalError:
         return None
     finally:
@@ -186,10 +198,56 @@ def query_entity_detail(db_path: str, label: str, days: int = 30) -> dict | None
                        "sent": round(r[2], 2) if r[2] is not None else None}
                       for r in by_source],
         "roles": [{"role": r[0] or "mentioned", "n": r[1]} for r in roles],
+        "sent_dist": {"neg": sent_dist[0] or 0, "neu": sent_dist[1] or 0,
+                      "pos": sent_dist[2] or 0},
         "recent": [{"title": r[0], "url": r[1], "source": r[2],
                     "published_at": r[3], "sent": r[4], "role": r[5]}
                    for r in recent],
     }
+
+
+def query_entity_narratives(db_path: str, label: str, hours: int = 48) -> list[dict]:
+    """Aktív narratívák (= sztori-clusterek) amelyekben az entitás szerepel.
+
+    A 48h-s clustering futást használja (ugyanaz, amit a /story route — cache-elt),
+    és a cluster cikkeit metszi az entitás cikkeivel. Per-narratíva az entitás-
+    irányú átlag-hangulatot adja (article_entities.sentiment), NEM a cikkekét."""
+    con = sqlite3.connect(db_path)
+    try:
+        rows = con.execute(
+            """SELECT ae.article_id, ae.sentiment FROM article_entities ae
+               JOIN articles a ON a.article_id = ae.article_id
+               WHERE ae.label = ? COLLATE NOCASE
+                 AND a.fetched_at >= strftime('%Y-%m-%dT%H:%M:%S','now',?)""",
+            (label, f"-{int(hours)} hours")).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        con.close()
+    sent_by_aid = {r[0]: r[1] for r in rows}
+    if not sent_by_aid:
+        return []
+    from echolot_top_stories import cluster_top_stories
+    clusters = cluster_top_stories(db_path, hours=hours, min_sources=1,
+                                   limit=500, lang=None)
+    out = []
+    for c in clusters:
+        hits = [a for a in (c.get("articles") or [])
+                if a.get("article_id") in sent_by_aid]
+        if not hits:
+            continue
+        sents = [sent_by_aid[a["article_id"]] for a in hits
+                 if sent_by_aid.get(a["article_id"]) is not None]
+        out.append({
+            "cluster_id": c.get("cluster_id"),
+            "title": c.get("title") or "",
+            "frame": c.get("dominant_frame"),
+            "sent": round(sum(sents) / len(sents), 2) if sents else None,
+            "n_articles": len(hits),
+            "latest": c.get("latest_published") or "",
+        })
+    out.sort(key=lambda x: (x["sent"] is None, x["sent"] if x["sent"] is not None else 0))
+    return out
 
 
 # ─── CSS ────────────────────────────────────────────────────────────────
@@ -356,7 +414,56 @@ def render_entities_page(entities: list[dict], lang: str, etype: str = "",
 
 # ─── Portré-oldal ───────────────────────────────────────────────────────
 
+def _sent_donut(dist: dict, t: dict) -> str:
+    """Negatív/semleges/pozitív SVG donut (HírSpektrum 'Hangulat eloszlás')."""
+    import math as _m
+    total = (dist.get("neg", 0) + dist.get("neu", 0) + dist.get("pos", 0)) or 1
+    R, C = 44, 2 * _m.pi * 44
+    segs, legend, cum = [], [], 0.0
+    for key, color in (("neg", "#f85149"), ("neu", "#d29922"), ("pos", "#3fb950")):
+        n = dist.get(key, 0)
+        if not n:
+            continue
+        frac = n / total
+        seg = frac * C
+        segs.append(
+            f'<circle cx="60" cy="60" r="{R}" fill="none" stroke="{color}" '
+            f'stroke-width="18" stroke-dasharray="{seg:.2f} {C-seg:.2f}" '
+            f'stroke-dashoffset="{-cum*C:.2f}" transform="rotate(-90 60 60)"/>')
+        cum += frac
+        legend.append(
+            f'<div style="display:flex;align-items:center;gap:7px;font-size:13px;margin:3px 0">'
+            f'<span style="width:10px;height:10px;border-radius:3px;background:{color}"></span>'
+            f'{t[key]}<span style="margin-left:auto;color:var(--fg-2)">{round(frac*100)}%</span></div>')
+    donut = (f'<svg width="120" height="120" viewBox="0 0 120 120">{"".join(segs)}'
+             f'<text x="60" y="66" text-anchor="middle" fill="var(--text)" '
+             f'font-size="17" font-weight="700">{total}</text></svg>')
+    return (f'<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">'
+            f'<div>{donut}</div><div style="flex:1;min-width:150px">{"".join(legend)}</div></div>')
+
+
+def _narrative_row(n: dict, lang: str, t: dict) -> str:
+    from echolot_story_detail import _SD_FRAME, _frame_label
+    fr = n.get("frame")
+    badge = ""
+    if fr and fr in _SD_FRAME:
+        badge = (f'<span style="font-size:10.5px;padding:2px 8px;border-radius:4px;'
+                 f'color:#fff;background:{_SD_FRAME[fr][0]};white-space:nowrap">'
+                 f'{_escape(_frame_label(fr, lang))}</span>')
+    sent = n.get("sent")
+    scol = _sent_color(sent)
+    sval = f"{sent:+.2f}" if sent is not None else "—"
+    href = f'/story/{n["cluster_id"]}?lang={lang}' if n.get("cluster_id") else "#"
+    return (f'<li style="display:flex;align-items:center;gap:10px;padding:10px 0;'
+            f'border-top:1px solid var(--line);list-style:none">'
+            f'{badge}<a href="{href}" style="flex:1;min-width:0;color:var(--text);'
+            f'text-decoration:none">{_escape(n["title"][:110])}</a>'
+            f'{_sent_bar(sent, 70)}<span style="width:50px;text-align:right;'
+            f'color:{scol};font-weight:600;font-size:13px">{sval}</span></li>')
+
+
 def render_entity_detail_page(d: dict, lang: str, days: int = 30,
+                              narratives: list[dict] | None = None,
                               request=None) -> str:
     t = _t(lang)
     sent = d["avg_sent"]
@@ -388,6 +495,39 @@ def render_entity_detail_page(d: dict, lang: str, days: int = 30,
         f'{f"{a['sent']:+.1f}" if a["sent"] is not None else ""}</span></li>'
         for a in d["recent"])
 
+    narratives = narratives or []
+    qlabel = quote(d["label"])
+    day_btns = "".join(
+        f'<a class="ent-chip{" active" if days == dd else ""}" '
+        f'href="/entities/{qlabel}?lang={lang}&days={dd}">{dd} {_escape(t["days"])}</a>'
+        for dd in (7, 14, 30, 90))
+
+    pos_neg_html = ""
+    with_sent = [n for n in narratives if n.get("sent") is not None]
+    if with_sent:
+        most_neg, most_pos = with_sent[0], with_sent[-1]
+        def _pn_card(title_lbl, n):
+            c = _sent_color(n["sent"])
+            href = f'/story/{n["cluster_id"]}?lang={lang}' if n.get("cluster_id") else "#"
+            return (f'<div class="ent-src-card" style="flex:1;min-width:240px">'
+                    f'<div style="font-size:11px;text-transform:uppercase;'
+                    f'letter-spacing:.07em;color:var(--fg-3);margin-bottom:7px">{title_lbl}</div>'
+                    f'<a href="{href}" style="color:var(--text);text-decoration:none;'
+                    f'font-size:14.5px;line-height:1.4">{_escape(n["title"][:120])}</a>'
+                    f'<div style="margin-top:7px;color:{c};font-weight:700">{n["sent"]:+.2f}</div></div>')
+        cards = _pn_card(_escape(t["most_pos"]), most_pos)
+        if most_neg is not most_pos:
+            cards = _pn_card(_escape(t["most_neg"]), most_neg) + cards
+        pos_neg_html = (f'<div style="display:flex;gap:12px;flex-wrap:wrap;'
+                        f'margin:0 0 24px">{cards}</div>')
+
+    narr_html = ""
+    if narratives:
+        by_date = sorted(narratives, key=lambda n: n.get("latest") or "", reverse=True)
+        rows_n = "".join(_narrative_row(n, lang, t) for n in by_date[:10])
+        narr_html = (f'<section class="ent-sec"><h2>{_escape(t["narratives"])}'
+                     f' ({len(narratives)})</h2><ul style="padding:0;margin:0">{rows_n}</ul></section>')
+
     body = f"""
     <div class="ent-topbar">
       <a class="ent-back" href="/entities?lang={lang}">← {_escape(t["back_ent"])}</a>
@@ -401,8 +541,15 @@ def render_entity_detail_page(d: dict, lang: str, days: int = 30,
           ({f"{sent:+.2f}" if sent is not None else "—"})</strong></span>
         <span>📰 {d["mentions"]} {_escape(t["articles"])} · {days} {_escape(t["days"])}</span>
         {_sent_bar(sent, 120)}
+        <span style="display:inline-flex;gap:6px;margin-left:auto">{day_btns}</span>
       </div>
     </div>
+    {pos_neg_html}
+    <section class="ent-sec">
+      <h2>{_escape(t["sent_dist"])}</h2>
+      {_sent_donut(d.get("sent_dist") or {}, t)}
+    </section>
+    {narr_html}
     <section class="ent-sec">
       <h2>{_escape(t["by_source"])}</h2>
       <p class="sec-sub">{_escape(t["by_source_sub"])}</p>

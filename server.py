@@ -3791,7 +3791,15 @@ async def entity_detail(request):
             f"<h1>{_t(lang)['not_found']}</h1>"
             f"<p><a href='/entities?lang={lang}'>← Entities</a></p>",
             status_code=404)
-    page = render_entity_detail_page(d, lang, days=days, request=request)
+    from echolot_entities_page import query_entity_narratives
+    try:
+        narratives = await asyncio.to_thread(
+            query_entity_narratives, str(DB_PATH), label, 48)
+    except Exception as exc:
+        logger.warning("entity narratives failed: %s", exc)
+        narratives = []
+    page = render_entity_detail_page(d, lang, days=days,
+                                     narratives=narratives, request=request)
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
