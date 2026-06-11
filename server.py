@@ -3522,10 +3522,17 @@ async def landing(request):
     page, lang = await render_landing_v2(request, str(DB_PATH))
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
-    # "Eredeti / Fordított" preferencia perzisztálása (?tr=on|off → cookie)
-    tr_q = (request.query_params.get("tr") or "").strip().lower()
-    if tr_q in ("on", "off"):
-        resp.set_cookie("echolot_tr", tr_q, max_age=60 * 60 * 24 * 365, samesite="lax")
+    # Fordítás-célnyelv perzisztálása (?trlang=off|<kód> → cookie).
+    # A régi ?tr=on/off is leképeződik (legacy linkek).
+    trl = (request.query_params.get("trlang") or "").strip().lower()
+    legacy = (request.query_params.get("tr") or "").strip().lower()
+    if not trl and legacy == "off":
+        trl = "off"
+    if not trl and legacy == "on":
+        trl = lang
+    if trl and (trl == "off" or len(trl) <= 5):
+        resp.set_cookie("echolot_tr_lang", trl,
+                        max_age=60 * 60 * 24 * 365, samesite="lax")
     return resp
 
 
