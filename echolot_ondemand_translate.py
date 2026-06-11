@@ -91,6 +91,37 @@ def _call_translate(cfg: dict, texts: list[str], target_lang: str,
     return {}
 
 
+def lookup_cached(texts, target_lang: str, db_path: str = "echolot.db") -> dict[str, str]:
+    """CSAK cache-találatok — LLM-hívás NÉLKÜL, render-path-safe (gyors).
+
+    A landing kártya-fordítása ezt hívja render-időben; a hiányzókat egy
+    háttér-task tölti fel translate_map-pel, így a KÖVETKEZŐ render már
+    cache-ből kapja. Visszaad {original: translated} csak a találatokra."""
+    target_lang = (target_lang or "en").lower()
+    uniq = [t for t in dict.fromkeys(texts or []) if t and t.strip()][:_MAX_TEXTS * 2]
+    if not uniq:
+        return {}
+    out: dict[str, str] = {}
+    conn = sqlite3.connect(str(db_path), timeout=5)
+    try:
+        _ensure_cache(conn)
+        hashes = {_h(t): t for t in uniq}
+        qmarks = ",".join("?" * len(hashes))
+        rows = conn.execute(
+            f"SELECT text_hash, translated FROM translation_cache "
+            f"WHERE target_lang=? AND text_hash IN ({qmarks})",
+            [target_lang, *hashes.keys()]).fetchall()
+        for h, tr in rows:
+            orig = hashes.get(h)
+            if orig:
+                out[orig] = tr
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        conn.close()
+    return out
+
+
 def translate_map(texts, target_lang: str, db_path: str = "echolot.db") -> dict[str, str]:
     """Return {original: translated} for the given texts into target_lang.
 

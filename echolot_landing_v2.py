@@ -433,10 +433,25 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") ->
     """
     is_compact = "compact" in variant
     title = s.get("lead_title") or (s.get("sample_titles") or [""])[0] or "?"
+    # Keresztfordító: ha van UI-nyelvű cache-elt fordítás, azt mutatjuk;
+    # az eredeti a title-attribútumban marad (hover), plusz halvány jelölő.
+    _tr_t = (s.get("_tr_title") or {}).get(lang)
+    _orig_title_attr = ""
+    tr_mark_html = ""
+    if _tr_t:
+        _orig_title_attr = f' title="{_escape(title)}"'
+        title = _tr_t
+        _mark = _TR_MARK.get(lang, "transl.")
+        tr_mark_html = (f'<span style="font-size:9px;opacity:.55;'
+                        f'letter-spacing:.06em;margin-left:6px;'
+                        f'text-transform:uppercase">{_escape(_mark)}</span>')
     # Kommandant kérés (UX-feedback #16): minden top sztorinál legyen lead,
     # legalább ~200 char. Compact mode is kap lead-et, csak rövidebb fonttal
     # és tighter clamp-pal.
     lead = (s.get("lead_summary") or "")
+    _tr_l = (s.get("_tr_lead") or {}).get(lang)
+    if _tr_l:
+        lead = _tr_l
     cluster_id = s.get("cluster_id") or ""
     # In-site detail-link; fallback az eredeti lead_url-ra ha valami miatt
     # nincs cluster_id (régi cache-elt rekord).
@@ -505,7 +520,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu") ->
             <span class="src-count">{n_sources} {src_label}</span>
           </span>
         </div>
-        <h2 class="story-title-v2">{_escape(title)}</h2>
+        <h2 class="story-title-v2"{_orig_title_attr}>{_escape(title)}{tr_mark_html}</h2>
         {lead_html}
         {_render_pol_bar(bias)}
         <div class="story-footer-v2">
@@ -2346,6 +2361,66 @@ _LANDING_V2_EXTRA_CSS = """
 """
 
 
+# ── Keresztfordító (1a): landing-kártya címek/leadek a UI nyelvén ─────
+
+# Nyelvenkénti throttle a háttér-fordításra (cache-miss feltöltés).
+_card_tr_kick: dict[str, float] = {}
+
+_TR_MARK = {"hu": "ford.", "en": "transl.", "de": "übers.", "fr": "trad.",
+            "ru": "перев.", "uk": "перекл.", "it": "trad.", "pl": "tłum.",
+            "es": "trad.", "zh": "译"}
+
+
+async def _attach_card_translations(cards: list[dict], lang: str,
+                                    db_path: str) -> None:
+    """Idegen nyelvű kártya-címek/leadek UI-nyelvű fordítása — CACHE-FIRST.
+
+    Render-időben csak a translation_cache-t olvassuk (gyors); a hiányzókat
+    háttér-task fordítja (translate_map), így a következő render már kapja.
+    A cluster dict lang-kulcsos _tr_title/_tr_lead mezőt kap (a cluster
+    cache-elt és nyelvek közt OSZTOTT — ezért kell a lang-kulcs)."""
+    import time as _time
+    foreign = [c for c in cards
+               if isinstance(c, dict) and c.get("languages")
+               and lang not in (c.get("languages") or [])]
+    if not foreign:
+        return
+    texts: list[str] = []
+    for c in foreign:
+        ti = c.get("lead_title") or c.get("title") or ""
+        le = (c.get("lead_summary") or "").strip()
+        if ti and lang not in (c.get("_tr_title") or {}):
+            texts.append(ti)
+        if le and lang not in (c.get("_tr_lead") or {}):
+            texts.append(le[:400])
+    if not texts:
+        return
+    try:
+        from echolot_ondemand_translate import lookup_cached, translate_map
+        hits = await asyncio.to_thread(lookup_cached, texts, lang, db_path)
+        for c in foreign:
+            ti = c.get("lead_title") or c.get("title") or ""
+            le = (c.get("lead_summary") or "").strip()[:400]
+            if ti and hits.get(ti) and hits[ti] != ti:
+                c.setdefault("_tr_title", {})[lang] = hits[ti]
+            if le and hits.get(le) and hits[le] != le:
+                c.setdefault("_tr_lead", {})[lang] = hits[le]
+        misses = [t for t in texts if t not in hits]
+        now = _time.monotonic()
+        if misses and (now - _card_tr_kick.get(lang, 0)) > 90:
+            _card_tr_kick[lang] = now
+
+            async def _bg(items=misses[:80], target=lang):
+                try:
+                    await asyncio.to_thread(translate_map, items, target, db_path)
+                except Exception as exc:
+                    log.warning("card translation bg failed: %s", exc)
+
+            asyncio.create_task(_bg())
+    except Exception as exc:
+        log.warning("card translation attach failed: %s", exc)
+
+
 # ── Main render fn ────────────────────────────────────────────────────
 
 async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
@@ -2444,6 +2519,17 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     sport_stories = await _rovat(SPORT_SPHERES, "sport")
     tabloid_stories = await _rovat(TABLOID_SPHERES, "tabloid")
     economy_stories = await _rovat(ECONOMY_SPHERES, "economy")
+
+    # Keresztfordító (1a): minden kártya címe/leadje a UI nyelvén —
+    # cache-first (gyors render), hiányzók háttérben fordulnak.
+    try:
+        await _attach_card_translations(
+            (stories or []) + (tech_stories or []) + (sport_stories or [])
+            + (tabloid_stories or []) + (economy_stories or [])
+            + (political_blind or []),
+            lang, db_path)
+    except Exception as exc:
+        log.warning("card translations failed: %s", exc)
 
     # SEO head (megőrzött, ugyanaz mint az augment_landing-ben)
     seo_head = seo_head_html(
