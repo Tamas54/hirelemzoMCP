@@ -194,6 +194,19 @@ CREATE INDEX IF NOT EXISTS ix_articles_source    ON articles(source_id);
 CREATE INDEX IF NOT EXISTS ix_articles_category  ON articles(category);
 CREATE INDEX IF NOT EXISTS ix_articles_language  ON articles(language);
 
+-- Cikk-revíziók: ha a forrás UTÓLAG átírja a címet/leadet (stealth edit),
+-- itt őrizzük a régi→új párokat. A story-oldal "✎ módosítva" jelvénye innen él.
+CREATE TABLE IF NOT EXISTS article_revisions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id  TEXT NOT NULL,
+    revised_at  TEXT NOT NULL,
+    old_title   TEXT,
+    new_title   TEXT,
+    old_lead    TEXT,
+    new_lead    TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_revisions_article ON article_revisions(article_id);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
     title,
     lead,
@@ -330,6 +343,9 @@ def init_db() -> None:
         _ensure_column(conn, "articles", "translated_at", "TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS ix_articles_translation "
                      "ON articles(translation_status)")
+        # Cikk-revízió számláló (a article_revisions táblát a SCHEMA hozza
+        # létre) — gyors szűréshez a story-oldali "✎ módosítva" jelvénynek.
+        _ensure_column(conn, "articles", "revision_count", "INTEGER DEFAULT 0")
     log.info("DB initialised at %s", DB_PATH)
 
 
@@ -360,10 +376,68 @@ def _content_hash(title: str, url: str) -> str:
     return hashlib.sha256(f"{title.strip().lower()}|{url.strip()}".encode("utf-8")).hexdigest()
 
 
+def _norm_for_diff(s: str | None) -> str:
+    """Whitespace-összevonás + trailing ellipszis levágás a revízió-diffhez."""
+    return " ".join((s or "").split()).rstrip(" .…")
+
+
+def _really_changed(old: str | None, new: str | None) -> bool:
+    """Érdemi változás-e? A feed-truncation variánsok (egyik a másik prefixe,
+    pl. 200 karakternél vágott lead '…'-tal) NEM számítanak változásnak."""
+    o, n = _norm_for_diff(old), _norm_for_diff(new)
+    if not n or o == n:
+        return False
+    if o and (n.startswith(o) or o.startswith(n)):
+        return False
+    return True
+
+
+def _maybe_record_revision(conn: sqlite3.Connection, art: Article) -> None:
+    """Ha a forrás utólag átírta a cikk címét/leadjét, rögzítjük a régi→új
+    párt az article_revisions táblába, és frissítjük a cikket az új szövegre.
+    Ez az Echolot 'stealth edit' detektora — a story-oldal jelvénye innen él."""
+    row = conn.execute(
+        "SELECT article_id, title, lead FROM articles WHERE url = ?",
+        (art.url,)).fetchone()
+    if row is None:
+        return
+    aid, old_title, old_lead = row[0], row[1] or "", row[2] or ""
+    t_changed = _really_changed(old_title, art.title)
+    l_changed = _really_changed(old_lead, art.lead)
+    if not (t_changed or l_changed):
+        return
+    now = art.fetched_at.isoformat()
+    conn.execute(
+        """INSERT INTO article_revisions
+           (article_id, revised_at, old_title, new_title, old_lead, new_lead)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (aid, now,
+         old_title if t_changed else None, art.title if t_changed else None,
+         old_lead if l_changed else None, art.lead if l_changed else None))
+    new_title = art.title if t_changed else old_title
+    new_lead = art.lead if l_changed else old_lead
+    conn.execute(
+        """UPDATE articles SET title=?, lead=?, content_hash=?,
+           revision_count=COALESCE(revision_count,0)+1 WHERE article_id=?""",
+        (new_title, new_lead, _content_hash(new_title, art.url), aid))
+    try:
+        conn.execute("UPDATE articles_fts SET title=?, lead=? WHERE article_id=?",
+                     (new_title, new_lead, aid))
+    except sqlite3.OperationalError:
+        pass
+    log.info("revision recorded: %s (%s) title_changed=%s lead_changed=%s",
+             aid[:12], art.source_id, t_changed, l_changed)
+
+
 def upsert_article(conn: sqlite3.Connection, art: Article) -> bool:
-    """Insert if URL not already seen — return True if newly inserted."""
+    """Insert if URL not already seen — return True if newly inserted.
+    Ha az URL már megvan, de a cím/lead érdemben változott → revízió-rögzítés."""
     cur = conn.execute("SELECT 1 FROM articles WHERE url = ?", (art.url,))
     if cur.fetchone() is not None:
+        try:
+            _maybe_record_revision(conn, art)
+        except sqlite3.OperationalError as exc:
+            log.warning("revision check failed for %s: %s", art.url, exc)
         return False
 
     chash = _content_hash(art.title, art.url)
@@ -404,6 +478,9 @@ def cleanup_old(days: int = RETENTION_DAYS) -> int:
         # Also prune FTS rows that lost their parent
         conn.execute(
             "DELETE FROM articles_fts WHERE article_id NOT IN (SELECT article_id FROM articles)"
+        )
+        conn.execute(
+            "DELETE FROM article_revisions WHERE article_id NOT IN (SELECT article_id FROM articles)"
         )
     log.info("cleanup: removed %d articles older than %d days", n, days)
     return n

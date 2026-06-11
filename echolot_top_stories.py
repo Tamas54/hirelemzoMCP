@@ -239,6 +239,7 @@ SELECT
     a.published_at,
     a.fetched_at,
     a.full_text_status,
+    a.revision_count,
     a.spheres_json    AS article_spheres,
     a.frame           AS frame,
     a.sentiment       AS sentiment,
@@ -538,6 +539,7 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                     "language": a.get("language") or "",
                     "full_text": a.get("full_text") or "",
                     "full_text_status": a.get("full_text_status") or "",
+                    "revision_count": int(a.get("revision_count") or 0),
                     "frame": a.get("frame") if a.get("classification_status") == "ok" else None,
                     "sentiment": a.get("sentiment") if a.get("classification_status") == "ok" else None,
                 }
@@ -756,6 +758,37 @@ def attach_full_texts(db_path: str, cluster: dict) -> None:
             a["full_text"] = ft
 
 
+def attach_revisions(db_path: str, cluster: dict) -> None:
+    """A cluster cikkeihez betölti a revízió-történetet (article_revisions) —
+    csak ahol revision_count > 0 és még nincs betöltve. In-place mutál,
+    a by-id cache-elt dict gazdagodik (mint attach_full_texts)."""
+    arts = cluster.get("articles") or []
+    ids = [a["article_id"] for a in arts
+           if a.get("article_id") and int(a.get("revision_count") or 0) > 0
+           and "revisions" not in a]
+    if not ids:
+        return
+    qmarks = ",".join("?" * len(ids))
+    con = sqlite3.connect(db_path)
+    try:
+        rows = con.execute(
+            f"SELECT article_id, revised_at, old_title, new_title, old_lead, new_lead "
+            f"FROM article_revisions WHERE article_id IN ({qmarks}) "
+            f"ORDER BY revised_at", ids).fetchall()
+    except sqlite3.OperationalError:
+        return  # régi DB, nincs még revisions tábla
+    finally:
+        con.close()
+    by_id: dict[str, list[dict]] = defaultdict(list)
+    for aid, ts, ot, nt, ol, nl in rows:
+        by_id[aid].append({"revised_at": ts, "old_title": ot, "new_title": nt,
+                           "old_lead": ol, "new_lead": nl})
+    for a in arts:
+        aid = a.get("article_id")
+        if aid in by_id:
+            a["revisions"] = by_id[aid]
+
+
 def get_cluster_by_id(
     db_path: str,
     cluster_id: str,
@@ -771,6 +804,7 @@ def get_cluster_by_id(
     cached = _by_id_cache.get(cluster_id)
     if cached and (now - cached[0]) < CACHE_TTL:
         attach_full_texts(db_path, cached[1])
+        attach_revisions(db_path, cached[1])
         return cached[1]
 
     # Cache-miss → fresh full clustering (lang=None, min_sources=1, nagy limit).
@@ -781,6 +815,7 @@ def get_cluster_by_id(
     cached = _by_id_cache.get(cluster_id)
     if cached:
         attach_full_texts(db_path, cached[1])
+        attach_revisions(db_path, cached[1])
         return cached[1]
     return None
 

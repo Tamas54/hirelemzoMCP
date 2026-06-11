@@ -3464,12 +3464,13 @@ _STORY_LATEFILL_JS = """
     tries++;
     fetch(location.href, {cache:'no-store'}).then(function(r){return r.text();}).then(function(html){
       var doc = new DOMParser().parseFromString(html, 'text/html');
-      var fresh = doc.querySelectorAll('.src-card-fulltext').length;
-      var cur = document.querySelectorAll('.src-card-fulltext').length;
-      if (fresh > cur) {
-        var nl = doc.querySelector('.src-card-list');
-        var ol = document.querySelector('.src-card-list');
-        if (nl && ol) ol.innerHTML = nl.innerHTML;
+      var nl = doc.querySelector('.src-card-list');
+      var ol = document.querySelector('.src-card-list');
+      var fresh = nl ? parseInt(nl.getAttribute('data-enrich') || '0', 10) : 0;
+      var cur = ol ? parseInt(ol.getAttribute('data-enrich') || '0', 10) : 0;
+      if (nl && ol && fresh > cur) {
+        ol.innerHTML = nl.innerHTML;
+        ol.setAttribute('data-enrich', String(fresh));
       } else if (tries < 3) {
         setTimeout(refresh, 5000);
       }
@@ -3507,10 +3508,13 @@ async def story_detail(request):
             status_code=404,
         )
 
-    # On-demand full text: fill sources that the background fetcher hasn't
-    # reached yet. HÁTTÉRBEN fut (create_task) — az oldal azonnal renderelődik
-    # a lead-ekkel; a letöltött szöveg a cache-elt cluster dict-be íródik
-    # vissza, így reload-ra / a következő látogatónak már megjelenik.
+    # On-demand gazdagítás HÁTTÉRBEN (create_task) — az oldal azonnal
+    # renderelődik, a háttér-task a cache-elt cluster dict-be ír vissza:
+    #   1. full text letöltés a még-nem-próbált cikkekhez ("Tovább olvasom")
+    #   2. idegen nyelvű cím/lead fordítása a UI nyelvére (DB-cache-elt)
+    # A _STORY_LATEFILL_JS data-enrich alapján úsztatja be az eredményt.
+    pending: list = []
+    foreign: list = []
     try:
         arts = cluster.get("articles") or []
         pending = [
@@ -3520,27 +3524,56 @@ async def story_detail(request):
             and not (a.get("full_text") or "").strip()
             and (a.get("full_text_status") or "") == ""
         ][:6]
-        if pending and (time.monotonic() - _story_fill_started.get(cluster_id, 0)) > 30:
-            _story_fill_started[cluster_id] = time.monotonic()
+        foreign = [
+            a for a in arts
+            if (a.get("language") or "") and a["language"] != lang
+            and lang not in (a.get("_tr") or {})
+        ]
+        throttle_key = f"{cluster_id}:{lang}"
+        if (pending or foreign) and \
+                (time.monotonic() - _story_fill_started.get(throttle_key, 0)) > 30:
+            _story_fill_started[throttle_key] = time.monotonic()
             from echolot_brave_fetcher import fetch_on_demand
             arts_by_id = {a.get("article_id"): a for a in arts}
 
-            async def _bg_fill(items=pending, amap=arts_by_id):
+            async def _bg_fill(items=pending, amap=arts_by_id,
+                               to_translate=foreign, target=lang):
                 try:
-                    filled = await fetch_on_demand(items, DB_PATH)
-                    for aid, txt in filled.items():
-                        if aid in amap:
-                            amap[aid]["full_text"] = txt
+                    if items:
+                        filled = await fetch_on_demand(items, DB_PATH)
+                        for aid, txt in filled.items():
+                            if aid in amap:
+                                amap[aid]["full_text"] = txt
                 except Exception as exc:
                     logger.warning("story bg full-text failed: %s", exc)
+                try:
+                    if to_translate:
+                        from echolot_ondemand_translate import translate_map
+                        texts = [t for a in to_translate
+                                 for t in (a.get("title"), (a.get("lead") or "").strip())
+                                 if t]
+                        tmap = await asyncio.to_thread(
+                            translate_map, texts, target, str(DB_PATH))
+                        for a in to_translate:
+                            tr = {}
+                            ti, le = a.get("title") or "", (a.get("lead") or "").strip()
+                            if ti and tmap.get(ti) and tmap[ti] != ti:
+                                tr["title"] = tmap[ti]
+                            if le and tmap.get(le) and tmap[le] != le:
+                                tr["lead"] = tmap[le]
+                            # üres dict is bekerül: jelzi hogy próbáltuk,
+                            # ne forduljon újra minden megnyitásnál
+                            a.setdefault("_tr", {})[target] = tr
+                except Exception as exc:
+                    logger.warning("story bg translate failed: %s", exc)
 
             asyncio.create_task(_bg_fill())
     except Exception as exc:
-        logger.warning("story on-demand full-text failed: %s", exc)
-        pending = []
+        logger.warning("story on-demand enrich failed: %s", exc)
+        pending, foreign = [], []
 
     page = render_story_detail_page(cluster, lang, request=request)
-    if pending:
+    if pending or foreign:
         # Utótöltés: a háttérben most töltődő cikkszövegek ("Tovább olvasom")
         # automatikusan beúsznak az első látogatónak is — a kliens 6s múlva
         # újrahúzza az oldalt fetch-csel és kicseréli a forrás-listát, ha

@@ -86,6 +86,26 @@ _COLLAPSE_LBL = {
     "hu": "Összecsukom", "en": "Collapse", "de": "Einklappen",
     "fr": "Réduire", "ru": "Свернуть", "uk": "Згорнути",
 }
+# Gépi fordítás jelölő (a fordított cím/lead mellett).
+_TR_LBL = {
+    "hu": "ford.", "en": "transl.", "de": "übers.", "fr": "trad.",
+    "ru": "перев.", "uk": "перекл.", "it": "trad.",
+}
+# Revízió-jelvény: a forrás utólag módosította a cikket.
+_REV_LBL = {
+    "hu": "módosítva", "en": "edited", "de": "geändert",
+    "fr": "modifié", "ru": "изменено", "uk": "змінено",
+}
+_REV_DETAIL_LBL = {
+    "hu": "A forrás módosította a cikket", "en": "The source edited this article",
+    "de": "Die Quelle hat den Artikel geändert", "fr": "La source a modifié l'article",
+    "ru": "Источник изменил статью", "uk": "Джерело змінило статтю",
+}
+_REV_TITLE_LBL = {"hu": "Cím", "en": "Title", "de": "Titel", "fr": "Titre",
+                  "ru": "Заголовок", "uk": "Заголовок"}
+_REV_LEAD_LBL = {"hu": "Lead", "en": "Lead", "de": "Lead", "fr": "Chapeau",
+                 "ru": "Лид", "uk": "Лід"}
+
 # Perspektíva-bontás + idővonal szekció-címkék.
 _PERSP_LBL = {
     "hu": "Így írták meg", "en": "How each side framed it",
@@ -180,6 +200,39 @@ def _render_lean_badge(lean: str | None) -> str:
 
 # ─── Source-card a listához ─────────────────────────────────────────────
 
+def _render_revisions(article: dict, lang: str) -> str:
+    """'✎ módosítva' jelvény + kinyitható régi→új történet, ha a forrás
+    utólag átírta a cikket (article_revisions). Üres string ha nincs revízió."""
+    revs = article.get("revisions") or []
+    if not revs:
+        return ""
+    badge_lbl = _REV_LBL.get(lang, _REV_LBL["hu"])
+    detail_lbl = _REV_DETAIL_LBL.get(lang, _REV_DETAIL_LBL["hu"])
+    t_lbl = _REV_TITLE_LBL.get(lang, _REV_TITLE_LBL["hu"])
+    l_lbl = _REV_LEAD_LBL.get(lang, _REV_LEAD_LBL["hu"])
+    rows = []
+    for r in revs:
+        when = _escape(_fmt_combined(r.get("revised_at")))
+        if r.get("old_title"):
+            rows.append(
+                f'<li><time>{when}</time><span class="rev-field">{t_lbl}:</span>'
+                f'<span class="rev-old">{_escape(r["old_title"])}</span> → '
+                f'<span class="rev-new">{_escape(r.get("new_title") or "")}</span></li>')
+        if r.get("old_lead"):
+            rows.append(
+                f'<li><time>{when}</time><span class="rev-field">{l_lbl}:</span>'
+                f'<span class="rev-old">{_escape(r["old_lead"])}</span> → '
+                f'<span class="rev-new">{_escape(r.get("new_lead") or "")}</span></li>')
+    if not rows:
+        return ""
+    return (
+        f'<details class="src-card-revisions">'
+        f'<summary><span class="rev-badge">✎ {_escape(badge_lbl)} ({len(revs)})</span></summary>'
+        f'<div class="rev-body"><div class="rev-head">{_escape(detail_lbl)}</div>'
+        f'<ul>{"".join(rows)}</ul></div></details>'
+    )
+
+
 def _render_source_card(article: dict, lang: str) -> str:
     title = article.get("title") or ""
     lead = (article.get("lead") or "").strip()
@@ -190,10 +243,23 @@ def _render_source_card(article: dict, lang: str) -> str:
     ts = article.get("published_at") or ""
     ts_combined = _fmt_combined(ts)
 
+    # Gépi fordítás (on-demand, háttérben töltődik): ha van a UI-nyelvű
+    # fordítás, az a fő cím/lead, az eredeti cím kis betűvel alá kerül.
+    tr = (article.get("_tr") or {}).get(lang) or {}
+    title_disp = tr.get("title") or title
+    lead_disp = tr.get("lead") or lead
+    tr_badge = ""
+    orig_title_html = ""
+    if tr.get("title"):
+        tr_badge = (f'<span class="tr-badge" title="{_escape(title)}">'
+                    f'{_escape(_TR_LBL.get(lang, _TR_LBL["hu"]))}</span>')
+        orig_title_html = f'<div class="src-card-orig-title">{_escape(title)}</div>'
+
     lead_html = (
-        f'<p class="src-card-lead">{_escape(lead)}</p>' if lead else ""
+        f'<p class="src-card-lead">{_escape(lead_disp)}</p>' if lead_disp else ""
     )
     fulltext_html = _render_full_text(article.get("full_text") or "", lang)
+    revisions_html = _render_revisions(article, lang)
 
     # FENT: a forrás neve belső link a forrás-kártyára (aznapi hírei).
     src_href = f"/source/{_escape(src_id)}?lang={lang}" if src_id else ""
@@ -217,9 +283,12 @@ def _render_source_card(article: dict, lang: str) -> str:
         <header class="src-card-head">
           {_render_lean_badge(lean)}
           {name_html}
+          {tr_badge}
           <time class="src-card-time" datetime="{_escape(ts)}">{_escape(ts_combined)}</time>
         </header>
-        <h3 class="src-card-title">{_escape(title)}</h3>
+        <h3 class="src-card-title">{_escape(title_disp)}</h3>
+        {orig_title_html}
+        {revisions_html}
         {lead_html}
         {fulltext_html}
         <div class="src-card-actions">
@@ -498,6 +567,72 @@ _STORY_DETAIL_CSS = """
     }
     .src-card-fulltext-body p:last-child { margin-bottom: 0; }
 
+    /* Gépi fordítás jelölő + eredeti cím */
+    .tr-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      color: var(--fg-3);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: help;
+    }
+    .src-card-orig-title {
+      font-size: 12.5px;
+      color: var(--fg-3);
+      margin: -4px 0 8px 0;
+      font-style: italic;
+    }
+
+    /* Revízió-jelvény + történet */
+    .src-card-revisions { margin: 0 0 10px 0; }
+    .src-card-revisions > summary {
+      cursor: pointer;
+      list-style: none;
+      display: inline-block;
+      user-select: none;
+    }
+    .src-card-revisions > summary::-webkit-details-marker { display: none; }
+    .rev-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(210, 153, 34, 0.15);
+      border: 1px solid rgba(210, 153, 34, 0.45);
+      color: var(--rev-fg, #d29922);
+      letter-spacing: 0.03em;
+      font-weight: 600;
+    }
+    .rev-body {
+      border-left: 2px solid rgba(210, 153, 34, 0.45);
+      padding: 6px 0 2px 12px;
+      margin-top: 8px;
+    }
+    .rev-head {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--fg-3);
+      margin-bottom: 6px;
+    }
+    .rev-body ul { list-style: none; margin: 0; padding: 0; }
+    .rev-body li {
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 7px;
+      color: var(--fg-2);
+    }
+    .rev-body li time {
+      color: var(--fg-3);
+      font-variant-numeric: tabular-nums;
+      margin-right: 7px;
+      font-size: 12px;
+    }
+    .rev-field { color: var(--fg-3); margin-right: 5px; font-size: 12px; }
+    .rev-old { text-decoration: line-through; opacity: 0.75; }
+    .rev-new { color: var(--text); font-weight: 500; }
+
     /* Perspektíva-bontás */
     .story-perspective, .story-timeline { margin: 0 0 var(--sp-5); }
     .story-perspective > h2, .story-timeline > h2 {
@@ -752,6 +887,13 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     frame_analysis_html = _render_frame_analysis(cluster, articles, lang)
     story_timeline_html = _render_timeline(articles, lang)
     cards_html = "".join(_render_source_card(a, lang) for a in articles)
+    # Gazdagítottság-számláló az utótöltő scriptnek (server._STORY_LATEFILL_JS):
+    # full_textek + erre a nyelvre kész fordítások. Ha a friss render értéke
+    # nagyobb, a kliens kicseréli a forrás-listát.
+    enrich = (
+        sum(1 for a in articles if (a.get("full_text") or "").strip())
+        + sum(1 for a in articles if (a.get("_tr") or {}).get(lang))
+    )
 
     title_html = _escape(title[:80])
     page_title = f"{title_html} — Echolot"
@@ -798,7 +940,7 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
 
     <section class="story-sources-section">
       <h2>{sources_label} ({n_sources})</h2>
-      <div class="src-card-list">
+      <div class="src-card-list" data-enrich="{enrich}">
         {cards_html}
       </div>
     </section>
