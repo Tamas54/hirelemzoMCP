@@ -27,6 +27,7 @@ import os
 import re
 import sqlite3
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -271,6 +272,84 @@ def run_once(db_path: str | Path = None, batch_size: int = BATCH_SIZE) -> int:
         return written
     finally:
         conn.close()
+
+
+def diagnostics(db_path: str | Path = None) -> dict:
+    """Élő állapot a /health végpontnak: kulcs-gating + DB-számlálók.
+    A kulcs ÉRTÉKÉT soha nem adja vissza, csak hogy melyik env-név talált."""
+    cfg = _config()
+    matched_env = next((n for n in _KEY_ENV_NAMES if os.environ.get(n)), None)
+    out: dict = {
+        "enabled": cfg is not None,
+        "key_env_matched": matched_env,
+        "model": cfg["model"] if cfg else None,
+        "base": cfg["base"] if cfg else None,
+    }
+    try:
+        conn = sqlite3.connect(str(db_path or DB_PATH), timeout=15)
+        try:
+            out["counts"] = dict(conn.execute(
+                "SELECT COALESCE(classification_status,'pending'), COUNT(*) "
+                "FROM articles GROUP BY 1").fetchall())
+            out["last_classified_at"] = conn.execute(
+                "SELECT MAX(classified_at) FROM articles "
+                "WHERE classification_status='ok'").fetchone()[0]
+        finally:
+            conn.close()
+    except Exception as exc:
+        out["db_error"] = str(exc)
+    return out
+
+
+_probe_last: list[float] = [0.0]
+
+
+def probe() -> dict:
+    """Egy apró (2-cikkes dummy) LLM-hívás, ami visszaadja a NYERS hibát is —
+    így a produkción kívülről kideríthető, miért bukik a hívás (401/404/
+    network/parse). 60s throttle, hogy publikus végpontról se lehessen
+    költséget generálni vele."""
+    cfg = _config()
+    if cfg is None:
+        return {"ok": False, "error": "no API key configured"}
+    now = time.time()
+    if now - _probe_last[0] < 60:
+        return {"ok": False, "error": "throttled — try again in a minute"}
+    _probe_last[0] = now
+    batch = [{"article_id": "probe", "title": "Test article about economy",
+              "lead": "A short test lead."}]
+    t0 = time.time()
+    try:
+        body = json.dumps({
+            "model": cfg["model"],
+            "messages": [{"role": "system", "content": _SYSTEM},
+                         {"role": "user", "content": _build_user_prompt(batch)}],
+            "temperature": 0.1, "max_tokens": 500,
+            "response_format": {"type": "json_object"},
+            "thinking": {"type": "disabled"},
+        }).encode()
+        req = urllib.request.Request(
+            f"{cfg['base']}/chat/completions", data=body,
+            headers={"Authorization": f"Bearer {cfg['key']}",
+                     "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+        content = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+        parsed = _parse_json_lenient(content)
+        return {"ok": parsed is not None,
+                "latency_ms": int((time.time() - t0) * 1000),
+                "raw_sample": content[:200] if parsed is None else None}
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode()[:300]
+        except Exception:
+            pass
+        return {"ok": False, "error": f"HTTP {exc.code}: {detail}",
+                "latency_ms": int((time.time() - t0) * 1000)}
+    except Exception as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                "latency_ms": int((time.time() - t0) * 1000)}
 
 
 def worker_loop(db_path: str | Path = None) -> None:

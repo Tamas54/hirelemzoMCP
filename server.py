@@ -1767,14 +1767,26 @@ def _scrape_status_impl() -> str:
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health(request):
-    """Liveness probe — DB readable + scraper status."""
+    """Liveness probe — DB readable + scraper status.
+
+    ?classifier=1       → F1 classifier diagnosztika (kulcs-gating, számlálók)
+    ?classifier=probe   → + egy éles 1-cikkes LLM-próbahívás nyers hibával
+                          (60s throttle a classifier modulban)
+    """
     try:
         with get_db() as conn:
             n = conn.execute("SELECT COUNT(*) AS n FROM articles").fetchone()["n"]
             last = conn.execute(
                 "SELECT MAX(published_at) AS m FROM articles"
             ).fetchone()["m"]
-        return JSONResponse({"status": "ok", "articles": n, "newest": last})
+        out = {"status": "ok", "articles": n, "newest": last}
+        cls = (request.query_params.get("classifier") or "").strip()
+        if cls:
+            import echolot_classifier as _ec
+            out["classifier"] = await asyncio.to_thread(_ec.diagnostics, str(DB_PATH))
+            if cls == "probe":
+                out["classifier"]["probe"] = await asyncio.to_thread(_ec.probe)
+        return JSONResponse(out)
     except Exception as e:
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
 
