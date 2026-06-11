@@ -33,6 +33,26 @@ from pathlib import Path
 
 log = logging.getLogger("echolot-classifier")
 
+# Ring-buffer a legutóbbi log-sorokról — a /health?classifier=1 diagnosztika
+# adja vissza, így Railway-log-hozzáférés nélkül is látszik, mire bukik a
+# worker (rate limit? DB lock? parse hiba?).
+from collections import deque as _deque
+_recent_logs: "_deque[str]" = _deque(maxlen=25)
+
+
+class _RingHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            _recent_logs.append(
+                f"{time.strftime('%H:%M:%S', time.gmtime(record.created))}Z "
+                f"{record.levelname} {record.getMessage()}")
+        except Exception:
+            pass
+
+
+log.addHandler(_RingHandler())
+log.setLevel(logging.INFO)
+
 DB_PATH = Path(os.environ.get("DB_PATH", "echolot.db"))
 
 FRAMES = {"conflict", "human_interest", "economic", "morality", "vulnerability",
@@ -279,11 +299,16 @@ def diagnostics(db_path: str | Path = None) -> dict:
     A kulcs ÉRTÉKÉT soha nem adja vissza, csak hogy melyik env-név talált."""
     cfg = _config()
     matched_env = next((n for n in _KEY_ENV_NAMES if os.environ.get(n)), None)
+    import threading as _th
     out: dict = {
         "enabled": cfg is not None,
         "key_env_matched": matched_env,
         "model": cfg["model"] if cfg else None,
         "base": cfg["base"] if cfg else None,
+        # A start.py "classifier" nevű szála él-e még (ugyanaz a process).
+        "thread_alive": any(
+            t.name == "classifier" and t.is_alive() for t in _th.enumerate()),
+        "recent_logs": list(_recent_logs),
     }
     try:
         conn = sqlite3.connect(str(db_path or DB_PATH), timeout=15)
@@ -371,6 +396,7 @@ def worker_loop(db_path: str | Path = None) -> None:
             idle = 0
             time.sleep(2)
         elif pending_count(db_path) > 0:
+            log.info("batch wrote 0 but work remains — retry in 15s")
             # Batch yielded nothing but work REMAINS → transient (rate limit / bad
             # response). Retry soon; do NOT enter the long caught-up backoff (that
             # was making a single rate-limit look like a multi-minute stall).
