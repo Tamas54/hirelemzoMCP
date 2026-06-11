@@ -629,7 +629,7 @@ def _render_top_stories(stories: list[dict], lang: str, show_tr: bool = True) ->
     """
 
 
-def _render_local_trending(local: dict, lang: str) -> str:
+def _render_local_trending(local: dict, lang: str, show_tr: bool = True) -> str:
     """Helyi trending blokk — 3 vizuálisan elkülönülő szekció.
 
     Kommandant döntés szerint a forrás-nevek (Wikipedia / Google News)
@@ -657,10 +657,10 @@ def _render_local_trending(local: dict, lang: str) -> str:
     gnews_results = (local.get("gnews") or {}).get("results", []) if isinstance(local.get("gnews"), dict) else (local.get("gnews") or [])
     gnews_items = []
     for g in (gnews_results or [])[:8]:
-        title = g.get("title") or ""
+        title = _panel_tr(g, "title", lang, show_tr)
         url = g.get("link") or "#"
         src = g.get("source") or ""
-        summary = (g.get("summary") or "").strip()
+        summary = _panel_tr(g, "summary", lang, show_tr)
         lead_html = (
             f'<p class="lt-news-lead">{_escape(summary)}</p>' if summary else ""
         )
@@ -900,7 +900,8 @@ def _render_blindspots(political: list[dict], lang: str, show_tr: bool = True) -
     return "".join(cards)
 
 
-def _render_youtube_trending(videos: list[dict] | None, lang: str, region: str) -> str:
+def _render_youtube_trending(videos: list[dict] | None, lang: str, region: str,
+                             show_tr: bool = True) -> str:
     """YouTube trending videók panel — kis kártyák thumbnaillel.
 
     `videos` az echolot_youtube_trends.trending_videos() eredménye (lehet
@@ -2431,6 +2432,57 @@ async def _attach_card_translations(cards: list[dict], lang: str,
         log.warning("card translation attach failed: %s", exc)
 
 
+async def _attach_panel_translations(local: dict, lang: str,
+                                     db_path: str) -> None:
+    """A főoldal NEM-kártya paneljeinek keresztfordítása: Google News sorok
+    (cím+lead) a UI nyelvén — cache-first + bg-feltöltés, mint a kártyáknál.
+    A YOUTUBE-CÍMEKET SZÁNDÉKOSAN NEM fordítjuk (Kommandant: a videó úgyis
+    az eredeti nyelven szól — a fordított cím félrevezetne)."""
+    import time as _time
+    gnews = (local.get("gnews") or {}).get("results", []) \
+        if isinstance(local.get("gnews"), dict) else (local.get("gnews") or [])
+    items: list[tuple[dict, str]] = []
+    for g in (gnews or [])[:8]:
+        for f in ("title", "summary"):
+            if (g.get(f) or "").strip():
+                items.append((g, f))
+    texts = [(o.get(f) or "").strip()[:400] for o, f in items
+             if lang not in (o.get("_tr") or {}).get(f, {}) or True]
+    texts = [t for t in dict.fromkeys(texts) if t]
+    if not texts:
+        return
+    try:
+        from echolot_ondemand_translate import lookup_cached, translate_map
+        hits = await asyncio.to_thread(lookup_cached, texts, lang, db_path)
+        for o, f in items:
+            t0 = (o.get(f) or "").strip()[:400]
+            if t0 and hits.get(t0) and hits[t0] != t0:
+                o.setdefault("_tr", {}).setdefault(f, {})[lang] = hits[t0]
+        misses = [t for t in texts if t not in hits]
+        now = _time.monotonic()
+        kick_key = f"{lang}#panels"
+        if misses and (now - _card_tr_kick.get(kick_key, 0)) > 90:
+            _card_tr_kick[kick_key] = now
+
+            async def _bg(items_=misses[:60], target=lang):
+                try:
+                    await asyncio.to_thread(translate_map, items_, target, db_path)
+                except Exception as exc:
+                    log.warning("panel translation bg failed: %s", exc)
+
+            asyncio.create_task(_bg())
+    except Exception as exc:
+        log.warning("panel translation attach failed: %s", exc)
+
+
+def _panel_tr(o: dict, field: str, lang: str, show_tr: bool) -> str:
+    """Panel-elem mezője a UI nyelvén (ha van és engedett), különben eredeti."""
+    val = (o.get(field) or "").strip()
+    if not show_tr:
+        return val
+    return (o.get("_tr") or {}).get(field, {}).get(lang) or val
+
+
 # ── Main render fn ────────────────────────────────────────────────────
 
 async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
@@ -2541,6 +2593,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     # Keresztfordító (1a): minden kártya címe/leadje a UI nyelvén —
     # cache-first (gyors render), hiányzók háttérben fordulnak.
     try:
+        await _attach_panel_translations(local, lang, db_path)
         await _attach_card_translations(
             (stories or []) + (tech_stories or []) + (sport_stories or [])
             + (tabloid_stories or []) + (economy_stories or [])
@@ -2605,9 +2658,9 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     entity_chips = _render_entity_chip_row(entities, lang)
     bias_legend = _render_bias_legend(lang)
     top_stories_html = _render_top_stories(stories, lang, show_tr)
-    local_trending_html = _render_local_trending(local, lang)
+    local_trending_html = _render_local_trending(local, lang, show_tr)
     blindspot_html = _render_blindspots(political_blind, lang, show_tr)
-    yt_trending_html = _render_youtube_trending(yt_videos, lang, yt_region)
+    yt_trending_html = _render_youtube_trending(yt_videos, lang, yt_region, show_tr)
 
     title_html = _escape(t("landing.hero_title", lang))
     legacy_label = _escape(t("landing.legacy_view", lang))
