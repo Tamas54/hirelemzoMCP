@@ -26,6 +26,7 @@ import logging
 import sqlite3
 import threading
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -40,10 +41,32 @@ from echolot_classifier import _config as _shared_config, _parse_json_lenient
 
 log = logging.getLogger("echolot.daily_brief")
 
+# Utolsó 25 log-sor a /health?brief=1 diagnosztikához (classifier-minta) —
+# Railway-log nélkül is látható, MIÉRT bukik egy generálás.
+from collections import deque as _deque
+_recent_logs: "_deque[str]" = _deque(maxlen=25)
+
+
+class _RingHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            _recent_logs.append(
+                f"{time.strftime('%H:%M:%S', time.gmtime(record.created))}Z "
+                f"{record.levelname} {record.getMessage()}")
+        except Exception:
+            pass
+
+
+log.addHandler(_RingHandler())
+log.setLevel(logging.INFO)
+
 REQUEST_TIMEOUT = 120
 REFRESH_HOURS = 4          # a MAI brief ennyi óránként frissül
 WORKER_INTERVAL_S = 600    # worker ciklus
-AUTO_LANGS = ("hu", "en")  # ezekre a worker magától generál
+# A worker mind a 10 UI-nyelvre magától generál (Kommandant 2026-06-12:
+# "a németen nincs, és a többi nyelven se látom"). HU+EN elöl, hogy a két
+# fő nyelv frissüljön először; ~10 hívás/ciklus, 10s szünetekkel.
+AUTO_LANGS = ("hu", "en", "de", "it", "pl", "fr", "es", "ru", "uk", "zh")
 MAX_TOPICS = 8
 MAX_LOCAL_TOPICS = 6
 # Tartalmi séma-verzió: emelése a MAI briefeket újragenerálja (múlt napok
@@ -239,7 +262,7 @@ def _build_prompt(inputs: dict, lang: str, brief_date: str,
         local_schema = f""",
  "local": {{
    "lead": "1-2 sentences: what dominates the {lang_name}-language press today",
-   "topics": [ same shape as above, 3 to {MAX_LOCAL_TOPICS} topics from the
+   "topics": [ same shape as above, 3 to 5 topics from the
                {lang_name}-language-area clusters (refs from that section;
                a global index is allowed when that story dominates the
                local press too) ]
@@ -254,19 +277,23 @@ Return JSON:
  "headline": "one strong sentence: what dominates the global narrative today",
  "lead": "2-3 sentences that ADD context beyond the headline (drivers, why now, what changed) — never restate the headline's list",
  "topics": [
-   {{"title": "topic name", "summary": "1-2 analytical sentences",
+   {{"title": "topic name", "summary": "1-2 tight sentences, MAX 30 words",
      "trend": "new|rising|steady|fading", "ref": <cluster index or null>}},
-   ... 4 to {MAX_TOPICS} topics, ordered by importance ...
+   ... 4 to 6 topics, ordered by importance ...
  ],
  "outlook": "1-2 sentences: what to watch next / which topics are flattening vs surging vs yesterday"{local_schema}
 }}
+HARD LIMIT: the whole JSON must stay under ~700 words — the response is cut
+off beyond that, so prefer fewer, sharper topics over long ones.
 Trend rules: compare with yesterday's topics — "new" if absent yesterday,
 "rising"/"fading" by coverage momentum, "steady" otherwise. If no yesterday
 data, use "new" sparingly and prefer "steady".{local_rules}"""]
     return "\n".join(lines)
 
 
-def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
+def _call_llm(cfg: dict, prompt: str,
+              retries: int = 3) -> tuple[dict | None, str | None]:
+    """(parsed, None) sikernél; (None, utolsó-hiba-szöveg) bukásnál."""
     body = json.dumps({
         "model": cfg["model"],
         "messages": [
@@ -275,12 +302,13 @@ def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
         ],
         "temperature": 0.4,
         # 2200 a magyar (és más nem-angol) kimenetet levágta → csonka JSON →
-        # parse-bukás minden próbán, miközben az angol belefért. A v2 séma
-        # (globális + nyelvterületi blokk) tovább nő → 4800 fejtér.
-        "max_tokens": 4800,
+        # parse-bukás. A v2 séma hosszabb, de 4096 a modell-plafon: maradjunk
+        # ALATTA (a 4800 minden hívást 400-zal dobatott volna el).
+        "max_tokens": 4000,
         "response_format": {"type": "json_object"},
         "thinking": {"type": "disabled"},  # V4-Flash: Non-Think (lásd classifier)
     }).encode()
+    last_err: str | None = None
     for attempt in range(retries):
         try:
             req = urllib.request.Request(
@@ -293,14 +321,25 @@ def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
             content = choice.get("message", {}).get("content", "")
             parsed = _parse_json_lenient(content)
             if isinstance(parsed, dict) and parsed.get("headline"):
-                return parsed
-            log.warning("brief: unparseable response (attempt %d/%d, "
-                        "finish=%s, len=%d, tail=%r)", attempt + 1, retries,
-                        choice.get("finish_reason"), len(content), content[-120:])
+                return parsed, None
+            last_err = (f"unparseable (finish={choice.get('finish_reason')}, "
+                        f"len={len(content)}, tail={content[-120:]!r})")
+            log.warning("brief: %s (attempt %d/%d)", last_err, attempt + 1, retries)
+        except urllib.error.HTTPError as exc:
+            # az API hibatörzse a lényeg (pl. max_tokens-plafon, kvóta)
+            try:
+                detail = exc.read().decode()[:300]
+            except Exception:
+                detail = ""
+            last_err = f"HTTP {exc.code}: {detail or exc.reason}"
+            log.warning("brief LLM call failed (attempt %d/%d): %s",
+                        attempt + 1, retries, last_err)
         except Exception as exc:
-            log.warning("brief LLM call failed (attempt %d/%d): %s", attempt + 1, retries, exc)
+            last_err = f"{type(exc).__name__}: {exc}"
+            log.warning("brief LLM call failed (attempt %d/%d): %s",
+                        attempt + 1, retries, last_err)
         time.sleep(2.0 * (attempt + 1))
-    return None
+    return None, last_err
 
 
 def _clean_topics(raw, clusters: list[dict], cap: int) -> list[dict]:
@@ -383,9 +422,10 @@ def generate_brief(db_path: str | Path, brief_date: str | None = None,
     y_topics = (y_brief or {}).get("topics") or []
 
     _store(db_path, brief_date, lang, "pending", None)
-    parsed = _call_llm(cfg, _build_prompt(inputs, lang, brief_date, y_topics))
+    parsed, err = _call_llm(cfg, _build_prompt(inputs, lang, brief_date, y_topics))
     if parsed is None:
-        _store(db_path, brief_date, lang, "failed", None)
+        # a hibaszöveg a content_json-ba kerül → /health?brief=1 mutatja
+        _store(db_path, brief_date, lang, "failed", {"error": (err or "?")[:400]})
         return None
     content = _sanitize(parsed, inputs["clusters"])
     _store(db_path, brief_date, lang, "ok", content)
@@ -424,6 +464,39 @@ def kick_async(db_path: str | Path, brief_date: str, lang: str) -> bool:
 
     threading.Thread(target=_run, daemon=True, name=f"brief-{lang}").start()
     return True
+
+
+def diagnostics(db_path: str | Path) -> dict:
+    """/health?brief=1 — kulcs-gating, tárolt sorok (hibaszöveggel), friss logok."""
+    out: dict = {"enabled": _shared_config() is not None,
+                 "auto_langs": list(AUTO_LANGS), "schema_ver": SCHEMA_VER}
+    try:
+        conn = _connect(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT brief_date, lang, status, created_at, content_json "
+                "FROM daily_briefs ORDER BY brief_date DESC, lang LIMIT 14").fetchall()
+        finally:
+            conn.close()
+        briefs = []
+        for r in rows:
+            item = {"date": r["brief_date"], "lang": r["lang"],
+                    "status": r["status"], "created_at": r["created_at"]}
+            if r["content_json"]:
+                try:
+                    c = json.loads(r["content_json"])
+                    item["v"] = c.get("v", 1)
+                    item["error"] = c.get("error")
+                    item["local"] = bool(c.get("local_topics"))
+                    item["chars"] = len(r["content_json"])
+                except Exception:
+                    pass
+            briefs.append(item)
+        out["briefs"] = briefs
+    except Exception as exc:
+        out["db_error"] = str(exc)
+    out["recent_logs"] = list(_recent_logs)
+    return out
 
 
 def worker_loop(db_path: str | Path) -> None:

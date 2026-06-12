@@ -1860,6 +1860,9 @@ async def health(request):
             out["classifier"] = await asyncio.to_thread(_ec.diagnostics, str(DB_PATH))
             if cls == "probe":
                 out["classifier"]["probe"] = await asyncio.to_thread(_ec.probe)
+        if (request.query_params.get("brief") or "").strip():
+            import echolot_daily_brief as _eb
+            out["brief"] = await asyncio.to_thread(_eb.diagnostics, str(DB_PATH))
         return JSONResponse(out)
     except Exception as e:
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
