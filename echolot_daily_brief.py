@@ -105,7 +105,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path), timeout=15)
+    # 60s busy-timeout: a scraper/classifier/translator írói mellett a 15s
+    # kevés volt → "database is locked" (2026-06-12, /health?brief=1 fogta).
+    conn = sqlite3.connect(str(db_path), timeout=60)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA synchronous=NORMAL")
     _ensure_schema(conn)
@@ -399,6 +401,12 @@ def _store(db_path: str | Path, brief_date: str, lang: str,
         conn.close()
 
 
+# Egyszerre csak EGY generálás fusson (worker + on-demand kickek együtt):
+# a párhuzamos nyelvek egymást lockolták ki az SQLite-ból ("database is
+# locked"), és a klaszterezés CPU-ját is egyszerre tapossák.
+_gen_lock = threading.Lock()
+
+
 def generate_brief(db_path: str | Path, brief_date: str | None = None,
                    lang: str = "hu") -> dict | None:
     """Szinkron generálás + tárolás. None ha kulcs/adat hiányzik vagy bukott."""
@@ -406,6 +414,12 @@ def generate_brief(db_path: str | Path, brief_date: str | None = None,
     if not cfg:
         log.info("brief disabled (no CLASSIFIER_API_KEY)")
         return None
+    with _gen_lock:
+        return _generate_brief_locked(cfg, db_path, brief_date, lang)
+
+
+def _generate_brief_locked(cfg: dict, db_path: str | Path,
+                           brief_date: str | None, lang: str) -> dict | None:
     brief_date = brief_date or today_str()
     inputs = _gather_inputs(db_path, lang)
     if not inputs:
