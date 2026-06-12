@@ -45,6 +45,12 @@ REFRESH_HOURS = 4          # a MAI brief ennyi óránként frissül
 WORKER_INTERVAL_S = 600    # worker ciklus
 AUTO_LANGS = ("hu", "en")  # ezekre a worker magától generál
 MAX_TOPICS = 8
+MAX_LOCAL_TOPICS = 6
+# Tartalmi séma-verzió: emelése a MAI briefeket újragenerálja (múlt napok
+# véglegesek maradnak). v2: globális + nyelvterületi blokk (Kommandant-kérés
+# 2026-06-12 — "kell egy magyar/olasz/lengyel is, az adott nyelvterület
+# fontos hírei az adott nyelven").
+SCHEMA_VER = 2
 
 # nyelvkód → a brief célnyelvének neve a promptban
 _LANG_NAME = {
@@ -141,6 +147,8 @@ def is_stale(brief: dict | None, brief_date: str) -> bool:
             return True
     if brief_date != today_str():
         return False  # múlt nap: végleges
+    if int(brief.get("v") or 1) < SCHEMA_VER:
+        return True  # régi sémájú MAI brief → újragenerálás az új szerkezettel
     try:
         made = datetime.fromisoformat(brief["created_at"])
         return (datetime.now(timezone.utc) - made).total_seconds() > REFRESH_HOURS * 3600
@@ -163,7 +171,7 @@ def _gather_inputs(db_path: str | Path, lang: str) -> dict | None:
         log.warning("brief: global top failed: %s", exc)
         global_top = []
     try:
-        local_top = cluster_top_stories(db_path, hours=24, min_sources=2, limit=6, lang=lang)
+        local_top = cluster_top_stories(db_path, hours=24, min_sources=2, limit=8, lang=lang)
     except Exception as exc:
         log.warning("brief: local top failed: %s", exc)
         local_top = []
@@ -173,23 +181,43 @@ def _gather_inputs(db_path: str | Path, lang: str) -> dict | None:
         entities = []
     if not global_top and not local_top:
         return None
-    # dedup cluster_id-re, globális elöl
+    # Egyetlen kombinált lista a ref-feloldáshoz: globálisak elöl, utánuk a
+    # CSAK-lokális klaszterek. n_global jelöli a határt — a prompt két
+    # szekcióként sorolja fel (globális + nyelvterületi).
     seen, clusters = set(), []
-    for s in (global_top or []) + (local_top or []):
+    for s in (global_top or [])[:14]:
         cid = s.get("cluster_id")
         if cid in seen:
             continue
         seen.add(cid)
         clusters.append(s)
-    return {"clusters": clusters[:18], "entities": entities}
+    n_global = len(clusters)
+    for s in (local_top or []):
+        cid = s.get("cluster_id")
+        if cid in seen:
+            continue
+        seen.add(cid)
+        clusters.append(s)
+    return {"clusters": clusters[:22], "n_global": n_global, "entities": entities}
+
+
+def _wants_local(inputs: dict, lang: str) -> bool:
+    """Kell-e nyelvterületi blokk: en-nél nem (a globális eleve angol
+    súlyú), és csak ha van lokális klaszter-pool."""
+    return lang != "en" and inputs.get("n_global", 0) < len(inputs.get("clusters") or [])
 
 
 def _build_prompt(inputs: dict, lang: str, brief_date: str,
                   yesterday_topics: list[dict]) -> str:
+    lang_name = _LANG_NAME.get(lang, "English")
+    n_global = inputs.get("n_global", len(inputs["clusters"]))
     lines = [f"DATE: {brief_date}",
-             f"OUTPUT LANGUAGE: {_LANG_NAME.get(lang, 'English')}",
-             "", "TOP STORY CLUSTERS (last 24h, ranked, with source counts):"]
+             f"OUTPUT LANGUAGE: {lang_name}",
+             "", "GLOBAL TOP STORY CLUSTERS (last 24h, ranked, with source counts):"]
     for i, c in enumerate(inputs["clusters"]):
+        if i == n_global:
+            lines += ["", f"{lang_name.upper()}-LANGUAGE-AREA TOP CLUSTERS "
+                          f"(the {lang_name}-language press, last 24h):"]
         title = (c.get("title") or "").strip()[:200]
         lead = (c.get("lead_summary") or c.get("lead") or "").strip()[:300]
         n = c.get("source_count") or len(c.get("source_ids") or []) or 1
@@ -204,21 +232,37 @@ def _build_prompt(inputs: dict, lang: str, brief_date: str,
         lines += ["", "YESTERDAY'S BRIEF TOPICS (for trend comparison):"]
         for t_ in yesterday_topics[:10]:
             lines.append(f"- {t_.get('title', '')}")
-    lines += ["", f"""TASK: Write the executive brief for {brief_date} in {_LANG_NAME.get(lang, 'English')}.
+
+    local_schema = ""
+    local_rules = ""
+    if _wants_local(inputs, lang):
+        local_schema = f""",
+ "local": {{
+   "lead": "1-2 sentences: what dominates the {lang_name}-language press today",
+   "topics": [ same shape as above, 3 to {MAX_LOCAL_TOPICS} topics from the
+               {lang_name}-language-area clusters (refs from that section;
+               a global index is allowed when that story dominates the
+               local press too) ]
+ }}"""
+        local_rules = (f"\nThe \"local\" block covers the {lang_name}-language "
+                       "area: domestic politics, economy, society — the stories "
+                       "a local reader must know today. Do NOT repeat a global "
+                       "topic in the local block unless its local angle differs.")
+    lines += ["", f"""TASK: Write the daily brief for {brief_date} in {lang_name}.
 Return JSON:
 {{
  "headline": "one strong sentence: what dominates the global narrative today",
- "lead": "2-3 sentence summary paragraph of the day's media landscape",
+ "lead": "2-3 sentences that ADD context beyond the headline (drivers, why now, what changed) — never restate the headline's list",
  "topics": [
    {{"title": "topic name", "summary": "1-2 analytical sentences",
      "trend": "new|rising|steady|fading", "ref": <cluster index or null>}},
    ... 4 to {MAX_TOPICS} topics, ordered by importance ...
  ],
- "outlook": "1-2 sentences: what to watch next / which topics are flattening vs surging vs yesterday"
+ "outlook": "1-2 sentences: what to watch next / which topics are flattening vs surging vs yesterday"{local_schema}
 }}
 Trend rules: compare with yesterday's topics — "new" if absent yesterday,
 "rising"/"fading" by coverage momentum, "steady" otherwise. If no yesterday
-data, use "new" sparingly and prefer "steady"."""]
+data, use "new" sparingly and prefer "steady".{local_rules}"""]
     return "\n".join(lines)
 
 
@@ -231,9 +275,9 @@ def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
         ],
         "temperature": 0.4,
         # 2200 a magyar (és más nem-angol) kimenetet levágta → csonka JSON →
-        # parse-bukás minden próbán, miközben az angol belefért. 3600 a
-        # classifier-rel azonos fejtér.
-        "max_tokens": 3600,
+        # parse-bukás minden próbán, miközben az angol belefért. A v2 séma
+        # (globális + nyelvterületi blokk) tovább nő → 4800 fejtér.
+        "max_tokens": 4800,
         "response_format": {"type": "json_object"},
         "thinking": {"type": "disabled"},  # V4-Flash: Non-Think (lásd classifier)
     }).encode()
@@ -259,10 +303,10 @@ def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
     return None
 
 
-def _sanitize(parsed: dict, clusters: list[dict]) -> dict:
-    """Trim + a ref indexeket /story linkké oldjuk (story_id mező)."""
+def _clean_topics(raw, clusters: list[dict], cap: int) -> list[dict]:
+    """Topic-lista tisztítás + a ref indexek /story linkké oldása."""
     topics = []
-    for t_ in (parsed.get("topics") or [])[:MAX_TOPICS]:
+    for t_ in (raw or [])[:cap]:
         if not isinstance(t_, dict) or not t_.get("title"):
             continue
         trend = t_.get("trend")
@@ -278,12 +322,24 @@ def _sanitize(parsed: dict, clusters: list[dict]) -> dict:
             "trend": trend,
             "story_id": story_id,
         })
-    return {
+    return topics
+
+
+def _sanitize(parsed: dict, clusters: list[dict]) -> dict:
+    out = {
+        "v": SCHEMA_VER,
         "headline": str(parsed.get("headline") or "")[:300],
         "lead": str(parsed.get("lead") or "")[:1200],
-        "topics": topics,
+        "topics": _clean_topics(parsed.get("topics"), clusters, MAX_TOPICS),
         "outlook": str(parsed.get("outlook") or "")[:600],
     }
+    loc = parsed.get("local")
+    if isinstance(loc, dict):
+        loc_topics = _clean_topics(loc.get("topics"), clusters, MAX_LOCAL_TOPICS)
+        if loc_topics:
+            out["local_lead"] = str(loc.get("lead") or "")[:600]
+            out["local_topics"] = loc_topics
+    return out
 
 
 def _store(db_path: str | Path, brief_date: str, lang: str,

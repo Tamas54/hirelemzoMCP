@@ -114,6 +114,11 @@ _BRIEF_CSS = """
   border: 1px dashed var(--border); font-size: 0.88rem; line-height: 1.55;
   color: var(--text-dim);
 }
+.brief-local-title {
+  margin: 2rem 0 0.6rem; padding-top: 1.2rem; border-top: 2px solid var(--border);
+  font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--primary); font-weight: 700;
+}
 .brief-outlook strong { color: var(--text); }
 .brief-meta { margin-top: 1rem; font-size: 0.7rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 .brief-pending { padding: 2rem 1rem; text-align: center; color: var(--text-dim); }
@@ -169,9 +174,9 @@ def render_brief_landing_block(db_path: str, lang: str) -> str:
     """
 
 
-def _render_topics(brief: dict, lang: str) -> str:
+def _render_topics(topics: list, lang: str) -> str:
     rows = []
-    for tp in brief.get("topics") or []:
+    for tp in topics or []:
         title = _escape(tp.get("title") or "")
         if tp.get("story_id"):
             title = f'<a href="/story/{_escape(tp["story_id"])}?lang={lang}">{title}</a>'
@@ -226,11 +231,21 @@ async def render_brief_page(request, db_path: str) -> tuple[str, str]:
     if brief and brief.get("status") == "ok" and brief.get("headline"):
         upd = _escape(t("brief.updated", lang))
         created = (brief.get("created_at") or "")[:16].replace("T", " ")
+        local_html = ""
+        if brief.get("local_topics"):
+            local_lead = (f'<p class="brief-lead">{_escape(brief.get("local_lead") or "")}</p>'
+                          if brief.get("local_lead") else "")
+            local_html = f"""
+          <h2 class="brief-local-title">{_escape(t("brief.local_title", lang))}</h2>
+          {local_lead}
+          {_render_topics(brief["local_topics"], lang)}
+            """
         body = f"""
           <div class="brief-headline">{_escape(brief["headline"])}</div>
           <p class="brief-lead">{_escape(brief.get("lead") or "")}</p>
-          {_render_topics(brief, lang)}
+          {_render_topics(brief.get("topics") or [], lang)}
           {f'<div class="brief-outlook"><strong>{_escape(t("brief.outlook", lang))}:</strong> {_escape(brief["outlook"])}</div>' if brief.get("outlook") else ''}
+          {local_html}
           <div class="brief-meta">{upd}: {created} UTC · Echolot AI</div>
         """
     elif pending:
