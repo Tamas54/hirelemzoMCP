@@ -310,15 +310,28 @@ def _call_llm(cfg: dict, prompt: str,
         "response_format": {"type": "json_object"},
         "thinking": {"type": "disabled"},  # V4-Flash: Non-Think (lásd classifier)
     }).encode()
+    def _do_call() -> dict:
+        req = urllib.request.Request(
+            f"{cfg['base']}/chat/completions", data=body,
+            headers={"Authorization": f"Bearer {cfg['key']}",
+                     "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+            return json.loads(resp.read().decode())
+
     last_err: str | None = None
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(
-                f"{cfg['base']}/chat/completions", data=body,
-                headers={"Authorization": f"Bearer {cfg['key']}",
-                         "Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-                data = json.loads(resp.read().decode())
+            # KEMÉNY teljes-hívás határidő: az urlopen timeoutja csak a
+            # socket-műveletek közti csendet méri — egy csöpögő válasz órákig
+            # bent ragadhat (2026-06-12: az 'it' generálás 10+ percre beállt,
+            # és a _gen_lock mögött minden nyelv várt rá). shutdown(wait=False):
+            # a lógó szálat NEM várjuk meg, hagyjuk elhalni a háttérben.
+            import concurrent.futures as _cf
+            _ex = _cf.ThreadPoolExecutor(max_workers=1)
+            try:
+                data = _ex.submit(_do_call).result(timeout=REQUEST_TIMEOUT + 30)
+            finally:
+                _ex.shutdown(wait=False, cancel_futures=True)
             choice = (data.get("choices") or [{}])[0]
             content = choice.get("message", {}).get("content", "")
             parsed = _parse_json_lenient(content)
