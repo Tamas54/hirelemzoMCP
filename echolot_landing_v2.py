@@ -3022,7 +3022,7 @@ async def render_rovat_page(request, db_path: str, rovat_key: str) -> tuple[str 
     {theme_toggle}
   </div>
   {nav_strip}
-  <div class="rovat-page-wrap">
+  <div class="rovat-page-wrap rovat-shell">
     <h1>{section_title}</h1>
     <a class="rovat-back" href="/?lang={lang}">← {back_lbl}</a>
     <div class="stories">{cards}</div>

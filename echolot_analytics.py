@@ -67,7 +67,10 @@ def _family(sphere):
 # overview — corpus-wide (or topic-scoped) frame/emotion/sentiment aggregate,
 # for the /analysis frontend page (hirspektrum-style framing+emotion view).
 # ---------------------------------------------------------------------------
-def overview(days=30, query="", db_path="echolot.db"):
+def overview(days=30, query="", db_path="echolot.db", lang_filter=None):
+    """lang_filter (pl. 'hu'): csak az adott NYELVŰ cikkek — a magyar UI-n
+    alapból a magyar sajtó elemzése érdekes (UX-teszter 2026-06-12), a
+    globális nézet kapcsolóval érhető el."""
     days = max(1, min(365, int(days)))
     params = [_since(days)]
     join = ""
@@ -77,9 +80,12 @@ def overview(days=30, query="", db_path="echolot.db"):
         join = "JOIN articles_fts f ON f.article_id = a.article_id"
         where = "articles_fts MATCH ? AND a.published_at >= ?"
         params = [fts, _since(days)]
+    if lang_filter:
+        where += " AND a.language = ?"
+        params.append(lang_filter)
     sql = f"""
-        SELECT a.source_name, s.lean, a.frame, a.emotion, a.sentiment,
-               a.classification_status
+        SELECT a.source_name, s.id AS source_id, s.lean, a.frame, a.emotion,
+               a.sentiment, a.classification_status
         FROM articles a JOIN sources s ON s.id = a.source_id {join}
         WHERE {where}
     """
@@ -98,6 +104,7 @@ def overview(days=30, query="", db_path="echolot.db"):
     n_class = 0
     for r in rows:
         sp = src.setdefault(r["source_name"], {"articles": 0, "lean": r["lean"],
+                                               "id": r["source_id"],
                                                "frames": {}, "_s": 0.0, "_n": 0})
         sp["articles"] += 1
         if r["classification_status"] == "ok":
@@ -112,7 +119,8 @@ def overview(days=30, query="", db_path="echolot.db"):
     top_sources = []
     for name, p in sorted(src.items(), key=lambda kv: -kv[1]["articles"])[:14]:
         dom = max(p["frames"].items(), key=lambda kv: kv[1])[0] if p["frames"] else None
-        top_sources.append({"source": name, "lean": p["lean"], "articles": p["articles"],
+        top_sources.append({"source": name, "source_id": p.get("id"),
+                            "lean": p["lean"], "articles": p["articles"],
                             "dominant_frame": dom,
                             "avg_sentiment": round(p["_s"]/p["_n"], 2) if p["_n"] else None})
     return {

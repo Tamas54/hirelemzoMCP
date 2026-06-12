@@ -1913,9 +1913,15 @@ async def page_analysis(request):
     except ValueError:
         days = 30
     lang = _request_lang(request)
-    data = await asyncio.to_thread(overview, days, query, str(DB_PATH))
+    # Alapnézet a UI-nyelv sajtója (UX-teszter: "a magyaron a magyar érdekes");
+    # ?scope=global a teljes korpusz. en-nél a globális az alap.
+    scope = (request.query_params.get("scope") or "").strip().lower()
+    if scope not in ("local", "global"):
+        scope = "global" if lang == "en" else "local"
+    lang_filter = lang if scope == "local" else None
+    data = await asyncio.to_thread(overview, days, query, str(DB_PATH), lang_filter)
     return HTMLResponse(render_analysis_page(
-        data, query=query, days=days, lang=lang,
+        data, query=query, days=days, lang=lang, scope=scope,
         nav_html=_augment_block_html(lang, active="analysis"),
         nav_css=_augment_strip_css()))
 
