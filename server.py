@@ -2812,6 +2812,24 @@ LANDING_HTML = r"""<!DOCTYPE html>
     display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
     gap: 0.8rem;
   }
+  .news-explainer {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center;
+    font-size: 0.72rem; color: var(--text-dim); margin: -0.3rem 0 0.8rem;
+  }
+  .ne-sort { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+  .ne-sort-label { font-size: 0.68rem; }
+  .ne-sort-btn {
+    font-size: 0.68rem; padding: 0.2rem 0.55rem; border-radius: 999px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); cursor: pointer;
+  }
+  .ne-sort-btn:hover { border-color: rgba(20,184,166,0.4); color: var(--text); }
+  .ne-sort-btn.active { border-color: var(--primary); color: var(--primary); }
+  .nsb-fresh {
+    margin-left: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem; color: var(--primary); white-space: nowrap;
+  }
+  .nsb-head .nsb-fresh + .nsb-arrow { margin-left: 0.4rem; }
   .news-card {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
     padding: 1rem 1.1rem; transition: border-color 0.2s, transform 0.15s;
@@ -2849,10 +2867,9 @@ LANDING_HTML = r"""<!DOCTYPE html>
     font-size: 0.7rem; color: var(--primary); font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.04em;
   }
-  .nsb-arrow { margin-left: auto; color: var(--primary); font-weight: 700; opacity: 0.7; }
+  .nsb-arrow { color: var(--primary); font-weight: 700; opacity: 0.7; }
   .nsb-head:hover .nsb-src { text-decoration: underline; }
   .nsb-head:hover .nsb-arrow { opacity: 1; }
-  .nsb-head-plain .nc-lang { margin-left: auto; }
   .nsb-item {
     display: flex; align-items: baseline; gap: 0.5rem; text-decoration: none;
     color: inherit; padding: 0.3rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -2973,6 +2990,15 @@ LANDING_HTML = r"""<!DOCTYPE html>
   <div class="news-header">
     <h2>Élő hírfolyam</h2>
     <span class="badge" id="news-count"></span>
+  </div>
+  <div class="news-explainer" id="news-explainer">
+    <span class="ne-text">Forrásonként dobozolva — egy doboz egy forrás legfrissebb cikkei.</span>
+    <span class="ne-sort">
+      <span class="ne-sort-label">Dobozok sorrendje:</span>
+      <button class="ne-sort-btn active" data-sort="fresh">⏱ legfrissebb hír elöl</button>
+      <button class="ne-sort-btn" data-sort="count">📚 legtöbb cikk elöl</button>
+      <button class="ne-sort-btn" data-sort="alpha">🔤 forrásnév</button>
+    </span>
   </div>
   <div class="news-grid" id="news-grid">
     <div class="news-loading"><span class="spinner"></span> Hírek betöltése...</div>
@@ -3128,7 +3154,11 @@ const NSB_MAX_ITEMS = 5;  // hány cím látszik dobozonként; a többi a /sourc
 // egy forrás minden friss híre egy dobozba kerül, így egyetlen bőven publikáló
 // forrás (pl. Sydney Morning Herald) nem árasztja el a folyamot. A doboz fejléce
 // és "összes híre" linkje a /source/<id> oldalra visz (a mostani eljárás).
+let newsSortMode = 'fresh';
+let lastArts = [];
+
 function renderNews(arts) {
+  lastArts = arts;
   const grid = document.getElementById('news-grid');
   if (!arts.length) {
     grid.innerHTML = '<div class="news-empty">Nincs cikk ebben a szelekcióban a vizsgált időablakon belül.</div>';
@@ -3138,8 +3168,9 @@ function renderNews(arts) {
   const moreLbl = NSB_MORE_LBL[lang] || NSB_MORE_LBL.hu;
 
   // Csoportosítás source_id szerint, az első előfordulás sorrendjében.
-  // Az arts published_at DESC-ben jön, így a legfrissebb hírt hozó forrás
-  // doboza kerül elsőként a folyam tetejére.
+  // Az arts published_at DESC-ben jön, így 'fresh' módban a legfrissebb
+  // hírt hozó forrás doboza kerül elsőként a folyam tetejére. A sorrend
+  // a felhasználó által váltható (UX-teszter: tegyük láthatóvá az elvet).
   const order = [];
   const groups = {};
   arts.forEach(a => {
@@ -3147,6 +3178,12 @@ function renderNews(arts) {
     if (!groups[sid]) { groups[sid] = []; order.push(sid); }
     groups[sid].push(a);
   });
+  if (newsSortMode === 'alpha') {
+    order.sort((x, y) => (groups[x][0].source_name || x)
+      .localeCompare(groups[y][0].source_name || y, lang));
+  } else if (newsSortMode === 'count') {
+    order.sort((x, y) => groups[y].length - groups[x].length);
+  }
 
   grid.innerHTML = order.map(sid => {
     const items = groups[sid];
@@ -3156,17 +3193,20 @@ function renderNews(arts) {
     const srcHref = hasLink ? `/source/${encodeURIComponent(a0.source_id)}?lang=${encodeURIComponent(lang)}` : '';
     const tg = a0.source_type === 'telegram' ? '<span class="nc-lang" style="background:rgba(20,184,166,0.15);color:#14b8a6">TG</span>' : '';
 
+    const freshChip = `<span class="nsb-fresh">${timeAgo(a0.published_at)}</span>`;
     const head = hasLink
       ? `<a class="nsb-head" href="${srcHref}">
            <span class="nsb-src">${srcName}</span>
            <span class="nc-lang">${escapeHTML(a0.language || '')}</span>
            ${tg}
+           ${freshChip}
            <span class="nsb-arrow">→</span>
          </a>`
       : `<div class="nsb-head nsb-head-plain">
            <span class="nsb-src">${srcName}</span>
            <span class="nc-lang">${escapeHTML(a0.language || '')}</span>
            ${tg}
+           ${freshChip}
          </div>`;
 
     const rows = items.slice(0, NSB_MAX_ITEMS).map(a =>
@@ -3245,6 +3285,15 @@ document.getElementById('toggle-spheres').onclick = () => {
   bar.style.display = visible ? 'none' : 'flex';
   btn.textContent = (visible ? '▼' : '▲') + btn.textContent.slice(1);
 };
+
+document.querySelectorAll('.ne-sort-btn').forEach(btn => {
+  btn.onclick = () => {
+    newsSortMode = btn.dataset.sort;
+    document.querySelectorAll('.ne-sort-btn').forEach(b =>
+      b.classList.toggle('active', b === btn));
+    renderNews(lastArts);
+  };
+});
 
 fetchNews('', 'Mind');
 

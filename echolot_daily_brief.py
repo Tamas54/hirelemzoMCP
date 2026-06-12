@@ -230,7 +230,10 @@ def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.4,
-        "max_tokens": 2200,
+        # 2200 a magyar (és más nem-angol) kimenetet levágta → csonka JSON →
+        # parse-bukás minden próbán, miközben az angol belefért. 3600 a
+        # classifier-rel azonos fejtér.
+        "max_tokens": 3600,
         "response_format": {"type": "json_object"},
         "thinking": {"type": "disabled"},  # V4-Flash: Non-Think (lásd classifier)
     }).encode()
@@ -242,11 +245,14 @@ def _call_llm(cfg: dict, prompt: str, retries: int = 3) -> dict | None:
                          "Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode())
-            content = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            choice = (data.get("choices") or [{}])[0]
+            content = choice.get("message", {}).get("content", "")
             parsed = _parse_json_lenient(content)
             if isinstance(parsed, dict) and parsed.get("headline"):
                 return parsed
-            log.warning("brief: unparseable response (attempt %d/%d)", attempt + 1, retries)
+            log.warning("brief: unparseable response (attempt %d/%d, "
+                        "finish=%s, len=%d, tail=%r)", attempt + 1, retries,
+                        choice.get("finish_reason"), len(content), content[-120:])
         except Exception as exc:
             log.warning("brief LLM call failed (attempt %d/%d): %s", attempt + 1, retries, exc)
         time.sleep(2.0 * (attempt + 1))

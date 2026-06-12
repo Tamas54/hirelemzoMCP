@@ -329,6 +329,19 @@ def augment_landing(request, landing_html: str, db_path: str | None = None) -> t
     out = out.replace("<h2>Élő hírfolyam</h2>",
                       f"<h2>{html.escape(t('landing.news.title', lang))}</h2>", 1)
 
+    # Feed-explainer + sort selector (UX-teszter: tegyük láthatóvá az elvet)
+    out = out.replace(
+        "Forrásonként dobozolva — egy doboz egy forrás legfrissebb cikkei.",
+        html.escape(t("landing.news.explainer", lang)), 1)
+    out = out.replace("Dobozok sorrendje:",
+                      html.escape(t("landing.news.sort_label", lang)), 1)
+    out = out.replace(">⏱ legfrissebb hír elöl</button>",
+                      f">{html.escape(t('landing.news.sort_fresh', lang))}</button>", 1)
+    out = out.replace(">📚 legtöbb cikk elöl</button>",
+                      f">{html.escape(t('landing.news.sort_count', lang))}</button>", 1)
+    out = out.replace(">🔤 forrásnév</button>",
+                      f">{html.escape(t('landing.news.sort_alpha', lang))}</button>", 1)
+
     # Server-side initial news batch (for crawlers without JS support).
     # Replace the loading spinner div with 30 pre-rendered news cards.
     # The JS fetchNews() runs anyway and may overwrite the grid with
