@@ -1903,13 +1903,18 @@ async def page_analysis(request):
     import asyncio
     from echolot_analytics import overview
     from echolot_analysis_page import render_analysis_page
+    from echolot_dashboard import _augment_block_html, _augment_strip_css, _request_lang
     query = (request.query_params.get("query") or "").strip()
     try:
         days = int(request.query_params.get("days", "30"))
     except ValueError:
         days = 30
+    lang = _request_lang(request)
     data = await asyncio.to_thread(overview, days, query, str(DB_PATH))
-    return HTMLResponse(render_analysis_page(data, query=query, days=days))
+    return HTMLResponse(render_analysis_page(
+        data, query=query, days=days, lang=lang,
+        nav_html=_augment_block_html(lang, active="analysis"),
+        nav_css=_augment_strip_css()))
 
 
 @mcp.custom_route("/robots.txt", methods=["GET"])

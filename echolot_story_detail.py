@@ -135,11 +135,13 @@ _TIMELINE_LBL = {
     "fr": "Chronologie", "ru": "Хронология", "uk": "Хронологія",
 }
 # Lean-bucket emberi név (nyelvfüggetlen kulcs → HU/EN).
+# CSAK L/C/R — Kommandant-döntés: NINCS külön "Kormányzati" bucket; a
+# kormánypropaganda/állami média a kanonikus LEAN_TO_BIAS szerint az R
+# oszlopba számít (Ground News-elv, lásd bias-legend módszertan).
 _LEAN_BUCKET_LBL = {
     "L": {"hu": "Baloldali sajtó", "en": "Left-leaning"},
     "C": {"hu": "Központi / semleges", "en": "Center / neutral"},
     "R": {"hu": "Jobboldali sajtó", "en": "Right-leaning"},
-    "G": {"hu": "Kormányzati", "en": "Government"},
 }
 
 
@@ -365,8 +367,9 @@ def _bucket_label(bucket: str, lang: str) -> str:
 
 
 def _render_perspective_breakdown(articles: list[dict], lang: str) -> str:
-    """Lean-bucketenként (Bal/Központi/Jobb/Kormányzati) megmutatja, hogy az
-    egyes oldalak milyen címmel írták meg ugyanazt — ez az Echolot lényege."""
+    """Lean-bucketenként (Bal/Központi/Jobb) megmutatja, hogy az egyes
+    oldalak milyen címmel írták meg ugyanazt — ez az Echolot lényege.
+    NINCS külön kormányzati bucket: állami média → R (LEAN_TO_BIAS)."""
     groups: dict[str, list[dict]] = {b: [] for b in _BUCKET_ORDER}
     for a in articles:
         groups[_lean_bucket(a.get("source_lean"))].append(a)
