@@ -46,6 +46,7 @@ from echolot_theme import (
     theme_toggle_html,
 )
 from echolot_charts import hourly_volume_svg, polit_spectrum_svg
+from echolot_sphere_labels import sphere_label as _sphere_label
 
 
 def _augment_strip_css() -> str:
@@ -55,8 +56,12 @@ def _augment_strip_css() -> str:
     .echolot-augment {
       max-width: 1500px; width: 100%; margin: 1rem auto 0;
       display: flex; align-items: center; justify-content: flex-start;
-      gap: 1rem; flex-wrap: wrap; padding: 0 1.5rem;
-      position: relative; z-index: 5;
+      gap: 1rem; flex-wrap: wrap; padding: 0.5rem 1.5rem;
+      /* UX-feedback 2026-06-11 #8: a felső nav minden oldalon ugyanott,
+         görgetésnél is látható maradjon → sticky, témakövető háttérrel. */
+      position: sticky; top: 0; z-index: 50;
+      background: var(--bg, #050608);
+      box-shadow: 0 6px 18px -14px rgba(0,0,0,0.6);
     }
     /* A lang-select közvetlenül a nav-tabok MELLETT, balra-igazítva.
        Korábbi 'justify-content: space-between' a jobb szélre tette, ahol
@@ -1033,7 +1038,7 @@ def render_trending_page(request, compute_velocity_fn, db_path,
         ratio_s = f"{ratio:.2f}×" if ratio is not None else "—"
         rows.append(f"""
           <tr class="border-b border-gray-800 hover:bg-gray-900/50">
-            <td class="py-2 font-mono text-xs text-indigo-300">{_escape(s['sphere'])}</td>
+            <td class="py-2 text-xs text-indigo-300" title="{_escape(s['sphere'])}">{_escape(_sphere_label(s['sphere'], lang))}</td>
             <td class="py-2 text-sm">{s.get('current_count', 0)}</td>
             <td class="py-2 text-sm text-gray-500">{s.get('baseline_count', 0)}</td>
             <td class="py-2 text-sm font-mono">{ratio_s}</td>
@@ -1230,11 +1235,11 @@ def render_trending_page(request, compute_velocity_fn, db_path,
     # fresh DB. Failures are silent — chart panel just stays empty.
     charts_panel = ""
     try:
-        hv_svg = hourly_volume_svg(db_path, hours=24, top_n=5)
+        hv_svg = hourly_volume_svg(db_path, hours=24, top_n=5, lang=lang)
     except Exception:
         hv_svg = ""
     try:
-        ps_svg = polit_spectrum_svg(db_path, hours=24, top_n=10)
+        ps_svg = polit_spectrum_svg(db_path, hours=24, top_n=10, lang=lang)
     except Exception:
         ps_svg = ""
     if hv_svg or ps_svg:

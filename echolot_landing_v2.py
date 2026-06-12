@@ -49,6 +49,7 @@ from echolot_youtube_trends import trending_videos as _yt_trending_videos
 from echolot_top_stories import cluster_top_stories
 from echolot_blindspot import find_political_blindspots
 from echolot_entity_trending import top_entities_24h
+from echolot_sphere_labels import sphere_label
 try:
     import echolot_domain_intel as _edi
 except Exception as _edi_err:
@@ -168,8 +169,24 @@ def _sphere_color(sphere: str | None) -> str:
     return _SPHERE_COLOR_MAP.get(key, "var(--fg-2)")
 
 
-def _fmt_age(dt: datetime, now: datetime) -> str:
-    """Compact Hungarian relative age: '12p' / '5ó' / '3n'.
+# Relatív idő-sablonok: (most, perc, óra, nap) — UX-feedback 2026-06-11:
+# a kompakt '3ó' félrevezető (az Ó nullának néz ki), kiírt forma kell.
+_AGE_TPL: dict[str, tuple[str, str, str, str]] = {
+    "hu": ("most", "{n} perce", "{n} órája", "{n} napja"),
+    "en": ("now", "{n} min ago", "{n} hr ago", "{n} days ago"),
+    "de": ("jetzt", "vor {n} Min.", "vor {n} Std.", "vor {n} Tagen"),
+    "fr": ("à l'instant", "il y a {n} min", "il y a {n} h", "il y a {n} j"),
+    "es": ("ahora", "hace {n} min", "hace {n} h", "hace {n} días"),
+    "it": ("ora", "{n} min fa", "{n} ore fa", "{n} giorni fa"),
+    "pl": ("teraz", "{n} min temu", "{n} godz. temu", "{n} dni temu"),
+    "ru": ("сейчас", "{n} мин назад", "{n} ч назад", "{n} дн назад"),
+    "uk": ("зараз", "{n} хв тому", "{n} год тому", "{n} дн тому"),
+    "zh": ("刚刚", "{n}分钟前", "{n}小时前", "{n}天前"),
+}
+
+
+def _age_parts(dt: datetime, now: datetime) -> tuple[int, int]:
+    """(unit_idx, n) — unit_idx: 0=most, 1=perc, 2=óra, 3=nap.
 
     Handles mixed naive/aware datetimes by stripping tz info before
     subtraction — both inputs are coerced to naive in UTC.
@@ -178,25 +195,31 @@ def _fmt_age(dt: datetime, now: datetime) -> str:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     if now.tzinfo is not None:
         now = now.astimezone(timezone.utc).replace(tzinfo=None)
-    delta = now - dt
-    secs = int(delta.total_seconds())
-    if secs < 0:
-        return "most"
+    secs = int((now - dt).total_seconds())
     if secs < 60:
-        return "most"
+        return 0, 0
     mins = secs // 60
     if mins < 60:
-        return f"{mins}p"
+        return 1, mins
     hours = mins // 60
     if hours < 48:
-        return f"{hours}ó"
-    days = hours // 24
-    return f"{days}n"
+        return 2, hours
+    return 3, hours // 24
+
+
+def _fmt_age(dt: datetime, now: datetime, lang: str = "hu") -> str:
+    """Localized verbose relative age: '12 perce' / '5 órája' / '3 napja'."""
+    tpl = _AGE_TPL.get(lang, _AGE_TPL["en"])
+    unit, n = _age_parts(dt, now)
+    if unit == 0:
+        return tpl[0]
+    return tpl[unit].format(n=n)
 
 
 def _format_reach_window(first_published: str | None,
-                        latest_published: str | None) -> str:
-    """Compact '2ó–6ó' window string for the reach badge, or '' if unavailable."""
+                        latest_published: str | None,
+                        lang: str = "hu") -> str:
+    """'2–6 órája' window string for the reach badge, or '' if unavailable."""
     if not first_published or not latest_published:
         return ""
     try:
@@ -212,8 +235,14 @@ def _format_reach_window(first_published: str | None,
     ldt = latest_dt.astimezone(timezone.utc).replace(tzinfo=None) if latest_dt.tzinfo else latest_dt
     span_sec = int((ldt - fdt).total_seconds())
     if span_sec < 1800:  # < 30 min span — treat as point-in-time
-        return _fmt_age(latest_dt, now)
-    return f"{_fmt_age(latest_dt, now)}–{_fmt_age(first_dt, now)}"
+        return _fmt_age(latest_dt, now, lang)
+    # Azonos egység esetén összevont forma: '2–6 órája' (nem '2 órája–6 órája')
+    u_l, n_l = _age_parts(latest_dt, now)
+    u_f, n_f = _age_parts(first_dt, now)
+    tpl = _AGE_TPL.get(lang, _AGE_TPL["en"])
+    if u_l == u_f and u_l > 0:
+        return tpl[u_l].format(n=f"{n_l}–{n_f}")
+    return f"{_fmt_age(latest_dt, now, lang)} – {_fmt_age(first_dt, now, lang)}"
 
 
 def _render_entity_chip_row(entities: list[dict], lang: str) -> str:
@@ -260,6 +289,7 @@ def _render_reach_badge(
     source_ids: list[str] | None,
     first_published: str | None = None,
     latest_published: str | None = None,
+    lang: str = "hu",
 ) -> str:
     """Compact reach-badge under each story card.
 
@@ -288,7 +318,7 @@ def _render_reach_badge(
     else:
         sub = '<span class="reach-country reach-global">🌐 global</span>'
         title = f'≈{total} olvasó · global'
-    window = _format_reach_window(first_published, latest_published)
+    window = _format_reach_window(first_published, latest_published, lang)
     window_html = (
         f' <span class="reach-window" title="cluster aktív: {_escape(window)}">{_escape(window)}</span>'
         if window else ""
@@ -353,6 +383,7 @@ def _render_v2_footer_reach(
     source_ids: list[str] | None,
     first_published: str | None,
     latest_published: str | None,
+    lang: str = "hu",
 ) -> str:
     """Inline reach span for the v2 story footer.
 
@@ -379,7 +410,7 @@ def _render_v2_footer_reach(
     else:
         country_html = '<span class="reach-country reach-global">🌐 global</span>'
         title = f'≈{total} olvasó · global'
-    window = _format_reach_window(first_published, latest_published)
+    window = _format_reach_window(first_published, latest_published, lang)
     window_html = (
         f' <span class="reach-window">{_escape(window)}</span>' if window else ""
     )
@@ -479,7 +510,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu",
         try:
             dt_f = datetime.fromisoformat(first)
             now_f = datetime.now(timezone.utc) if dt_f.tzinfo else datetime.now()
-            rel = _fmt_age(dt_f, now_f)
+            rel = _fmt_age(dt_f, now_f, lang)
             # Helyi-idő HH:MM (vagy MM-DD HH:MM ha régebbi)
             now_local = datetime.now()
             dt_local = dt_f.astimezone() if dt_f.tzinfo else dt_f
@@ -502,7 +533,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu",
         try:
             dt = datetime.fromisoformat(latest)
             now = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
-            age_html = f'<time datetime="{_escape(latest)}">{_fmt_age(dt, now)}</time>'
+            age_html = f'<time datetime="{_escape(latest)}">{_fmt_age(dt, now, lang)}</time>'
         except (ValueError, TypeError):
             age_html = ""
 
@@ -510,7 +541,7 @@ def _render_story_v2(s: dict, variant: str, src_label: str, lang: str = "hu",
         f'<p class="story-lead-v2">{_escape(lead)}</p>' if lead else ""
     )
 
-    footer_reach = _render_v2_footer_reach(s.get("source_ids"), first, latest)
+    footer_reach = _render_v2_footer_reach(s.get("source_ids"), first, latest, lang)
 
     return f"""
       <a href="{_escape(href)}"{link_attrs} class="story {variant}">
@@ -683,6 +714,12 @@ def _render_local_trending(local: dict, lang: str, tr_lang: str | None = None) -
         vel_results = vel_blob.get("results") or vel_blob.get("spheres") or []
     else:
         vel_results = vel_blob or []
+    # UX-feedback 2026-06-11: nyers szféra-kulcs ("global_tabloid") helyett
+    # emberi név; a szorzó jelentését alcím magyarázza; a "cikk" fallback
+    # felirat és a szekciócímek lokalizáltak.
+    _cnt_lbl = {"hu": "cikk", "en": "articles", "de": "Artikel", "fr": "articles",
+                "es": "artículos", "it": "articoli", "pl": "artykułów",
+                "ru": "статей", "uk": "статей", "zh": "篇"}.get(lang, "articles")
     vel_items = []
     for v in (vel_results or []):
         sphere = v.get("sphere") or ""
@@ -699,12 +736,13 @@ def _render_local_trending(local: dict, lang: str, tr_lang: str | None = None) -
             status = v.get("status", "normal")
         else:
             # Nincs baseline (vagy 0) → count fallback
-            ratio_s = f"{current_count} cikk"
+            ratio_s = f"{current_count} {_cnt_lbl}"
             status = "count"
+        label = sphere_label(sphere, lang)
         vel_items.append(
             f'<li class="lt-row lt-row-velocity">'
-            f'<a href="/dashboard/sphere/{_escape(sphere)}?lang={lang}">'
-            f'<span class="lt-row-title">{_escape(sphere)}</span>'
+            f'<a href="/dashboard/sphere/{_escape(sphere)}?lang={lang}" title="{_escape(sphere)}">'
+            f'<span class="lt-row-title">{_escape(label)}</span>'
             f'<span class="lt-row-ratio status-{_escape(status)}">{_escape(ratio_s)}</span>'
             f'</a></li>'
         )
@@ -712,11 +750,17 @@ def _render_local_trending(local: dict, lang: str, tr_lang: str | None = None) -
             break
 
     empty = '<li class="lt-empty">—</li>'
+    lbl_vel = _escape(t("landing.lt.velocity", lang)).upper()
+    lbl_vel_sub = _escape(t("landing.lt.velocity_sub", lang))
+    lbl_kw = _escape(t("landing.lt.keywords", lang)).upper()
+    lbl_news = _escape(t("landing.lt.news_today", lang)).upper()
+    lbl_news_sub = _escape(t("landing.lt.news_today_sub", lang))
     # Velocity szekciót csak akkor mutatjuk, ha van mérhető spike
     velocity_section_html = (
         f"""
         <div class="lt-section">
-          <div class="lt-section-label"><span class="lt-icon">◆</span>MOST PÖRGŐ TÉMÁK · 24H</div>
+          <div class="lt-section-label"><span class="lt-icon">◆</span>{lbl_vel} · 24H</div>
+          <small class="lt-section-sub">{lbl_vel_sub}</small>
           <ul class="lt-list">{''.join(vel_items)}</ul>
         </div>
         """
@@ -725,12 +769,12 @@ def _render_local_trending(local: dict, lang: str, tr_lang: str | None = None) -
     return f"""
       <div class="lt-shell">
         <div class="lt-section">
-          <div class="lt-section-label"><span class="lt-icon">◆</span>KULCSSZAVAK · 24H</div>
+          <div class="lt-section-label"><span class="lt-icon">◆</span>{lbl_kw} · 24H</div>
           <ul class="lt-list">{''.join(wiki_items) or empty}</ul>
         </div>
         <div class="lt-section">
-          <div class="lt-section-label"><span class="lt-icon">◆</span>HÍREK · MA</div>
-          <small class="lt-section-sub">a legfontosabb magyar hír-főcímek ma — eltér a Top sztoriktól, mert nem klaszterezett</small>
+          <div class="lt-section-label"><span class="lt-icon">◆</span>{lbl_news}</div>
+          <small class="lt-section-sub">{lbl_news_sub}</small>
           <ul class="lt-news-cards">{''.join(gnews_items) or empty}</ul>
         </div>
         {velocity_section_html}
@@ -873,7 +917,7 @@ def _render_blindspots(political: list[dict], lang: str, tr_lang: str | None = N
             <div class="blindspot-title"{_title_attr}>{_escape(title)}</div>
             {_render_bias_bar(bias)}
             <div class="blindspot-meta">{p.get('source_count', 0)} {_escape(t('article.source', lang)).lower()}</div>
-            {_render_reach_badge(p.get("source_ids"), p.get("first_published"), p.get("latest_published"))}
+            {_render_reach_badge(p.get("source_ids"), p.get("first_published"), p.get("latest_published"), lang)}
           </a>
         """)
     # GEO-LOOP LEVÉVE (2026-05-20 Kommandant ux-feedback)
@@ -1258,6 +1302,19 @@ _LANDING_V2_EXTRA_CSS = """
       font-family: 'JetBrains Mono', monospace;
       padding-bottom: 0.4rem;
       border-bottom: 1px solid var(--border);
+    }
+    /* Kattintható rovat-cím → /rovat/{key} szűrt oldal (UX-feedback 06-11) */
+    .rovat-link {
+      color: inherit; text-decoration: none; display: inline-flex;
+      align-items: baseline; gap: 0.4em;
+    }
+    .rovat-link:hover { color: var(--accent, #6cb6ff); }
+    .rovat-arrow { opacity: 0.55; transition: opacity 0.15s, transform 0.15s; }
+    .rovat-link:hover .rovat-arrow { opacity: 1; transform: translateX(2px); }
+    /* Szekció-alcím a h2 alatt (blindspot-magyarázat stb.) */
+    .section-sub {
+      display: block; margin: -0.35rem 0 0.7rem; font-size: 0.72rem;
+      line-height: 1.45; color: var(--text-dim);
     }
     .rovat-card {
       display: block; text-decoration: none; color: var(--text);
@@ -2748,6 +2805,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     section_top = _escape(t("landing.section.top_stories", lang))
     section_local = _escape(t("landing.section.local", lang))
     section_blind = _escape(t("landing.section.blindspot", lang))
+    blindspot_sub = _escape(t("landing.section.blindspot_sub", lang))
+    rovat_open_lbl = _escape(t("landing.rovat.open", lang))
     section_tech = _escape(t("landing.section.tech", lang))
     section_sport = _escape(t("landing.section.sport", lang))
     section_tabloid = _escape(t("landing.section.tabloid", lang))
@@ -2808,7 +2867,8 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     </div>
     <div class="landing-col">
       {tv_panel_html}
-      <h2>Egyoldalas hírek</h2>
+      <h2>{section_blind}</h2>
+      <small class="section-sub">{blindspot_sub}</small>
       {blindspot_html}
       {yt_trending_html}
     </div>
@@ -2816,19 +2876,19 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 
   <div class="rovatok-grid">
     <div class="rovat-col">
-      <h2>{section_tech}</h2>
+      <h2><a class="rovat-link" href="/rovat/tech?lang={lang}" title="{rovat_open_lbl}">{section_tech} <span class="rovat-arrow">→</span></a></h2>
       {tech_html}
     </div>
     <div class="rovat-col">
-      <h2>{section_economy}</h2>
+      <h2><a class="rovat-link" href="/rovat/economy?lang={lang}" title="{rovat_open_lbl}">{section_economy} <span class="rovat-arrow">→</span></a></h2>
       {economy_html}
     </div>
     <div class="rovat-col">
-      <h2>{section_sport}</h2>
+      <h2><a class="rovat-link" href="/rovat/sport?lang={lang}" title="{rovat_open_lbl}">{section_sport} <span class="rovat-arrow">→</span></a></h2>
       {sport_html}
     </div>
     <div class="rovat-col">
-      <h2>{section_tabloid}</h2>
+      <h2><a class="rovat-link" href="/rovat/tabloid?lang={lang}" title="{rovat_open_lbl}">{section_tabloid} <span class="rovat-arrow">→</span></a></h2>
       {tabloid_html}
     </div>
   </div>
@@ -2855,5 +2915,108 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   </script>
   {THEME_TOGGLE_JS}
   {_TR_LATEFILL_JS}
+</body>
+</html>""", lang)
+
+
+# ── Rovat-oldal (/rovat/{key}) — UX-feedback 2026-06-11 ──────────────
+# A landing rovat-fejlécei kattinthatók: a teljes tematikus lista saját
+# oldalt kap (limit 30), vissza-linkkel. Ugyanaz a fallback-lánc, mint a
+# landing rovat-paneleknél: saját nyelv → EN → minden nyelv.
+
+_ROVAT_DEFS: dict[str, tuple[str, frozenset]] = {
+    "tech":    ("landing.section.tech", TECH_SPHERES),
+    "economy": ("landing.section.economy", ECONOMY_SPHERES),
+    "sport":   ("landing.section.sport", SPORT_SPHERES),
+    "tabloid": ("landing.section.tabloid", TABLOID_SPHERES),
+}
+
+
+async def render_rovat_page(request, db_path: str, rovat_key: str) -> tuple[str | None, str]:
+    """Teljes rovat-oldal HTML-je, vagy (None, lang) ha ismeretlen a kulcs."""
+    lang = _request_lang(request)
+    defn = _ROVAT_DEFS.get((rovat_key or "").strip().lower())
+    if not defn:
+        return None, lang
+    title_key, spheres = defn
+
+    tr_pref = request.cookies.get("echolot_tr_lang", "") or lang
+    tr_target = None if tr_pref == "off" else tr_pref
+
+    stories: list[dict] = []
+    try:
+        stories = await asyncio.to_thread(
+            cluster_top_stories, db_path, hours=48, min_sources=1, limit=30,
+            lang=lang, sphere_filter=spheres)
+        if len(stories) < 5 and lang != "en":
+            more = await asyncio.to_thread(
+                cluster_top_stories, db_path, hours=48, min_sources=1, limit=30,
+                lang="en", sphere_filter=spheres)
+            seen_ids = {s.get("cluster_id") for s in stories}
+            stories += [s for s in more if s.get("cluster_id") not in seen_ids]
+        if not stories:
+            stories = await asyncio.to_thread(
+                cluster_top_stories, db_path, hours=48, min_sources=1, limit=30,
+                lang=None, sphere_filter=spheres)
+    except Exception as exc:
+        log.warning("rovat page %s failed: %s", rovat_key, exc)
+
+    if tr_target:
+        try:
+            await _attach_card_translations(stories, tr_target, db_path)
+        except Exception as exc:
+            log.warning("rovat card translations failed: %s", exc)
+
+    section_title = _escape(t(title_key, lang))
+    back_lbl = _escape(t("landing.rovat.back", lang))
+    src_label = _escape(t("article.source", lang)).lower()
+    cards = "".join(
+        _render_story_v2(s, "sub", src_label, lang, tr_target) for s in stories[:30]
+    ) or f'<div class="empty">{_escape(t("landing.empty_panel", lang))}</div>'
+
+    nav_strip = _augment_block_html(lang, active="feed")
+    theme_attr = theme_html_attr(request)
+    theme_toggle = theme_toggle_html(lang)
+    origin = public_origin(request)
+    seo_head = seo_head_html(
+        origin=origin, lang=lang, path=f"/rovat/{rovat_key}",
+        description=f"{t(title_key, lang)} — Echolot",
+        og_title=f"{t(title_key, lang)} — Echolot",
+        og_description=f"{t(title_key, lang)} — Echolot",
+    )
+
+    return (f"""<!DOCTYPE html>
+<html lang="{lang}"{theme_attr}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{section_title} — Echolot</title>
+  {seo_head}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}
+    .rovat-page-wrap {{ max-width: 880px; margin: 0 auto 2rem; padding: 0 1rem; }}
+    .rovat-page-wrap h1 {{
+      font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.2em;
+      font-family: 'JetBrains Mono', monospace; color: var(--text-dim);
+      border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;
+    }}
+    .rovat-back {{ display: inline-block; margin: 0.4rem 0 1rem; color: var(--accent, #6cb6ff); text-decoration: none; font-size: 0.85rem; }}
+    .rovat-back:hover {{ text-decoration: underline; }}
+  </style>
+</head>
+<body>
+  <div class="top-actions">
+    {theme_toggle}
+  </div>
+  {nav_strip}
+  <div class="rovat-page-wrap">
+    <h1>{section_title}</h1>
+    <a class="rovat-back" href="/?lang={lang}">← {back_lbl}</a>
+    <div class="stories">{cards}</div>
+    <a class="rovat-back" href="/?lang={lang}">← {back_lbl}</a>
+  </div>
+  {THEME_TOGGLE_JS}
 </body>
 </html>""", lang)

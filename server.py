@@ -3548,6 +3548,20 @@ async def landing(request):
     return resp
 
 
+@mcp.custom_route("/rovat/{rovat_key}", methods=["GET"])
+async def rovat_page(request):
+    """Tematikus rovat-oldal (tech/economy/sport/tabloid) — a landing
+    rovat-fejléceiről kattintható, teljes (30 elemű) szűrt lista."""
+    from echolot_landing_v2 import render_rovat_page
+    rovat_key = request.path_params["rovat_key"]
+    page, lang = await render_rovat_page(request, str(DB_PATH), rovat_key)
+    if page is None:
+        return HTMLResponse("Unknown section", status_code=404)
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 # Cluster-enkénti throttle az on-demand háttér-letöltésre: az utótöltő
 # poll (és több párhuzamos látogató) ne indítson duplikált fetch-eket.
 _story_fill_started: dict[str, float] = {}

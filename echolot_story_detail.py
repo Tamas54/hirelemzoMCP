@@ -48,7 +48,7 @@ def _fmt_clock(dt: datetime) -> str:
     return dt_local.strftime("%Y-%m-%d %H:%M")
 
 
-def _fmt_combined(ts: str | None) -> str:
+def _fmt_combined(ts: str | None, lang: str = "hu") -> str:
     """'4 órája (06:12)' — relatív és abszolút együtt. Üres string ha nincs ts."""
     if not ts:
         return ""
@@ -57,7 +57,7 @@ def _fmt_combined(ts: str | None) -> str:
     except (ValueError, TypeError):
         return ""
     now = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
-    rel = _fmt_age(dt, now)
+    rel = _fmt_age(dt, now, lang)
     abs_str = _fmt_clock(dt)
     return f"{rel} ({abs_str})"
 
@@ -265,7 +265,7 @@ def _render_revisions(article: dict, lang: str) -> str:
     l_lbl = _REV_LEAD_LBL.get(lang, _REV_LEAD_LBL["hu"])
     rows = []
     for r in revs:
-        when = _escape(_fmt_combined(r.get("revised_at")))
+        when = _escape(_fmt_combined(r.get("revised_at"), lang))
         if r.get("old_title"):
             rows.append(
                 f'<li><time>{when}</time><span class="rev-field">{t_lbl}:</span>'
@@ -294,7 +294,7 @@ def _render_source_card(article: dict, lang: str) -> str:
     src_name = article.get("source_name") or src_id or ""
     lean = article.get("source_lean") or ""
     ts = article.get("published_at") or ""
-    ts_combined = _fmt_combined(ts)
+    ts_combined = _fmt_combined(ts, lang)
 
     # Gépi fordítás (on-demand, háttérben töltődik): ha van a UI-nyelvű
     # fordítás, az a fő cím/lead, az eredeti cím kis betűvel alá kerül.
@@ -409,7 +409,7 @@ def _render_timeline(articles: list[dict], lang: str) -> str:
         return ""
     ordered = sorted(dated, key=lambda a: a.get("published_at") or "")
     rows = "".join(
-        f'<li><time class="tl-time">{_escape(_fmt_combined(a.get("published_at")))}</time>'
+        f'<li><time class="tl-time">{_escape(_fmt_combined(a.get("published_at"), lang))}</time>'
         f'<span class="tl-src">{_escape(a.get("source_name") or "")}</span>'
         f'<span class="tl-title">{_escape((a.get("title") or "").strip())}</span></li>'
         for a in ordered
@@ -989,11 +989,11 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     timeline_parts = []
     if first_published:
         timeline_parts.append(
-            f'<span>↪ {first_label}:<strong>{_escape(_fmt_combined(first_published))}</strong></span>'
+            f'<span>↪ {first_label}:<strong>{_escape(_fmt_combined(first_published, lang))}</strong></span>'
         )
     if latest_published and latest_published != first_published:
         timeline_parts.append(
-            f'<span>⟳ {last_label}:<strong>{_escape(_fmt_combined(latest_published))}</strong></span>'
+            f'<span>⟳ {last_label}:<strong>{_escape(_fmt_combined(latest_published, lang))}</strong></span>'
         )
     timeline_html = (
         f'<div class="story-detail-timeline">{"".join(timeline_parts)}</div>'

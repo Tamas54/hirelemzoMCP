@@ -6,12 +6,19 @@ Two charts for the /dashboard/trending page:
 
 Both query `articles` joined as needed and bucket on `published_at` via
 julianday() so they work on a fresh DB (Railway dev-mode, no volume).
+
+Text elements use fill="currentColor" so the SVG inherits the themed text
+color from the embedding page — fixed labels were unreadable in day theme
+(UX-feedback 2026-06-11). Sphere names in the legend are humanized via
+echolot_sphere_labels.
 """
 from __future__ import annotations
 
 import sqlite3
 from html import escape
 from pathlib import Path
+
+from echolot_sphere_labels import sphere_label
 
 # Distinct color palette for line chart (color-blind friendly-ish).
 _LINE_COLORS = ["#60a5fa", "#f87171", "#34d399", "#fbbf24", "#a78bfa"]
@@ -37,6 +44,7 @@ def hourly_volume_svg(
     top_n: int = 5,
     width: int = 760,
     height: int = 220,
+    lang: str = "hu",
 ) -> str:
     """Line chart: per-hour article count over the last `hours`, for the
     top `top_n` spheres ranked by total count in that window.
@@ -107,19 +115,22 @@ def hourly_volume_svg(
         v = int(max_y * frac)
         parts.append(
             f'<line x1="{pad_l}" y1="{y:.1f}" x2="{pad_l + plot_w}" y2="{y:.1f}" '
-            f'stroke="#374151" stroke-width="1" stroke-dasharray="2,3" opacity="0.5"/>'
+            f'stroke="currentColor" stroke-width="1" stroke-dasharray="2,3" opacity="0.18"/>'
         )
         parts.append(
             f'<text x="{pad_l - 6}" y="{y + 4:.1f}" text-anchor="end" '
-            f'fill="#9ca3af" font-size="10">{v}</text>'
+            f'fill="currentColor" opacity="0.65" font-size="10">{v}</text>'
         )
     # X-axis tick labels (every ~6h)
     for h in (0, hours // 4, hours // 2, 3 * hours // 4, hours - 1):
         x = x_for_h(h)
-        label = "most" if h == 0 else f"-{h}ó"
+        if h == 0:
+            label = "most" if lang == "hu" else "now"
+        else:
+            label = f"-{h} óra" if lang == "hu" else f"-{h}h"
         parts.append(
             f'<text x="{x:.1f}" y="{pad_t + plot_h + 16:.1f}" text-anchor="middle" '
-            f'fill="#9ca3af" font-size="10">{label}</text>'
+            f'fill="currentColor" opacity="0.65" font-size="10">{label}</text>'
         )
 
     # Polylines per sphere
@@ -146,9 +157,9 @@ def hourly_volume_svg(
             f'rx="2" fill="{color}"/>'
         )
         parts.append(
-            f'<text x="{legend_x + 14}" y="{y + 9}" fill="#e5e7eb" '
+            f'<text x="{legend_x + 14}" y="{y + 9}" fill="currentColor" '
             f'font-size="11" font-family="ui-monospace,Menlo,monospace">'
-            f'{escape(sphere)}</text>'
+            f'{escape(sphere_label(sphere, lang))}</text>'
         )
 
     parts.append("</svg>")
@@ -162,6 +173,7 @@ def polit_spectrum_svg(
     width: int = 760,
     bar_height: int = 26,
     row_gap: int = 6,
+    lang: str = "hu",
 ) -> str:
     """Stacked horizontal bar chart: articles by language × political lean,
     aggregated over the last `hours`. Languages sorted by total count desc.
@@ -186,15 +198,16 @@ def polit_spectrum_svg(
     if not rows:
         return ""
 
-    # Aggregate per language
+    # Aggregate per language — NB: a sor nyelv-kódja NEM árnyékolhatja a
+    # `lang` UI-nyelv paramétert (a legend lokalizációja használja).
     by_lang: dict[str, dict[str, int]] = {}
     for r in rows:
-        lang = r["lang"] or "?"
+        row_lang = r["lang"] or "?"
         lean = (r["lean"] or "unknown").lower()
         if lean not in _LEAN_COLORS:
             lean = "unknown"
-        by_lang.setdefault(lang, {"left": 0, "center": 0, "right": 0, "unknown": 0})
-        by_lang[lang][lean] += int(r["n"])
+        by_lang.setdefault(row_lang, {"left": 0, "center": 0, "right": 0, "unknown": 0})
+        by_lang[row_lang][lean] += int(r["n"])
 
     # Sort languages by total desc, take top_n
     ranked = sorted(
@@ -215,25 +228,28 @@ def polit_spectrum_svg(
         f'style="max-width:100%;height:auto;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif">',
     ]
     # Top legend
-    legend_items = [("left", "bal"), ("center", "közép"), ("right", "jobb"), ("unknown", "ismeretlen")]
+    if lang == "hu":
+        legend_items = [("left", "bal"), ("center", "közép"), ("right", "jobb"), ("unknown", "ismeretlen")]
+    else:
+        legend_items = [("left", "left"), ("center", "center"), ("right", "right"), ("unknown", "unknown")]
     lx = pad_l
     for key, label in legend_items:
         parts.append(
             f'<rect x="{lx}" y="6" width="12" height="12" rx="2" fill="{_LEAN_COLORS[key]}"/>'
         )
         parts.append(
-            f'<text x="{lx + 16}" y="16" fill="#e5e7eb" font-size="11">{escape(label)}</text>'
+            f'<text x="{lx + 16}" y="16" fill="currentColor" font-size="11">{escape(label)}</text>'
         )
         lx += 80
 
     # Bars
-    for i, (lang, leans) in enumerate(ranked):
+    for i, (lang_code, leans) in enumerate(ranked):
         y = pad_t + i * row_h
         # Language label
         parts.append(
             f'<text x="{pad_l - 8}" y="{y + bar_height * 0.65:.1f}" text-anchor="end" '
-            f'fill="#e5e7eb" font-size="12" font-family="ui-monospace,Menlo,monospace">'
-            f'{escape(lang)}</text>'
+            f'fill="currentColor" font-size="12" font-family="ui-monospace,Menlo,monospace">'
+            f'{escape(lang_code)}</text>'
         )
         # Stacked segments — left/center/right/unknown in that order
         x = pad_l
@@ -247,14 +263,14 @@ def polit_spectrum_svg(
             parts.append(
                 f'<rect x="{x:.1f}" y="{y}" width="{seg_w:.1f}" height="{bar_height}" '
                 f'fill="{_LEAN_COLORS[key]}" opacity="0.92">'
-                f'<title>{escape(lang)} · {escape(key)}: {n}</title>'
+                f'<title>{escape(lang_code)} · {escape(key)}: {n}</title>'
                 f'</rect>'
             )
             x += seg_w
         # Total count to the right
         parts.append(
             f'<text x="{pad_l + bar_total_w + 6:.1f}" y="{y + bar_height * 0.65:.1f}" '
-            f'fill="#9ca3af" font-size="11" font-family="ui-monospace,Menlo,monospace">'
+            f'fill="currentColor" opacity="0.65" font-size="11" font-family="ui-monospace,Menlo,monospace">'
             f'{total}</text>'
         )
 
