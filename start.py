@@ -174,6 +174,14 @@ def main():
         worker_loop(str(_dbp))
     threading.Thread(target=linker, daemon=True, name="entity-linker").start()
 
+    # Napi vezetői brief (UX-teszter kérés 2026-06-11) — HU+EN naponta,
+    # 4 óránként frissítve; CLASSIFIER_API_KEY nélkül no-op.
+    def brief_worker():
+        from echolot_daily_brief import worker_loop
+        from scraper import DB_PATH as _dbp
+        worker_loop(str(_dbp))
+    threading.Thread(target=brief_worker, daemon=True, name="daily-brief").start()
+
     # Olvasó-analytics flusher (plan 7a) — memóriapuffer → SQLite 20s-onként
     def metrics_flusher():
         from echolot_metrics import flusher_thread

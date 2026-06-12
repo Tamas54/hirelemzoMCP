@@ -185,6 +185,7 @@ def _augment_block_html(lang: str, active: str = "feed") -> str:
     """The nav-bar + lang-selector + search HTML to inject into LANDING_HTML."""
     tabs = [
         ("feed",     "/",                     "Hírfolyam" if lang == "hu" else t("tab.divergence", lang)),
+        ("brief",    "/brief",                t("tab.brief", lang)),
         ("trending", "/dashboard/trending",   t("tab.trending", lang)),
         ("spheres",  "/dashboard/spheres",    t("tab.spheres", lang)),
         ("health",   "/dashboard/health",     t("tab.health", lang)),

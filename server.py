@@ -3548,6 +3548,17 @@ async def landing(request):
     return resp
 
 
+@mcp.custom_route("/brief", methods=["GET"])
+async def brief_page(request):
+    """Napi vezetői brief — mi uralja a narratívát ma; napi archívum
+    trend-jelölőkkel (melyik téma erősödik / laposodik). ?date=YYYY-MM-DD."""
+    from echolot_brief_page import render_brief_page
+    page, lang = await render_brief_page(request, str(DB_PATH))
+    resp = HTMLResponse(page)
+    resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    return resp
+
+
 @mcp.custom_route("/rovat/{rovat_key}", methods=["GET"])
 async def rovat_page(request):
     """Tematikus rovat-oldal (tech/economy/sport/tabloid) — a landing

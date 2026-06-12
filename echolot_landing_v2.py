@@ -2785,6 +2785,16 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     if not nav_strip:
         log.warning("nav_strip empty for lang=%s", lang)
 
+    # Napi vezetői brief — a Top sztorik FÖLÉ (UX-teszter kérés 2026-06-11).
+    # Cache-olvasás + szükség esetén háttér-kick; a renderelést nem blokkolja.
+    try:
+        from echolot_brief_page import render_brief_landing_block, _BRIEF_CSS as brief_css
+        brief_block_html = await asyncio.to_thread(
+            render_brief_landing_block, db_path, lang)
+    except Exception as exc:
+        log.warning("brief landing block failed: %s", exc)
+        brief_block_html, brief_css = "", ""
+
     # Render blokkok
     entity_chips = _render_entity_chip_row(entities, lang)
     bias_legend = _render_bias_legend(lang)
@@ -2831,7 +2841,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
+  <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{brief_css}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
 <body data-trpending="{tr_pending}">
   <div class="ambient" aria-hidden="true">
@@ -2856,6 +2866,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
 
   <div class="landing-grid">
     <div class="landing-col">
+      {brief_block_html}
       <h2>{section_top}</h2>
       {top_stories_html}
     </div>
