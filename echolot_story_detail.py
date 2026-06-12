@@ -405,6 +405,97 @@ def _render_perspective_breakdown(articles: list[dict], lang: str) -> str:
     )
 
 
+_SPREAD_LBL = {
+    "hu": "A hír útja a szférákon át", "en": "How the story travels across spheres",
+    "de": "Der Weg der Nachricht durch die Sphären",
+    "fr": "Le parcours de l'info à travers les sphères",
+    "ru": "Путь новости через сферы", "uk": "Шлях новини крізь сфери",
+    "it": "Il percorso della notizia tra le sfere",
+}
+_SPREAD_SUB = {
+    "hu": "Ugyanaz a sztori szféránként más tálalásban — hangulat és domináns keret szféránként.",
+    "en": "The same story, framed differently per sphere — sentiment and dominant frame by sphere.",
+}
+_SPREAD_TH = {
+    "hu": ("Szféra", "Cikk", "Hangulat", "Domináns keret", "Beállítottság"),
+    "en": ("Sphere", "Art.", "Sentiment", "Dominant frame", "Lean"),
+}
+_SENT_WORD = {
+    "hu": {"pos": "pozitív", "neu": "semleges", "neg": "negatív"},
+    "en": {"pos": "positive", "neu": "neutral", "neg": "negative"},
+}
+
+
+def _render_sphere_spread(articles: list[dict], lang: str) -> str:
+    """Szféránkénti meta-statisztika (UX-teszter kérés: "ha az a hír, hogy
+    Trump szürke zakóját felvette, az a jobboldali amerikai sajtóban pozitív,
+    a bal franciában negatív…"). Cikkszám + átlag-hangulat + domináns frame
+    + lean-összetétel szféránként — itt látszik, hol hogyan tálalják."""
+    from echolot_sphere_labels import sphere_label
+
+    agg: dict[str, dict] = {}
+    for a in articles:
+        for sp in (a.get("spheres") or []):
+            d = agg.setdefault(sp, {"n": 0, "sents": [], "frames": {}, "leans": {}})
+            d["n"] += 1
+            sv = a.get("sentiment")
+            if isinstance(sv, (int, float)):
+                d["sents"].append(float(sv))
+            fr = a.get("frame")
+            if fr:
+                d["frames"][fr] = d["frames"].get(fr, 0) + 1
+            b = _lean_bucket(a.get("source_lean"))
+            d["leans"][b] = d["leans"].get(b, 0) + 1
+    # Egy szférás sztorinál nincs "út" — nincs mit összevetni.
+    if len(agg) < 2:
+        return ""
+
+    th = _SPREAD_TH.get(lang, _SPREAD_TH["en"])
+    words = _SENT_WORD.get(lang, _SENT_WORD["en"])
+    rows = []
+    ranked = sorted(agg.items(), key=lambda kv: -kv[1]["n"])[:12]
+    for sp, d in ranked:
+        if d["sents"]:
+            avg = sum(d["sents"]) / len(d["sents"])
+            scol = "#3fb950" if avg > 0.15 else ("#f85149" if avg < -0.15 else "#d29922")
+            word = words["pos"] if avg > 0.15 else (words["neg"] if avg < -0.15 else words["neu"])
+            sent = (f'<span style="color:{scol};font-weight:700">{avg:+.2f}</span> '
+                    f'<span class="spread-word" style="color:{scol}">{word}</span>')
+        else:
+            sent = '<span style="color:var(--fg-3)">–</span>'
+        if d["frames"]:
+            top_fr = max(d["frames"].items(), key=lambda kv: kv[1])[0]
+            fr_html = (f'<span class="spread-frame" style="border-color:'
+                       f'{_SD_FRAME.get(top_fr, ("#8b949e", {}))[0]}">'
+                       f'{_escape(_frame_label(top_fr, lang))}</span>')
+        else:
+            fr_html = '<span style="color:var(--fg-3)">–</span>'
+        dots = "".join(
+            f'<span class="spread-dot" title="{_escape(_bucket_label(b, lang))}: {d["leans"][b]}" '
+            f'style="background:{_BUCKET_COLOR[b]}"></span>'
+            f'<span class="spread-dot-n">{d["leans"][b]}</span>'
+            for b in _BUCKET_ORDER if d["leans"].get(b)
+        )
+        rows.append(
+            f'<tr><td class="spread-sphere">{_escape(sphere_label(sp, lang))}</td>'
+            f'<td class="spread-n">{d["n"]}</td>'
+            f'<td>{sent}</td><td>{fr_html}</td>'
+            f'<td class="spread-leans">{dots}</td></tr>'
+        )
+
+    heading = _escape(_SPREAD_LBL.get(lang, _SPREAD_LBL["en"]))
+    sub = _escape(_SPREAD_SUB.get(lang, _SPREAD_SUB["en"]))
+    head_cells = "".join(f"<th>{_escape(x)}</th>" for x in th)
+    return (
+        '<section class="story-spread">'
+        f'<h2>🧭 {heading}</h2>'
+        f'<p class="spread-sub">{sub}</p>'
+        f'<table class="spread-table"><thead><tr>{head_cells}</tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table>'
+        '</section>'
+    )
+
+
 def _render_timeline(articles: list[dict], lang: str) -> str:
     """A sztori fejlődése időrendben: melyik forrás mikor vette át."""
     dated = [a for a in articles if (a.get("published_at") or "").strip()]
@@ -706,6 +797,37 @@ _STORY_DETAIL_CSS = """
       border-color: var(--accent, #6cb6ff); font-weight: 600;
     }
 
+    /* Szféra-spread (hír útja) */
+    .story-spread { margin: 0 0 var(--sp-5); }
+    .spread-sub { font-size: 12px; color: var(--fg-3); margin: -6px 0 10px; }
+    .spread-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .spread-table th {
+      text-align: left; font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--fg-3); font-weight: 600;
+      padding: 4px 10px 6px 0; border-bottom: 1px solid var(--line);
+    }
+    .spread-table td {
+      padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+    .spread-sphere { font-weight: 600; color: var(--text); }
+    .spread-n { font-family: 'JetBrains Mono', monospace; color: var(--fg-2); }
+    .spread-word { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .spread-frame {
+      display: inline-block; font-size: 11px; padding: 1px 8px;
+      border: 1px solid; border-radius: 999px; color: var(--fg-2);
+    }
+    .spread-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 2px;
+    }
+    .spread-dot-n {
+      font-size: 11px; color: var(--fg-3); margin-right: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     /* Perspektíva-bontás */
     .story-perspective, .story-timeline { margin: 0 0 var(--sp-5); }
     .story-perspective > h2, .story-timeline > h2 {
@@ -1004,6 +1126,7 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     )
 
     perspective_html = _render_perspective_breakdown(articles, lang)
+    sphere_spread_html = _render_sphere_spread(articles, lang)
     frame_analysis_html = _render_frame_analysis(cluster, articles, lang)
     story_timeline_html = _render_timeline(articles, lang)
     cards_html = "".join(_render_source_card(a, lang) for a in articles)
@@ -1056,6 +1179,8 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     <div id="frame-analysis-slot">{frame_analysis_html}</div>
 
     {perspective_html}
+
+    {sphere_spread_html}
 
     {story_timeline_html}
 

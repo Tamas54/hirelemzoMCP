@@ -565,6 +565,9 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
                     "frame": a.get("frame") if a.get("classification_status") == "ok" else None,
                     "sentiment": a.get("sentiment") if a.get("classification_status") == "ok" else None,
                     "classification_status": a.get("classification_status") or "",
+                    # A forrás szférái — a story-oldali "hír útja a szférákon
+                    # át" meta-statisztikához (UX-teszter kérés).
+                    "spheres": source_spheres,
                 }
 
     # Fallback: ha NINCS article-szintű sphere a clusterben (régi cikkek),
