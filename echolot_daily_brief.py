@@ -72,8 +72,9 @@ MAX_LOCAL_TOPICS = 6
 # Tartalmi séma-verzió: emelése a MAI briefeket újragenerálja (múlt napok
 # véglegesek maradnak). v2: globális + nyelvterületi blokk (Kommandant-kérés
 # 2026-06-12 — "kell egy magyar/olasz/lengyel is, az adott nyelvterület
-# fontos hírei az adott nyelven").
-SCHEMA_VER = 2
+# fontos hírei az adott nyelven"). v3: anyanyelvi stílusszabály a promptban
+# ("trillionári" → idiomatikus körülírás, billió≠trillió).
+SCHEMA_VER = 3
 
 # nyelvkód → a brief célnyelvének neve a promptban
 _LANG_NAME = {
@@ -287,6 +288,13 @@ Return JSON:
 }}
 HARD LIMIT: the whole JSON must stay under ~700 words — the response is cut
 off beyond that, so prefer fewer, sharper topics over long ones.
+STYLE: Write natural, idiomatic {lang_name} exactly as a native news editor
+would — NEVER calque English words or grammar. Use the target language's own
+terminology and number-naming conventions: the English "trillion" is 10^12,
+which in Hungarian is "billió" (NOT "trillió"), so "trillionaire" must be
+rendered descriptively (e.g. Hungarian: "ezermilliárd dolláros vagyonú").
+If a term has no natural equivalent, paraphrase it — an awkward loanword
+("trillionári") is worse than a longer native phrase.
 Trend rules: compare with yesterday's topics — "new" if absent yesterday,
 "rising"/"fading" by coverage momentum, "steady" otherwise. If no yesterday
 data, use "new" sparingly and prefer "steady".{local_rules}"""]
