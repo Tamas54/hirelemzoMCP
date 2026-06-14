@@ -2591,6 +2591,47 @@ async def api_news(request):
     return JSONResponse({"count": len(rows), "articles": rows})
 
 
+@mcp.custom_route("/api/trending", methods=["GET"])
+async def api_trending(request):
+    """Trending topics (cross-source keyword clustering). REST wrapper of get_trending().
+
+    Query: days (1..7), min_sources, limit (1..30), sphere, mode (strict|loose).
+    """
+    days = max(1, min(7, int(request.query_params.get("days", "1"))))
+    min_sources = max(1, int(request.query_params.get("min_sources", "3")))
+    limit = max(1, min(30, int(request.query_params.get("limit", "15"))))
+    sphere = request.query_params.get("sphere", "")
+    mode = request.query_params.get("mode", "strict")
+    return JSONResponse(json.loads(
+        get_trending(days=days, min_sources=min_sources, limit=limit, sphere=sphere, mode=mode)))
+
+
+@mcp.custom_route("/api/velocity", methods=["GET"])
+async def api_velocity(request):
+    """Sphere velocity — which spheres are spiking. REST wrapper of echolot_velocity().
+
+    Query: window_hours (1..48), limit (1..63).
+    """
+    window_hours = max(1, min(48, int(request.query_params.get("window_hours", "6"))))
+    limit = max(1, min(63, int(request.query_params.get("limit", "30"))))
+    return JSONResponse(json.loads(
+        echolot_velocity(window_hours=window_hours, limit=limit)))
+
+
+@mcp.custom_route("/api/top_entities", methods=["GET"])
+async def api_top_entities(request):
+    """Top named entities by mentions + aggregate sentiment. REST wrapper of top_entities().
+
+    Query: days (1..90), entity_type (person|org|place|""), language, limit (1..100).
+    """
+    days = max(1, min(90, int(request.query_params.get("days", "7"))))
+    entity_type = request.query_params.get("entity_type", "")
+    language = request.query_params.get("language", "")
+    limit = max(1, min(100, int(request.query_params.get("limit", "30"))))
+    return JSONResponse(json.loads(
+        top_entities(days=days, entity_type=entity_type, language=language, limit=limit)))
+
+
 @mcp.custom_route("/api/spheres", methods=["GET"])
 async def api_spheres(request):
     """Sphere stats for the landing page selector."""
