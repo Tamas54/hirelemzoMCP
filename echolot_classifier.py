@@ -65,6 +65,11 @@ INTENSITIES = {"low", "medium", "high"}
 BATCH_SIZE = int(os.environ.get("CLASSIFIER_BATCH", "20"))
 LOOP_SLEEP = int(os.environ.get("CLASSIFIER_LOOP_SLEEP", "30"))  # seconds between batches
 REQUEST_TIMEOUT = int(os.environ.get("CLASSIFIER_TIMEOUT", "60"))
+# Kor-küszöb (Kommandant 2026-06-18): a PROAKTÍV worker csak az ennél a
+# dátumnál (ISO, pl. "2026-06-18") frissebb cikkeket osztályozza — a régi
+# hátralékot soha (nincs felesleges API-költség). Üres = korlátlan (régi
+# viselkedés). Az on-demand út (megnyitott sztori) NEM korlátozott.
+MIN_PUBLISHED = os.environ.get("CLASSIFIER_MIN_PUBLISHED", "").strip()
 
 
 # ---------------------------------------------------------------------------
@@ -280,23 +285,28 @@ def _sanitize(rec: dict) -> dict | None:
 # Batch runner
 # ---------------------------------------------------------------------------
 def _claim_batch(conn: sqlite3.Connection, size: int) -> list[dict]:
+    floor = " AND published_at >= ?" if MIN_PUBLISHED else ""
+    params = ([MIN_PUBLISHED, size] if MIN_PUBLISHED else [size])
     rows = conn.execute(
-        """SELECT article_id, title, lead FROM articles
+        f"""SELECT article_id, title, lead FROM articles
            WHERE classification_status IS NULL
-             AND title IS NOT NULL AND title != ''
+             AND title IS NOT NULL AND title != ''{floor}
            ORDER BY published_at DESC
-           LIMIT ?""", (size,)
+           LIMIT ?""", params
     ).fetchall()
     return [{"article_id": r[0], "title": r[1], "lead": r[2]} for r in rows]
 
 
 def pending_count(db_path: str | Path = None) -> int:
-    """How many articles still await classification (cheap)."""
+    """How many articles still await classification (cheap). Respects the
+    CLASSIFIER_MIN_PUBLISHED kor-küszöböt, hogy a régi hátralék ne számítson bele."""
     conn = sqlite3.connect(str(db_path or DB_PATH), timeout=15)
+    floor = " AND published_at >= ?" if MIN_PUBLISHED else ""
     try:
         return conn.execute(
             "SELECT COUNT(*) FROM articles WHERE classification_status IS NULL "
-            "AND title IS NOT NULL AND title != ''").fetchone()[0]
+            f"AND title IS NOT NULL AND title != ''{floor}",
+            ([MIN_PUBLISHED] if MIN_PUBLISHED else [])).fetchone()[0]
     except sqlite3.OperationalError:
         return 0
     finally:
