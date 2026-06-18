@@ -64,7 +64,7 @@ def _family(sphere):
 
 
 def regional_topic_articles(article_ids, days=14, db_path="echolot.db",
-                            limit=400, max_entities=3):
+                            limit=400, max_entities=5):
     """F2 kereszt-régiós forrásolás ENTITÁS-QID alapon (Kommandant 2026-06-18).
 
     A klaszter cikkeinek leggyakoribb kanonikus entitásait (Wikidata QID:
@@ -93,14 +93,21 @@ def regional_topic_articles(article_ids, days=14, db_path="echolot.db",
         if not qids:
             return []
         qph = ",".join("?" * len(qids))
-        # Minden régió cikkei, amik ugyanazokat az entitásokat (QID) említik.
+        # KO-OKKURENCIA szűrő: a cikk a sztori ≥2 entitását EGYÜTT említse (pl.
+        # Irán ÉS Trump) — különben egy ultra-gyakori entitás (USA) bármilyen
+        # érintőleges cikket behúzna (japán app, drón-figyelmeztetés…). Ha a
+        # sztorinak csak 1 entitása van, marad az 1-egyezés.
+        need = 2 if len(qids) >= 2 else 1
         rows = conn.execute(
-            f"""SELECT DISTINCT a.title, a.source_name, a.url, a.spheres_json,
-                       a.frame, a.sentiment, a.published_at
+            f"""SELECT a.title, a.source_name, a.url, a.spheres_json,
+                       a.frame, a.sentiment, a.published_at,
+                       COUNT(DISTINCT ae.qid) AS hits
                 FROM articles a JOIN article_entities ae ON ae.article_id = a.article_id
                 WHERE ae.qid IN ({qph}) AND a.published_at >= ?
-                ORDER BY a.published_at DESC LIMIT ?""",
-            (*qids, _since(days), int(limit))).fetchall()
+                GROUP BY a.article_id
+                HAVING hits >= ?
+                ORDER BY hits DESC, a.published_at DESC LIMIT ?""",
+            (*qids, _since(days), need, int(limit))).fetchall()
     finally:
         conn.close()
     out = []
