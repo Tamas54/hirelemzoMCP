@@ -426,6 +426,113 @@ _SENT_WORD = {
 }
 
 
+_REGION_FLAG = {
+    "regional_iranian": "🇮🇷", "regional_german": "🇩🇪", "regional_polish": "🇵🇱",
+    "regional_french": "🇫🇷", "regional_russian": "🇷🇺", "regional_us": "🇺🇸",
+    "regional_chinese": "🇨🇳", "regional_spanish": "🇪🇸", "regional_italian": "🇮🇹",
+    "regional_uk": "🇬🇧", "regional_turkish": "🇹🇷", "regional_indian": "🇮🇳",
+    "regional_japanese": "🇯🇵", "regional_korean": "🇰🇷", "regional_israeli": "🇮🇱",
+    "regional_ukrainian": "🇺🇦", "regional_arabic": "🌐", "regional_african": "🌍",
+    "regional_latam": "🌎",
+}
+_REGION_LBL = {
+    "hu": "Regionális tálalás", "en": "Regional framing", "de": "Regionale Darstellung",
+    "es": "Enfoque regional", "zh": "各地区报道", "fr": "Présentation régionale",
+    "pl": "Ujęcie regionalne", "ru": "Подача по регионам", "uk": "Подача за регіонами",
+    "it": "Inquadramento regionale",
+}
+_REGION_SUB = {
+    "hu": "Ugyanaz az esemény, ahogy az egyes régiók sajtója közvetíti — szalagcím, hangulat és keret régiónként.",
+    "en": "The same event as each region's press conveys it — headline, sentiment and frame by region.",
+    "de": "Dasselbe Ereignis, wie es die Presse jeder Region vermittelt — Schlagzeile, Stimmung und Frame je Region.",
+    "es": "El mismo evento según lo transmite la prensa de cada región — titular, tono y enfoque por región.",
+    "zh": "同一事件在各地区媒体中的呈现 — 按地区显示标题、情绪与框架。",
+    "fr": "Le même événement tel que le présente la presse de chaque région — titre, tonalité et cadrage par région.",
+    "pl": "To samo wydarzenie w ujęciu prasy każdego regionu — nagłówek, wydźwięk i rama wg regionu.",
+    "ru": "Одно и то же событие в подаче прессы каждого региона — заголовок, тональность и фрейм по регионам.",
+    "uk": "Та сама подія в подачі преси кожного регіону — заголовок, тональність і фрейм за регіонами.",
+    "it": "Lo stesso evento come lo trasmette la stampa di ogni regione — titolo, tono e inquadramento per regione.",
+}
+
+
+def _render_regional_spread(articles: list[dict], lang: str) -> str:
+    """F2 (Kommandant 2026-06-18): ugyanaz a főhír régiónként más tálalásban.
+    A cikkeket regionális szülő-szférákba csoportosítja (regional_* közvetlenül,
+    ill. a gyerek-szférák a CHILD_TO_PARENT-en át), és régiónként egymás mellett
+    mutatja a szalagcímet + átlag-hangulatot + domináns keretet."""
+    from echolot_sphere_labels import sphere_label
+    from echolot_sphere_taxonomy import CHILD_TO_PARENT
+
+    agg: dict[str, dict] = {}
+    for a in articles:
+        regions = set()
+        for sp in (a.get("spheres") or []):
+            if sp.startswith("regional_"):
+                regions.add(sp)
+            elif sp in CHILD_TO_PARENT:
+                regions.add(CHILD_TO_PARENT[sp])
+        for r in regions:
+            d = agg.setdefault(r, {"n": 0, "sents": [], "frames": {}, "arts": []})
+            d["n"] += 1
+            sv = a.get("sentiment")
+            if isinstance(sv, (int, float)):
+                d["sents"].append(float(sv))
+            fr = a.get("frame")
+            if fr:
+                d["frames"][fr] = d["frames"].get(fr, 0) + 1
+            ttl = (a.get("title") or "").strip()
+            if ttl:
+                d["arts"].append((ttl, a.get("source_name") or "", a.get("url") or "#"))
+    # Legalább 2 régió kell az összevetéshez.
+    if len(agg) < 2:
+        return ""
+
+    words = _SENT_WORD.get(lang, _SENT_WORD["en"])
+    cards = []
+    for r, d in sorted(agg.items(), key=lambda kv: -kv[1]["n"])[:8]:
+        flag = _REGION_FLAG.get(r, "🌐")
+        label = _escape(sphere_label(r, lang))
+        if d["sents"]:
+            avg = sum(d["sents"]) / len(d["sents"])
+            scol = "#3fb950" if avg > 0.15 else ("#f85149" if avg < -0.15 else "#d29922")
+            word = words["pos"] if avg > 0.15 else (words["neg"] if avg < -0.15 else words["neu"])
+            sent_html = (f'<span class="region-sent" style="color:{scol}">'
+                         f'{avg:+.2f} · {word}</span>')
+        else:
+            sent_html = ""
+        if d["frames"]:
+            top_fr = max(d["frames"].items(), key=lambda kv: kv[1])[0]
+            fr_html = (f'<span class="region-frame" style="border-color:'
+                       f'{_SD_FRAME.get(top_fr, ("#8b949e", {}))[0]}">'
+                       f'{_escape(_frame_label(top_fr, lang))}</span>')
+        else:
+            fr_html = ""
+        heads = "".join(
+            f'<li><a href="{_escape(url)}" target="_blank" rel="noopener">'
+            f'<span class="region-src">{_escape(src)}</span>{_escape(ttl)}</a></li>'
+            for ttl, src, url in d["arts"][:2]
+        )
+        cards.append(
+            f'<div class="region-card">'
+            f'<div class="region-head"><span class="region-flag">{flag}</span>'
+            f'<span class="region-name">{label}</span>'
+            f'<span class="region-n">· {d["n"]}</span></div>'
+            f'<div class="region-meta">{sent_html}{fr_html}</div>'
+            f'<ul class="region-heads">{heads}</ul>'
+            f'</div>'
+        )
+
+    heading = _escape(_REGION_LBL.get(lang, _REGION_LBL["en"]))
+    sub = _escape(_REGION_SUB.get(lang, _REGION_SUB["en"]))
+    return (
+        '<section class="story-regional">'
+        f'<h2>🌍 {heading}</h2>'
+        f'<p class="region-spread-sub">{sub}</p>'
+        f'<div class="region-grid">{"".join(cards)}</div>'
+        '</section>'
+    )
+
+
 def _render_sphere_spread(articles: list[dict], lang: str) -> str:
     """Szféránkénti meta-statisztika (UX-teszter kérés: "ha az a hír, hogy
     Trump szürke zakóját felvette, az a jobboldali amerikai sajtóban pozitív,
@@ -496,23 +603,87 @@ def _render_sphere_spread(articles: list[dict], lang: str) -> str:
     )
 
 
+_TL_ORIGIN_LBL = {
+    "hu": "először közölte", "en": "first published", "de": "zuerst veröffentlicht",
+    "es": "publicó primero", "zh": "首发", "fr": "publié en premier",
+    "pl": "opublikował pierwszy", "ru": "опубликовал первым", "uk": "опублікував першим",
+    "it": "ha pubblicato per primo",
+}
+_TL_MODIFIED_LBL = {
+    "hu": "utólag módosítva", "en": "edited after publish", "de": "nachträglich geändert",
+    "es": "editado tras publicar", "zh": "发布后修改", "fr": "modifié après publication",
+    "pl": "edytowano po publikacji", "ru": "изменено после публикации",
+    "uk": "змінено після публікації", "it": "modificato dopo la pubblicazione",
+}
+
+
+def _delay_str(minutes: int, lang: str) -> str:
+    """Kompakt késleltetés-jelölés az originhez képest (+2ó 15p / +2h 15m)."""
+    if minutes < 1:
+        return ""
+    h, m = divmod(int(minutes), 60)
+    d, h = divmod(h, 24)
+    if lang == "hu":
+        u_d, u_h, u_m = "n", "ó", "p"
+    else:
+        u_d, u_h, u_m = "d", "h", "m"
+    if d:
+        return f"+{d}{u_d} {h}{u_h}" if h else f"+{d}{u_d}"
+    if h:
+        return f"+{h}{u_h} {m}{u_m}" if m else f"+{h}{u_h}"
+    return f"+{m}{u_m}"
+
+
 def _render_timeline(articles: list[dict], lang: str) -> str:
-    """A sztori fejlődése időrendben: melyik forrás mikor vette át."""
+    """A sztori fejlődése időrendben: ki közölte ELŐSZÖR, ki vette át és
+    mennyivel később (delay az originhez képest), és melyik cikket
+    MÓDOSÍTOTTÁK utólag (article_revisions). F1 v1 — Kommandant 2026-06-18."""
     dated = [a for a in articles if (a.get("published_at") or "").strip()]
     if len(dated) < 2:
         return ""
     ordered = sorted(dated, key=lambda a: a.get("published_at") or "")
-    rows = "".join(
-        f'<li><time class="tl-time">{_escape(_fmt_combined(a.get("published_at"), lang))}</time>'
-        f'<span class="tl-src">{_escape(a.get("source_name") or "")}</span>'
-        f'<span class="tl-title">{_escape((a.get("title") or "").strip())}</span></li>'
-        for a in ordered
-    )
+
+    def _parse(a):
+        try:
+            return datetime.fromisoformat(a.get("published_at"))
+        except (ValueError, TypeError):
+            return None
+    origin_dt = _parse(ordered[0])
+    origin_lbl = _TL_ORIGIN_LBL.get(lang, _TL_ORIGIN_LBL["en"])
+    mod_lbl = _TL_MODIFIED_LBL.get(lang, _TL_MODIFIED_LBL["en"])
+
+    items = []
+    for i, a in enumerate(ordered):
+        # Delay az originhez képest (csak az átvevőkre).
+        delay_html = ""
+        if i > 0 and origin_dt is not None:
+            dt = _parse(a)
+            if dt is not None:
+                mins = (dt - origin_dt).total_seconds() / 60.0
+                ds = _delay_str(mins, lang)
+                if ds:
+                    delay_html = f'<span class="tl-delay">{ds}</span>'
+        origin_html = (f'<span class="tl-origin">★ {_escape(origin_lbl)}</span>'
+                       if i == 0 else "")
+        # Utólagos módosítás jelzése (a forrás átírta a cikket megjelenés után).
+        n_rev = len(a.get("revisions") or [])
+        rev_count = f" ({n_rev}×)" if n_rev > 1 else ""
+        rev_html = (f'<span class="tl-mod" title="{_escape(mod_lbl)}">✎ '
+                    f'{_escape(mod_lbl)}{rev_count}</span>'
+                    if n_rev else "")
+        li_cls = ' class="tl-first"' if i == 0 else ""
+        items.append(
+            f'<li{li_cls}>'
+            f'<time class="tl-time">{_escape(_fmt_combined(a.get("published_at"), lang))}</time>'
+            f'<span class="tl-src">{_escape(a.get("source_name") or "")}</span>'
+            f'{delay_html}{origin_html}{rev_html}'
+            f'<span class="tl-title">{_escape((a.get("title") or "").strip())}</span></li>'
+        )
     heading = _escape(_TIMELINE_LBL.get(lang, _TIMELINE_LBL["hu"]))
     return (
         '<section class="story-timeline">'
         f'<h2>{heading}</h2>'
-        f'<ol class="tl-list">{rows}</ol>'
+        f'<ol class="tl-list">{"".join(items)}</ol>'
         '</section>'
     )
 
@@ -800,6 +971,32 @@ _STORY_DETAIL_CSS = """
     /* Szféra-spread (hír útja) */
     .story-spread { margin: 0 0 var(--sp-5); }
     .spread-sub { font-size: 12px; color: var(--fg-3); margin: -6px 0 10px; }
+    /* F2 — Regionális tálalás (egymás melletti régió-kártyák) */
+    .story-regional { margin: 0 0 var(--sp-5); }
+    .region-spread-sub { font-size: 12px; color: var(--fg-3); margin: -6px 0 12px; }
+    .region-grid {
+      display: grid; gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    }
+    .region-card {
+      border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+      background: var(--bg-1, rgba(255,255,255,.02));
+    }
+    .region-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 7px; }
+    .region-flag { font-size: 18px; line-height: 1; }
+    .region-name { font-weight: 700; font-size: 14px; }
+    .region-n { color: var(--fg-3); font-size: 12px; }
+    .region-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .region-sent { font-size: 12px; font-weight: 700; }
+    .region-frame {
+      font-size: 11px; padding: 1px 7px; border-radius: 999px;
+      border: 1px solid; color: var(--fg-2);
+    }
+    .region-heads { list-style: none; margin: 0; padding: 0; }
+    .region-heads li { margin: 0 0 6px; font-size: 12.5px; line-height: 1.35; }
+    .region-heads a { color: var(--fg); text-decoration: none; }
+    .region-heads a:hover { text-decoration: underline; }
+    .region-src { display: block; color: var(--fg-3); font-size: 11px; font-weight: 600; }
     .spread-table {
       width: 100%; border-collapse: collapse; font-size: 13px;
     }
@@ -910,6 +1107,21 @@ _STORY_DETAIL_CSS = """
     }
     .tl-src { color: var(--text); font-weight: 600; margin-right: 8px; }
     .tl-title { color: var(--fg-2); }
+    /* F1 — hírfejlődés idővonal jelölői */
+    .tl-delay {
+      color: var(--fg-3); font-size: 11px; font-variant-numeric: tabular-nums;
+      margin-right: 8px; opacity: .85;
+    }
+    .tl-origin {
+      color: #d29922; font-size: 11px; font-weight: 700; margin-right: 8px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .tl-mod {
+      color: #db61a2; font-size: 11px; font-weight: 600; margin-right: 8px;
+      white-space: nowrap;
+    }
+    .tl-list li.tl-first::before { background: #d29922 !important; }
+    .tl-list li.tl-first { font-weight: 500; }
 
     @media (max-width: 720px) {
       .story-detail-title { font-size: 22px; }
@@ -1073,7 +1285,8 @@ def _render_frame_analysis(cluster: dict, articles: list, lang: str) -> str:
     )
 
 
-def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
+def render_story_detail_page(cluster: dict, lang: str, request=None,
+                             regional_articles: list[dict] | None = None) -> str:
     """Visszaad egy teljes HTML-lapot egy adott cluster source-listájával."""
     title = cluster.get("title") or cluster.get("lead_title") or "?"
     lead = (cluster.get("lead_summary") or "").strip()
@@ -1126,6 +1339,9 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     )
 
     perspective_html = _render_perspective_breakdown(articles, lang)
+    # F2: ha a route téma-keresett kereszt-régiós cikkeket adott, azokból
+    # építjük a regionális nézetet (több régiót fed); különben a klaszterből.
+    regional_html = _render_regional_spread(regional_articles or articles, lang)
     sphere_spread_html = _render_sphere_spread(articles, lang)
     frame_analysis_html = _render_frame_analysis(cluster, articles, lang)
     story_timeline_html = _render_timeline(articles, lang)
@@ -1179,6 +1395,8 @@ def render_story_detail_page(cluster: dict, lang: str, request=None) -> str:
     <div id="frame-analysis-slot">{frame_analysis_html}</div>
 
     {perspective_html}
+
+    {regional_html}
 
     {sphere_spread_html}
 

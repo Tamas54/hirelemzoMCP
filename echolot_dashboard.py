@@ -630,6 +630,7 @@ def _page_shell(
           <p class="text-sm text-[color:var(--text-dim)] mt-1 max-w-xl">{_escape(t('site.subtitle', lang))}</p>
         </a>
         <div class="lang-selector-wrap" style="display:flex;align-items:center;gap:8px;">
+          <a href="/?view=simple&lang={lang}" class="text-sm opacity-70 hover:opacity-100 no-underline whitespace-nowrap" title="{_escape(t('view.to_simple', lang))}">⊖ {_escape(t('view.to_simple', lang))}</a>
           {theme_toggle_html(lang)}
           {_lang_selector_html(lang)}
         </div>
@@ -774,9 +775,9 @@ def render_spheres_page(request, conn_factory) -> tuple[str, str]:
           <a href="/dashboard/sphere/{quote(sphere)}?lang={lang}" class="card">
             <div class="card-mono">{_escape(sphere)}</div>
             <div class="text-xs text-[color:var(--text-dim)] mt-2 flex items-center gap-2 flex-wrap">
-              <span>{r['article_count']} cikk</span>
+              <span>{r['article_count']} {_escape(t('article.count_noun', lang))}</span>
               <span class="opacity-50">·</span>
-              <span>{r['source_count']} forrás</span>
+              <span>{r['source_count']} {_escape(t('article.source_noun', lang))}</span>
               <span class="opacity-50">·</span>
               <span>{_escape(latest)}</span>
             </div>

@@ -20,7 +20,7 @@ import html as _html
 import logging
 from datetime import datetime, timezone
 
-from echolot_i18n import lang_options, t
+from echolot_i18n import lang_options, t, resolve_view
 from echolot_dashboard import (
     _BASE_STYLES,
     _augment_block_html,
@@ -824,25 +824,17 @@ def _render_bias_legend(lang: str) -> str:
         </summary>
         <div class="bias-legend-explain">
           <p>
-            <strong>Hogyan soroljuk be a forrásokat?</strong>
-            Minden hírforráshoz tartozik egy <em>lean</em>-érték (balliberális / központi / konzervatív / kormánypropaganda /
-            közszolgálati / elemző / ellenzéki), amit szerkesztett, manuálisan karbantartott táblázatból veszünk —
-            nem AI dönti el. Magyar források esetében a publikus megnyilvánulások, tulajdonosi háttér és az eddigi
-            tartalmi tendencia alapján; nemzetközi forrásoknál általában a globálisan elfogadott besorolásokat
-            (Ground News, AllSides, Media Bias/Fact Check, AKO Media Bias Index) követjük.
+            <strong>{t("landing.bias.method_sources_q", lang)}</strong>
+            {t("landing.bias.method_sources_a", lang)}
           </p>
           <p>
-            <strong>L / C / R aggregáció:</strong>
-            Egy sztori politikai megoszlása a forrásai <em>lean</em>-értékeinek darabszáma alapján számít.
-            A "központi" rovatba a központi, közszolgálati és elemző besorolásúak kerülnek; a "balliberális"-ba
-            csak az egyértelműen baloldali források; a "konzervatív / jobboldali"-ba a konzervatív + kormánypropaganda
-            (állami média) együttese (autoritárius rezsim állami médiája = R, Ground News logika szerint).
+            <strong>{t("landing.bias.method_agg_q", lang)}</strong>
+            {t("landing.bias.method_agg_a", lang)}
           </p>
           <p>
-            <strong>Mit nem mond a sáv?</strong>
-            NEM minőségi értékelés. NEM a sztori "igaza" — csak a fedezet politikai eloszlása. Egy 100% L-sáv
-            jelenthet jó vagy rossz sztorit egyaránt; csak azt jelzi hogy csak baloldali források írnak róla.
-            A teljes módszertan: <a href="/dashboard?tab=modszertan&lang={lang}">→ Módszertan</a>.
+            <strong>{t("landing.bias.method_limit_q", lang)}</strong>
+            {t("landing.bias.method_limit_a", lang)}
+            <a href="/dashboard?tab=modszertan&lang={lang}">{t("landing.bias.method_link", lang)}</a>.
           </p>
         </div>
       </details>
@@ -908,8 +900,10 @@ def _render_blindspots(political: list[dict], lang: str, tr_lang: str | None = N
         url = p.get("lead_url") or "#"
         bias = p.get("bias_dist", {})
         side = p.get("dominant_side", "?")
-        # Magyar címkék — angol "Right/Left Blindspot" helyett
-        side_label = "Csak jobbról" if side == "R" else "Csak balról"
+        # UI-nyelvű címke (i18n) — angol "Right/Left Blindspot" helyett
+        side_label = _escape(t(
+            "landing.blindspot.only_right" if side == "R"
+            else "landing.blindspot.only_left", lang))
         side_class = "blindspot-r" if side == "R" else "blindspot-l"
         cards.append(f"""
           <a href="{_escape(url)}" target="_blank" rel="noopener" class="blindspot-card {side_class}">
@@ -931,14 +925,10 @@ def _render_blindspots(political: list[dict], lang: str, tr_lang: str | None = N
         # Ha a blindspot detektor nem talál egyoldalas sztorit, AZ IS
         # információ — azt jelenti, hogy a jelenlegi főhírek mindkét
         # oldal sajtójában szerepelnek (Kommandant ux-feedback #20).
-        return """
+        return f"""
           <div class="blindspot-explain">
-            <p><strong>Most nincs egyoldalas sztori.</strong></p>
-            <p>Ezen a panelen olyan hírek jelennek meg, amelyeket csak az egyik politikai oldal sajtója hoz
-            (csak balliberális vagy csak konzervatív források ≥70%-ban). Most NEM talált ilyet a detektor —
-            ez azt jelenti, hogy a jelenlegi főhírek <em>mindkét oldal sajtójában szerepelnek</em>, vagyis a
-            spektrum egészét érintik. Ha ez változik (pl. egy téma "blackout"-ot kap az egyik oldalon), itt
-            jelenik meg.</p>
+            <p><strong>{_escape(t("landing.blindspot.none_title", lang))}</strong></p>
+            <p>{_escape(t("landing.blindspot.none_body", lang))}</p>
           </div>
         """
     return "".join(cards)
@@ -1019,6 +1009,14 @@ def _render_youtube_trending(videos: list[dict] | None, lang: str, region: str,
 # ── Stylesheet az új blokkokhoz ───────────────────────────────────────
 
 _LANDING_V2_EXTRA_CSS = """
+    /* Egyszerű nézet (body.view-simple): a kártya-szintű elemző elemek
+       elrejtése. A nagy panelek (entitás-chipek, módszertan-legenda,
+       blindspot) szerveroldalon eleve kimaradnak; ez a CSS a sztori-
+       kártyákba ágyazott L/C/R sávot és keretezés-badge-et rejti. */
+    body.view-simple .pol-bar,
+    body.view-simple .frame-badge,
+    body.view-simple .entity-row,
+    body.view-simple .bias-legend-details { display: none !important; }
     .entity-row {
       max-width: 1500px; margin: 1.2rem auto 0; padding: 0 1rem;
       display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
@@ -2586,6 +2584,11 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     "cannot be called from a running event loop".
     """
     lang = _request_lang(request)
+    # Nézet-mód: 'simple' (tiszta hírfolyam) vagy 'full' (minden elemző panel).
+    # ?view=… felülírja, echolot_view cookie perzisztálja, default = 'simple'.
+    view = resolve_view(request.query_params.get("view"),
+                        request.cookies.get("echolot_view"))
+    is_simple = view == "simple"
     # Explicit "Fordítás X nyelvre" választó (Kommandant): a célnyelv
     # FÜGGETLEN a felület nyelvétől. ?trlang=off|<kód> felülírja, cookie
     # (echolot_tr_lang) perzisztálja; default = a felület nyelve.
@@ -2802,10 +2805,25 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     local_trending_html = _render_local_trending(local, lang, tr_target)
     blindspot_html = _render_blindspots(political_blind, lang, tr_target)
     yt_trending_html = _render_youtube_trending(yt_videos, lang, yt_region, tr_target)
+    # Egyszerű nézet: a nagy elemző panelek (entitás-chipek, módszertan-legenda,
+    # politikai blindspot) szerveroldalon kimaradnak. A kártya-szintű apró
+    # elemzők (L/C/R pol-bar, frame-badge) a body.view-simple CSS-sel rejtve.
+    if is_simple:
+        entity_chips = ""
+        bias_legend = ""
+        blindspot_html = ""
 
     title_html = _escape(t("landing.hero_title", lang))
     legacy_label = _escape(t("landing.legacy_view", lang))
     dashboard_label = _escape(t("landing.dashboard_link", lang))
+    # Nézet-kapcsoló: a MÁSIK módra mutató link (simple→full / full→simple).
+    _view_target = "full" if is_simple else "simple"
+    _view_label = _escape(t("view.to_full" if is_simple else "view.to_simple", lang))
+    _view_icon = "⊕" if is_simple else "⊖"
+    view_toggle_html = (
+        f'<a href="/?view={_view_target}&lang={lang}" class="btn-secondary" '
+        f'title="{_view_label}">{_view_icon} {_view_label}</a>'
+    )
     # Élő Föld (időjárás-glóbusz) fül-címke — 10 nyelven (inline, self-contained)
     live_earth_label = _escape({
         'hu': 'Élő Föld', 'en': 'Live Earth', 'de': 'Live-Erde', 'es': 'Tierra en vivo',
@@ -2843,7 +2861,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>{_BASE_STYLES}{_augment_strip_css()}{_LANDING_V2_EXTRA_CSS}{brief_css}{DAY_THEME_CSS}{THEME_TOGGLE_CSS}</style>
 </head>
-<body data-trpending="{tr_pending}">
+<body data-trpending="{tr_pending}" class="view-{view}">
   <div class="ambient" aria-hidden="true">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -2851,6 +2869,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
   </div>
 
   <div class="top-actions">
+    {view_toggle_html}
     {tr_toggle_html}
     {theme_toggle}
     <a href="/weather?lang={lang}" class="btn-secondary">🌍 {live_earth_label} →</a>
@@ -2878,9 +2897,7 @@ async def render_landing_v2(request, db_path: str) -> tuple[str, str]:
     </div>
     <div class="landing-col">
       {tv_panel_html}
-      <h2>{section_blind}</h2>
-      <small class="section-sub">{blindspot_sub}</small>
-      {blindspot_html}
+      {'' if is_simple else f'<h2>{section_blind}</h2><small class="section-sub">{blindspot_sub}</small>{blindspot_html}'}
       {yt_trending_html}
     </div>
   </div>

@@ -183,7 +183,7 @@ details.method strong{color:var(--text)}
 _THEME_JS = """(function(){var k='echolot-theme';function set(t){
 document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem(k,t)}catch(e){}
 var b=document.getElementById('tt');if(b)b.textContent=t==='day'?'\\u263e Night':'\\u2600 Day';}
-var s;try{s=localStorage.getItem(k)}catch(e){}set(s||'night');
+var s;try{s=localStorage.getItem(k)}catch(e){}set(s||'day');
 document.addEventListener('click',function(e){if(e.target&&e.target.id==='tt'){
 set(document.documentElement.getAttribute('data-theme')==='day'?'night':'day');}});})();"""
 

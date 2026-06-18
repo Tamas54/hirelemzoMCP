@@ -147,7 +147,30 @@ def translator_thread():
         log.error("translator thread crashed: %s", e, exc_info=True)
 
 
+def _load_dotenv(path: str = ".env") -> None:
+    """Minimal .env loader (no python-dotenv dependency). Loads KEY=VALUE
+    lines into os.environ without overriding real, already-set env vars.
+    Railway sets platform env vars directly, so this is a local-dev aid."""
+    from pathlib import Path
+    p = Path(path)
+    if not p.is_file():
+        return
+    try:
+        for line in p.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            k, v = k.strip(), v.strip().strip('"').strip("'")
+            if k and k not in os.environ:
+                os.environ[k] = v
+    except Exception as exc:
+        log.warning(".env load failed: %s", exc)
+
+
 def main():
+    _load_dotenv()  # local-dev: hydrate os.environ from ./.env (Railway uses platform vars)
+
     t = threading.Thread(target=scraper_thread, daemon=True, name="scraper")
     t.start()
     log.info("scraper thread launched")

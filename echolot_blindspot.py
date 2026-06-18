@@ -312,19 +312,32 @@ def _cluster(articles: list[dict[str, Any]],
 # Cluster summarisation helpers
 # --------------------------------------------------------------------------
 def _bias_distribution(items: list[dict[str, Any]]) -> dict[str, int]:
-    """Bias-percentage dist (0-100, summing to ~100) over distinct sources."""
+    """Bias-percentage dist over distinct sources, GUARANTEED to sum to 100.
+
+    Csak az L/C/R buckete(ke)t számoljuk (a LEAN_TO_BIAS minden lean-t ezekbe
+    képez), és largest-remainder kerekítést használunk, hogy L+C+R == 100
+    legyen — különben a naiv, bucketenként külön round() 99/101%-ot adhatott
+    (UX-panel: "5+75+28=108?" — hibás összegű politikai sáv)."""
     by_source: dict[str, str] = {}
     for it in items:
         sid = it["source_id"] or it["source_name"]
         if sid not in by_source:
             by_source[sid] = it["bias"]
-    total = len(by_source)
-    if total == 0:
-        return {"L": 0, "C": 0, "R": 0}
+    # Csak L/C/R — ismeretlen bias-érték (ha mégis előfordul) nem hígítja a sávot.
     counts = {"L": 0, "C": 0, "R": 0}
     for b in by_source.values():
-        counts[b] = counts.get(b, 0) + 1
-    return {k: round(100 * v / total) for k, v in counts.items()}
+        if b in counts:
+            counts[b] += 1
+    total = sum(counts.values())
+    if total == 0:
+        return {"L": 0, "C": 0, "R": 0}
+    raw = {k: counts[k] * 100.0 / total for k in ("L", "C", "R")}
+    rounded = {k: int(v) for k, v in raw.items()}
+    diff = 100 - sum(rounded.values())
+    # A maradékot a legnagyobb tört-részű bucketekhez osztjuk vissza.
+    for k in sorted(raw, key=lambda k: -(raw[k] - int(raw[k])))[:diff]:
+        rounded[k] += 1
+    return rounded
 
 
 def _cluster_sphere_set(items: list[dict[str, Any]]) -> set[str]:

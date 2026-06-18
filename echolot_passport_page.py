@@ -125,7 +125,7 @@ _THEME_JS = """
     try{localStorage.setItem(k,t)}catch(e){}
     var b=document.getElementById('tt');if(b)b.textContent=t==='day'?'\\u263e Night':'\\u2600 Day';}
   var saved;try{saved=localStorage.getItem(k)}catch(e){}
-  set(saved||'night');
+  set(saved||'day');
   document.addEventListener('click',function(e){if(e.target&&e.target.id==='tt'){
     set(document.documentElement.getAttribute('data-theme')==='day'?'night':'day');}});
 })();

@@ -3013,7 +3013,7 @@ LANDING_HTML = r"""<!DOCTYPE html>
      Eredeti nyelven — az olvasó AI minden nyelvet ért.</p>
   <div class="stat-row">
     <div class="stat">📡 <strong id="stat-articles">…</strong> friss cikk</div>
-    <div class="stat">🌐 <strong id="stat-spheres">…</strong> szféra</div>
+    <div class="stat">🌐 <strong id="stat-spheres">…</strong> hírrégió</div>
     <div class="stat">🗞 <strong id="stat-sources">…</strong> forrás</div>
   </div>
 </div>
@@ -3026,13 +3026,13 @@ LANDING_HTML = r"""<!DOCTYPE html>
 
 <!-- Detailed sphere selector (collapsible) -->
 <div class="sphere-bar" id="sphere-bar" style="display:none;">
-  <span class="label">szféra</span>
+  <span class="label">hírrégió</span>
   <button class="sphere-tab active" data-sphere="">Mind</button>
   <!-- populated dynamically from /api/spheres -->
 </div>
 
 <div style="max-width:1100px; width:100%; margin-bottom:1rem;">
-  <button id="toggle-spheres" class="sphere-tab" style="font-size:0.7rem;">▼ részletes szféra-lista (63)</button>
+  <button id="toggle-spheres" class="sphere-tab" style="font-size:0.7rem;">▼ részletes hírrégió-lista (63)</button>
 </div>
 
 <!-- News feed -->
@@ -3095,11 +3095,11 @@ LANDING_HTML = r"""<!DOCTYPE html>
   </p>
   <table>
     <tr><th>Eszköz</th><th>Leírás</th></tr>
-    <tr><td>get_news</td><td>Hírek dátum / kategória / nyelv / szféra / lean szerint</td></tr>
+    <tr><td>get_news</td><td>Hírek dátum / kategória / nyelv / hírrégió / lean szerint</td></tr>
     <tr><td>search_news</td><td>FTS-keresés (cím + lead, eredeti és angol)</td></tr>
     <tr><td>get_weekly_digest</td><td>Heti összefoglaló naponkénti bontásban</td></tr>
     <tr><td>get_trending</td><td>Trending témák — több forrás által közölt hírek</td></tr>
-    <tr><td>narrative_divergence</td><td><strong>★ payoff:</strong> mit mond minden szféra ugyanarról a témáról</td></tr>
+    <tr><td>narrative_divergence</td><td><strong>★ payoff:</strong> mit mond minden hírrégió ugyanarról a témáról</td></tr>
     <tr><td>get_spheres</td><td>Szféra-taxonómia + cikkszámok</td></tr>
     <tr><td>get_sources</td><td>Elérhető hírforrások listája</td></tr>
   </table>
@@ -3316,7 +3316,7 @@ fetch('/api/spheres')
     const bar = document.getElementById('sphere-bar');
     document.getElementById('stat-spheres').textContent = (d.spheres || []).length;
     document.getElementById('toggle-spheres').textContent =
-      `▼ részletes szféra-lista (${(d.spheres || []).length})`;
+      `▼ részletes hírrégió-lista (${(d.spheres || []).length})`;
     (d.spheres || []).forEach(([sph, n]) => {
       const btn = document.createElement('button');
       btn.className = 'sphere-tab';
@@ -3638,6 +3638,11 @@ async def landing(request):
     page, lang = await render_landing_v2(request, str(DB_PATH))
     resp = HTMLResponse(page)
     resp.set_cookie("echolot_lang", lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+    # Nézet-mód perzisztálása (?view=simple|full → echolot_view cookie).
+    _view = (request.query_params.get("view") or "").strip().lower()
+    if _view in ("simple", "full"):
+        resp.set_cookie("echolot_view", _view,
+                        max_age=60 * 60 * 24 * 365, samesite="lax")
     # Fordítás-célnyelv perzisztálása (?trlang=off|<kód> → cookie).
     # A régi ?tr=on/off is leképeződik (legacy linkek).
     trl = (request.query_params.get("trlang") or "").strip().lower()
@@ -3858,7 +3863,20 @@ async def story_detail(request):
         logger.warning("story on-demand enrich failed: %s", exc)
         pending, foreign, unclassified = [], [], []
 
-    page = render_story_detail_page(cluster, lang, request=request)
+    # F2 — regionális tálalás: a sztori címéből tulajdonnév OR-FTS téma-keresés
+    # MINDEN régióban (kereszt-régiós lefedettség), nem csak a klaszter cikkei.
+    regional_articles = None
+    try:
+        from echolot_analytics import regional_topic_articles
+        _story_q = cluster.get("title") or cluster.get("lead_title") or ""
+        if _story_q:
+            regional_articles = await asyncio.to_thread(
+                regional_topic_articles, _story_q, 14, str(DB_PATH))
+    except Exception as exc:
+        logger.warning("regional topic search failed: %s", exc)
+
+    page = render_story_detail_page(cluster, lang, request=request,
+                                    regional_articles=regional_articles)
     if pending or foreign or unclassified:
         # Utótöltés: a háttérben most töltődő cikkszövegek ("Tovább olvasom")
         # automatikusan beúsznak az első látogatónak is — a kliens 6s múlva

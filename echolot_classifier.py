@@ -83,7 +83,9 @@ def _load_env_file_once() -> None:
                 continue
             k, _, v = line.partition("=")
             k, v = k.strip(), v.strip().strip('"').strip("'")
-            if k.startswith("CLASSIFIER_") and k not in os.environ:
+            # CLASSIFIER_* + a felismert kulcs-nevek (pl. SILICONFLOW_API_KEY),
+            # hogy a kanonikus Claus .env-ből is be tudjuk húzni a kulcsot.
+            if (k.startswith("CLASSIFIER_") or k in _KEY_ENV_NAMES) and k not in os.environ:
                 os.environ[k] = v
     except Exception as exc:  # never let dev-config break the worker
         log.warning("classifier env-file load failed: %s", exc)

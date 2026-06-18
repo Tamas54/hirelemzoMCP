@@ -26,16 +26,17 @@ COOKIE_NAME = "echolot_theme"
 
 
 def theme_html_attr(request) -> str:
-    """Return ' data-theme="day"' when the cookie selects day, else '' (night).
+    """Return ' data-theme="day"' by DEFAULT; '' (night) only when the cookie
+    explicitly selects night (Kommandant 2026-06-18: nappali az alapértelmezett).
 
-    Defensive: any failure (no request, no cookies) falls back to night.
+    Defensive: any failure (no request, no cookies) falls back to day.
     """
     try:
-        if request is not None and request.cookies.get(COOKIE_NAME) == "day":
-            return ' data-theme="day"'
+        if request is not None and request.cookies.get(COOKIE_NAME) == "night":
+            return ""  # explicit night
     except Exception:
         pass
-    return ""
+    return ' data-theme="day"'  # default: nappali
 
 
 # ── Day-mode token overrides (editorial paper) ───────────────────────────
