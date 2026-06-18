@@ -3863,17 +3863,19 @@ async def story_detail(request):
         logger.warning("story on-demand enrich failed: %s", exc)
         pending, foreign, unclassified = [], [], []
 
-    # F2 — regionális tálalás: a sztori címéből tulajdonnév OR-FTS téma-keresés
-    # MINDEN régióban (kereszt-régiós lefedettség), nem csak a klaszter cikkei.
+    # F2 — regionális tálalás: a klaszter cikkeinek kanonikus ENTITÁSAIRA (QID)
+    # keres MINDEN régióban (nyelvfüggetlen; nincs szöveg-matchelős szemét).
+    # Ha nincs QID-linkelt entitás → None → a szekció kimarad.
     regional_articles = None
     try:
         from echolot_analytics import regional_topic_articles
-        _story_q = cluster.get("title") or cluster.get("lead_title") or ""
-        if _story_q:
+        _aids = [a.get("article_id") for a in (cluster.get("articles") or [])
+                 if a.get("article_id")]
+        if _aids:
             regional_articles = await asyncio.to_thread(
-                regional_topic_articles, _story_q, 14, str(DB_PATH))
+                regional_topic_articles, _aids, 14, str(DB_PATH))
     except Exception as exc:
-        logger.warning("regional topic search failed: %s", exc)
+        logger.warning("regional entity search failed: %s", exc)
 
     page = render_story_detail_page(cluster, lang, request=request,
                                     regional_articles=regional_articles)

@@ -63,91 +63,44 @@ def _family(sphere):
     return CHILD_TO_PARENT.get(sphere, sphere)
 
 
-def _candidate_terms(query):
-    """A cím megkülönböztető tokenjei kereszt-nyelvi téma-illesztéshez.
-    Írásjelnél is tokenizál (Knicks-Parade → knicks, parade), ékezetet strippel,
-    stopszót / ≤2 karakteres tokent dob. Normalizált, deduplikált lista."""
-    parts = re.split(r"[^0-9A-Za-zÀ-ÖØ-öø-ÿ]+", query or "")
-    out, seen = [], set()
-    for p in parts:
-        n = "".join(ch for ch in _strip(p.lower()) if ch.isalnum())
-        if len(n) > 2 and n not in _STOP and n not in seen:
-            seen.add(n)
-            out.append(n)
-    return out
+def regional_topic_articles(article_ids, days=14, db_path="echolot.db",
+                            limit=400, max_entities=3):
+    """F2 kereszt-régiós forrásolás ENTITÁS-QID alapon (Kommandant 2026-06-18).
 
+    A klaszter cikkeinek leggyakoribb kanonikus entitásait (Wikidata QID:
+    Trump=Q22686, Irán=Q794…) veszi, és MINDEN régióban azokra a cikkekre keres,
+    amelyek UGYANAZOKAT a QID-eket említik. Ez nyelvfüggetlen és pontos: nem
+    szövegre matchel, így a magyar ragozás (Iránnal/genfi) és a generikus
+    cross-lingual főnevek (ceremónia → UFC-mérlegelés, VB-megnyitó…) NEM
+    szivárognak be — entitás csak valódi tulajdonnév lehet.
 
-def regional_topic_articles(query, days=14, db_path="echolot.db", limit=400):
-    """F2 téma-keresős forrásolás: a sztori címéből a LEGMEGKÜLÖNBÖZTETŐBB
-    (korpuszban legritkább) tulajdonnévre keres minden régióban, és a
-    `_render_regional_spread` által várt alakú cikk-dict listát adja vissza.
-
-    A relevancia kulcsa a ritkaság-szűrés: a gyakori szavakat (pl. "new",
-    "trump") kidobjuk (df > korpusz 2%-a), különben OR-keresés esetén bármilyen
-    laza egyezésű friss cikk beszivárogna (drónok, krimi… egy kosár-sztoriba).
-    A legritkább term önmagában elég megkülönböztető és nyelvfüggetlen; ha az
-    is gyakori-ish, a 2 legritkábbat AND-eljük. Nincs megkülönböztető term →
-    üres lista (a hívó a klaszterre esik vissza; inkább üres, mint irreleváns).
-
-    Kereszt-nyelvi korlát: latin-betűs átírású nevek matchelnek; cirill/arab
-    átírás (Хормуз, هرمز) NEM — a latin-betűs régiókat fedi jól."""
-    cands = _candidate_terms(query)
-    if not cands:
+    Ha a klaszternek nincs QID-linkelt entitása → ÜRES lista → a szekció kimarad
+    (inkább semmi, mint kacat; NINCS szöveg-matchelős fallback). A lefedettség
+    nő, ahogy az entity-linker ledolgozza a korpuszt (`article_entities`)."""
+    article_ids = [a for a in (article_ids or []) if a]
+    if not article_ids:
         return []
     conn = _conn(db_path)
     try:
-        total = (conn.execute("SELECT COUNT(*) c FROM articles").fetchone()["c"]) or 1
-        cap = max(400, int(total * 0.02))   # ultra-gyakori szavak kizárása
-        # Két szűrő a CÍMRE (title:term), hogy a mutatott szalagcím a témáról
-        # szóljon ÉS valódi kereszt-régiós entitás legyen:
-        #   1) df ≤ cap  → kizárja az ultra-gyakori szavakat (new, trump…)
-        #   2) régió-span ≥ 2 → kizárja a nyelv-lokális zajt (pl. német "Riesen",
-        #      "Andrang" vagy magyar "béke"), ami ritka, de csak 1 régióban van.
-        # A ritkaság önmagában FÉLREVEZET: egy ritka idegen köznév ritkább, mint
-        # egy globális tulajdonnév (Knicks), ezért a span a megbízható jel.
-        scored = []
-        for t in cands:
-            try:
-                df = conn.execute(
-                    "SELECT COUNT(*) c FROM articles_fts WHERE articles_fts MATCH ?",
-                    (f"title:{t}*",)).fetchone()["c"]
-            except sqlite3.OperationalError:
-                continue
-            if not (0 < df <= cap):
-                continue
-            srows = conn.execute(
-                """SELECT a.spheres_json FROM articles a
-                   JOIN articles_fts f ON f.article_id = a.article_id
-                   WHERE articles_fts MATCH ? LIMIT 400""", (f"title:{t}*",)).fetchall()
-            regs = set()
-            for sr in srows:
-                try:
-                    for sp in json.loads(sr["spheres_json"] or "[]"):
-                        if sp.startswith("regional_"):
-                            regs.add(sp)
-                        elif sp in CHILD_TO_PARENT:
-                            regs.add(CHILD_TO_PARENT[sp])
-                except (ValueError, TypeError):
-                    pass
-            if len(regs) >= 2:
-                scored.append((df, t))
-        if not scored:
+        aph = ",".join("?" * len(article_ids))
+        # A klaszter domináns entitásai — mention-szám szerint, csak QID-linkeltek.
+        ents = conn.execute(
+            f"""SELECT qid, COUNT(*) n FROM article_entities
+                WHERE article_id IN ({aph}) AND qid IS NOT NULL AND qid != ''
+                GROUP BY qid ORDER BY n DESC LIMIT ?""",
+            (*article_ids, int(max_entities))).fetchall()
+        qids = [r["qid"] for r in ents]
+        if not qids:
             return []
-        scored.sort()                        # ritkább (specifikusabb) entitás előre
-        picks = [t for _, t in scored[:5]]
-        # Title-OR: bármelyik term a CÍMBEN → a szalagcím a témáról szól.
-        fts = " OR ".join(f"title:{t}*" for t in picks)
-        sql = """
-            SELECT a.title, a.source_name, a.url, a.spheres_json, a.frame,
-                   a.sentiment, a.published_at
-            FROM articles a JOIN articles_fts f ON f.article_id = a.article_id
-            WHERE articles_fts MATCH ? AND a.published_at >= ?
-            ORDER BY a.published_at DESC LIMIT ?
-        """
-        try:
-            rows = conn.execute(sql, (fts, _since(days), int(limit))).fetchall()
-        except sqlite3.OperationalError:
-            return []
+        qph = ",".join("?" * len(qids))
+        # Minden régió cikkei, amik ugyanazokat az entitásokat (QID) említik.
+        rows = conn.execute(
+            f"""SELECT DISTINCT a.title, a.source_name, a.url, a.spheres_json,
+                       a.frame, a.sentiment, a.published_at
+                FROM articles a JOIN article_entities ae ON ae.article_id = a.article_id
+                WHERE ae.qid IN ({qph}) AND a.published_at >= ?
+                ORDER BY a.published_at DESC LIMIT ?""",
+            (*qids, _since(days), int(limit))).fetchall()
     finally:
         conn.close()
     out = []
