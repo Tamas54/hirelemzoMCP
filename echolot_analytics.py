@@ -90,14 +90,15 @@ def regional_topic_articles(article_ids, days=14, db_path="echolot.db",
                 GROUP BY qid ORDER BY n DESC LIMIT ?""",
             (*article_ids, int(max_entities))).fetchall()
         qids = [r["qid"] for r in ents]
-        if not qids:
+        # KO-OKKURENCIA szűrő: a cikk a sztori ≥2 entitását EGYÜTT említse (pl.
+        # Irán ÉS Trump) — ez az "ugyanaz az esemény" jel. Egy-entitásos sztori
+        # (belpolitikai/celeb) NEM mutat régiós nézetet: ott egyetlen közös vagy
+        # félre-linkelt entitás bármilyen érintőleges/random cikket behúzna
+        # (TEK→cseh médiasztrájk, Bezos→szumó). Inkább semmi, mint szemét.
+        if len(qids) < 2:
             return []
         qph = ",".join("?" * len(qids))
-        # KO-OKKURENCIA szűrő: a cikk a sztori ≥2 entitását EGYÜTT említse (pl.
-        # Irán ÉS Trump) — különben egy ultra-gyakori entitás (USA) bármilyen
-        # érintőleges cikket behúzna (japán app, drón-figyelmeztetés…). Ha a
-        # sztorinak csak 1 entitása van, marad az 1-egyezés.
-        need = 2 if len(qids) >= 2 else 1
+        need = 2
         rows = conn.execute(
             f"""SELECT a.title, a.source_name, a.url, a.spheres_json,
                        a.frame, a.sentiment, a.published_at,
