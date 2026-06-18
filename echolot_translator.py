@@ -34,6 +34,11 @@ DB_PATH = Path(os.environ.get("DB_PATH", "echolot.db"))
 BATCH_SIZE = int(os.environ.get("TRANSLATOR_BATCH", "12"))
 LOOP_SLEEP = int(os.environ.get("TRANSLATOR_LOOP_SLEEP", "30"))
 REQUEST_TIMEOUT = int(os.environ.get("TRANSLATOR_TIMEOUT", "60"))
+# Kor-küszöb (mint a klasszifikátoré): csak e dátumtól (MÁTÓL) felfelé fordít —
+# a 48k-s hátralékot NEM (token-megtakarítás). A CLASSIFIER_MIN_PUBLISHED-re
+# esik vissza, így egy env-változó mindkét workert fedi. Üres = korlátlan.
+MIN_PUBLISHED = (os.environ.get("TRANSLATOR_MIN_PUBLISHED")
+                 or os.environ.get("CLASSIFIER_MIN_PUBLISHED", "")).strip()
 
 
 def _config() -> dict | None:
@@ -103,13 +108,15 @@ def _call_llm(cfg: dict, batch: list[dict], retries: int = 3) -> list[dict] | No
 
 
 def _claim_batch(conn: sqlite3.Connection, size: int) -> list[dict]:
+    floor = " AND published_at >= ?" if MIN_PUBLISHED else ""
+    params = ([MIN_PUBLISHED, size] if MIN_PUBLISHED else [size])
     rows = conn.execute(
-        """SELECT article_id, title, lead, language FROM articles
+        f"""SELECT article_id, title, lead, language FROM articles
            WHERE translation_status IS NULL
              AND language IS NOT NULL AND language != 'en'
-             AND title IS NOT NULL AND title != ''
+             AND title IS NOT NULL AND title != ''{floor}
            ORDER BY published_at DESC
-           LIMIT ?""", (size,)
+           LIMIT ?""", params
     ).fetchall()
     return [{"article_id": r[0], "title": r[1], "lead": r[2], "language": r[3]} for r in rows]
 
