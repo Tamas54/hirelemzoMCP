@@ -122,10 +122,10 @@ def _emo_label(emo: str, lang: str) -> str:
 
 
 _CSS = """
-:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c232d;--border:#2d333b;--text:#e6edf3;
-  --muted:#8b949e;--accent:#58a6ff;--grey:#21262d;--text-dim:#8b949e;--bg-card:#161b22}
-[data-theme="day"]{--bg:#f6f8fa;--panel:#fff;--panel2:#f0f3f6;--border:#d0d7de;
-  --text:#1f2328;--muted:#656d76;--accent:#0969da;--grey:#eaeef2;--text-dim:#656d76;--bg-card:#fff}
+:root{--bg:#0a0d12;--panel:#11151c;--panel2:#161b22;--border:rgba(255,255,255,.10);--text:#e8eef0;
+  --muted:#8a9499;--accent:#14b8a6;--grey:#161b22;--text-dim:#8a9499;--bg-card:#11151c}
+[data-theme="day"]{--bg:#f7f4ed;--panel:#fff;--panel2:#f1ede3;--border:rgba(26,24,20,.12);
+  --text:#1a1814;--muted:#6b6459;--accent:#0f766e;--grey:#f1ede3;--text-dim:#6b6459;--bg-card:#fff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);
   font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
 .scope-row{display:flex;gap:.5rem;margin:0 0 1rem}

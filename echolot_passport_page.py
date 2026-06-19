@@ -48,14 +48,14 @@ _LEVEL_STYLE = {
 
 _PAGE_CSS = """
 :root{
-  --bg:#0d1117; --panel:#161b22; --panel2:#1c232d; --border:#2d333b;
-  --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
-  --green:#1f9d55; --green-dim:#1a3a2a; --grey-sea:#21262d; --red:#9b2c2c;
+  --bg:#0a0d12; --panel:#11151c; --panel2:#161b22; --border:rgba(255,255,255,.10);
+  --text:#e8eef0; --muted:#8a9499; --accent:#14b8a6;
+  --green:#1f9d55; --green-dim:#1a3a2a; --grey-sea:#161b22; --red:#9b2c2c;
 }
 [data-theme="day"]{
-  --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f6; --border:#d0d7de;
-  --text:#1f2328; --muted:#656d76; --accent:#0969da;
-  --green-dim:#dafbe1; --grey-sea:#eaeef2;
+  --bg:#f7f4ed; --panel:#ffffff; --panel2:#f1ede3; --border:rgba(26,24,20,.12);
+  --text:#1a1814; --muted:#6b6459; --accent:#0f766e;
+  --green-dim:#dafbe1; --grey-sea:#f1ede3;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
