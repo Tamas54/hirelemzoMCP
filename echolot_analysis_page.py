@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import math
 from html import escape as _esc
+from echolot_theme import (theme_html_attr, theme_toggle_html,
+                           THEME_TOGGLE_CSS, THEME_TOGGLE_JS)
 
 _FRAME_COLOR = {
     "conflict": "#f85149", "human_interest": "#58a6ff", "economic": "#3fb950",
@@ -265,7 +267,7 @@ def _sources_table(sources: list[dict], lang: str) -> str:
 
 def render_analysis_page(data: dict, *, query: str = "", days: int = 30,
                          lang: str = "en", scope: str = "global",
-                         nav_html: str = "", nav_css: str = "") -> str:
+                         nav_html: str = "", nav_css: str = "", request=None) -> str:
     cov = data.get("classification_coverage", {})
     note = cov.get("note")
     # Hatókör-váltó: saját nyelvterület ↔ globális korpusz (UX-teszter:
@@ -298,15 +300,15 @@ def render_analysis_page(data: dict, *, query: str = "", days: int = 30,
     opts = "".join(f'<option value="{d}"{" selected" if d==days else ""}>{d} {day_word}</option>'
                    for d in (7, 14, 30, 90))
     return (
-        f"<!doctype html><html lang={lang}><head><meta charset=utf-8>"
+        f"<!doctype html><html lang={lang}{theme_html_attr(request)}><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{_esc(query)+' — ' if query else ''}Echolot Framing Analysis</title>"
-        f"<style>{_CSS}{nav_css}</style></head><body>"
+        f"<style>{_CSS}{nav_css}{THEME_TOGGLE_CSS}</style></head><body>"
         + nav_html +
         '<div class=wrap>'
         f'<div class="topbar"><div class="brand"><a href="/?lang={lang}" style="color:inherit">Echolot</a> '
         f'<small>{_esc(_t("subtitle", lang))}</small></div>'
-        '<button id="tt" class="tt">☀ Day</button></div>'
+        + theme_toggle_html(lang) + '</div>'
         f'<form class="q" method="get" action="/analysis">'
         f'<input type="hidden" name="lang" value="{lang}">'
         f'<input type="hidden" name="scope" value="{_esc(scope)}">'
@@ -314,5 +316,5 @@ def render_analysis_page(data: dict, *, query: str = "", days: int = 30,
         f'<select name="days">{opts}</select><button type="submit">{_esc(_t("analyze", lang))}</button></form>'
         + scope_html + cov_line + body
         + f'<div class="foot">{_esc(_t("foot", lang))}</div>'
-        + f"<script>{_THEME_JS}</script></div></body></html>"
+        + f"{THEME_TOGGLE_JS}</div></body></html>"
     )

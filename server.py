@@ -1895,7 +1895,7 @@ async def page_passport(request):
             build_passport, claim,
             time_window_days=days, detail="full", db_path=DB_PATH,
         )
-    html = render_passport_page(passport, claim=claim, days=days, detail=detail)
+    html = render_passport_page(passport, claim=claim, days=days, detail=detail, request=request)
     return HTMLResponse(html)
 
 
@@ -1923,7 +1923,7 @@ async def page_analysis(request):
     return HTMLResponse(render_analysis_page(
         data, query=query, days=days, lang=lang, scope=scope,
         nav_html=_augment_block_html(lang, active="analysis"),
-        nav_css=_augment_strip_css()))
+        nav_css=_augment_strip_css(), request=request))
 
 
 @mcp.custom_route("/robots.txt", methods=["GET"])
