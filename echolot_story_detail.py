@@ -21,7 +21,7 @@ from echolot_landing_v2 import (
     _render_source_stack,
     _sphere_color,
 )
-from echolot_seo import public_origin, schema_org_article_html
+from echolot_seo import public_origin, schema_org_article_html, seo_head_html
 from echolot_top_stories import LEAN_TO_BIAS
 from echolot_theme import (
     theme_html_attr,
@@ -1373,12 +1373,23 @@ def render_story_detail_page(cluster: dict, lang: str, request=None,
         published=first_published, modified=latest_published, lang=lang,
         source_names=_src_names)
 
+    # OG/Twitter meta (megosztható preview: leírás + kép) — eddig HIÁNYZOTT, ezért
+    # a chat/messenger csak a csupasz címet látta. Gazdag leírás: lead + forrásszám.
+    _seo_desc = (lead or title).strip()[:200]
+    if n_sources:
+        _seo_desc = (f"{_seo_desc} — {n_sources} {src_label}" if _seo_desc
+                     else f"{n_sources} {src_label}")
+    seo_head = seo_head_html(
+        _origin, lang, _story_path, description=_seo_desc,
+        og_title=title, og_description=_seo_desc, page_type="article")
+
     return f"""<!doctype html>
 <html lang="{lang}"{theme_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{page_title}</title>
+  {seo_head}
   {article_jsonld}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
