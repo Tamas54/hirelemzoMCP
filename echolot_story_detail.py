@@ -1379,9 +1379,16 @@ def render_story_detail_page(cluster: dict, lang: str, request=None,
     if n_sources:
         _seo_desc = (f"{_seo_desc} — {n_sources} {src_label}" if _seo_desc
                      else f"{n_sources} {src_label}")
+    # Dinamikus, tartalom-specifikus OG-kép (cím + L/C/R + forrásszám) —
+    # a megosztott preview a TÉMÁT mutatja, nem a generikus logót. A kép a
+    # /og/story/{id}.png route-ról jön, ugyanabból az adatból renderelve.
+    _cid = cluster.get("cluster_id") or ""
+    _og_image = (f"{_origin}/og/story/{_cid}.png?lang={lang}" if _cid
+                 else None)
     seo_head = seo_head_html(
         _origin, lang, _story_path, description=_seo_desc,
-        og_title=title, og_description=_seo_desc, page_type="article")
+        og_title=title, og_description=_seo_desc, page_type="article",
+        og_image_url=_og_image)
 
     return f"""<!doctype html>
 <html lang="{lang}"{theme_attr}>

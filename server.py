@@ -2053,6 +2053,54 @@ async def static_og_image_png(request):
                     headers={"Cache-Control": "public, max-age=86400"})
 
 
+@mcp.custom_route("/og/story/{cluster_id}.png", methods=["GET"])
+async def story_og_image(request):
+    """Dinamikus, tartalom-specifikus OG-kép egy story-hoz (1200×630 PNG):
+    cím + L/C/R politikai-spektrum sáv + forrásszám. A megosztott link
+    preview-je így a TÉMÁT mutatja, nem a generikus logót.
+
+    Adat-only: ugyanazt a clustert olvassa, mint a /story route, csak a már
+    kiszámolt mezőkből rajzol (nincs LLM-hívás). Cache-elhető."""
+    from echolot_og_image import og_image_bytes
+    from echolot_top_stories import get_cluster_by_id
+    from echolot_sphere_labels import sphere_label
+    from echolot_dashboard import _request_lang
+
+    cluster_id = request.path_params["cluster_id"]
+    lang = _request_lang(request)
+    cluster = await asyncio.to_thread(
+        get_cluster_by_id, str(DB_PATH), cluster_id, 24)
+    if not cluster:
+        cluster = await asyncio.to_thread(
+            get_cluster_by_id, str(DB_PATH), cluster_id, 48)
+    if not cluster:
+        # Sztori nincs → essünk vissza a statikus képre (a preview ne törjön).
+        p = (Path(__file__).parent / "static" / "og-image.png")
+        if p.is_file():
+            return Response(p.read_bytes(), media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=3600"})
+        return Response(status_code=404)
+
+    title = cluster.get("title") or cluster.get("lead_title") or "—"
+    bias = cluster.get("bias_dist") or {}
+    n_sources = int(cluster.get("source_count") or 0)
+    spheres = cluster.get("sphere_set") or []
+    sphere_lbl = sphere_label(spheres[0], lang) if spheres else ""
+
+    png = await asyncio.to_thread(
+        og_image_bytes, title=title, bias=bias, n_sources=n_sources,
+        sphere_label=sphere_lbl, lang=lang)
+    if png is None:
+        # Pillow nincs telepítve → statikus fallback.
+        p = (Path(__file__).parent / "static" / "og-image.png")
+        if p.is_file():
+            return Response(p.read_bytes(), media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=3600"})
+        return Response(status_code=404)
+    return Response(png, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
 @mcp.custom_route("/static/og-image.svg", methods=["GET"])
 async def static_og_image(request):
     """Open Graph share image (1200×630 SVG, immutable cache)."""

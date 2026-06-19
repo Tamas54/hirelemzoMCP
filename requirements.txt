@@ -19,3 +19,6 @@ readability-lxml>=0.8
 
 # YouTube transcript fetcher (2026-05-20)
 youtube-transcript-api>=1.2.0
+
+# Dinamikus OG-kép render a story-megosztáshoz (2026-06-19)
+Pillow>=10.0
