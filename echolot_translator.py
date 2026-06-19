@@ -191,6 +191,13 @@ def worker_loop(db_path: str | Path = None) -> None:
     if not is_enabled():
         log.info("translator disabled (no CLASSIFIER_API_KEY) — title_en stays empty")
         return
+    # Kommandant 2026-06-19: a háttér cím/lead-fordító ALAPÉRTELMEZETTEN KI —
+    # minden fordítás on-demand (a listák/landing renderkor cache-elve, a teljes
+    # szöveg story-megnyitáskor). Háttér-előtöltés csak TRANSLATOR_BACKGROUND=1-re.
+    if os.environ.get("TRANSLATOR_BACKGROUND", "").lower() not in ("1", "true", "yes", "on"):
+        log.info("background translator disabled (on-demand only) — "
+                 "set TRANSLATOR_BACKGROUND=1 to pre-fill title_en/lead_en")
+        return
     cfg = _config()
     log.info("translator worker started: model=%s", cfg["model"])
     idle = 0
