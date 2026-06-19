@@ -345,6 +345,41 @@ def schema_org_website_html(origin: str, lang: str = "en") -> str:
     return _ld_script(payload)
 
 
+def schema_org_article_html(origin: str, url: str, headline: str,
+                            description: str = "", published: str = "",
+                            modified: str = "", lang: str = "en",
+                            image: str | None = None,
+                            source_names: list[str] | None = None) -> str:
+    """JSON-LD <script> for a NewsArticle (story-detail page) — lets AI answer
+    engines (Google AI Overview, Perplexity, ChatGPT) cite the story with
+    structured headline / date / publisher / sources. Echolot aggregál, ezért a
+    sztorit lefedő lapok a `citation` mezőbe kerülnek."""
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "NewsArticle",
+        "headline": (headline or "")[:110],
+        "url": url,
+        "mainEntityOfPage": {"@type": "WebPage", "@id": url},
+        "inLanguage": lang,
+        "isAccessibleForFree": True,
+        "publisher": {
+            "@type": "Organization", "name": "Echolot",
+            "logo": {"@type": "ImageObject", "url": f"{origin}/static/og-image.svg"},
+        },
+    }
+    if description:
+        payload["description"] = description[:300]
+    if published:
+        payload["datePublished"] = published
+        payload["dateModified"] = modified or published
+    if image:
+        payload["image"] = image
+    if source_names:
+        payload["citation"] = [{"@type": "CreativeWork", "name": n}
+                               for n in source_names[:10]]
+    return _ld_script(payload)
+
+
 def schema_org_organization_html(origin: str) -> str:
     """JSON-LD <script> for the Makronóm Intézet Organization schema."""
     payload = {

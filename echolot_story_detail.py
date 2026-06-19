@@ -21,7 +21,7 @@ from echolot_landing_v2 import (
     _render_source_stack,
     _sphere_color,
 )
-from echolot_seo import public_origin
+from echolot_seo import public_origin, schema_org_article_html
 from echolot_top_stories import LEAN_TO_BIAS
 from echolot_theme import (
     theme_html_attr,
@@ -1360,12 +1360,26 @@ def render_story_detail_page(cluster: dict, lang: str, request=None,
     theme_attr = theme_html_attr(request)
     theme_toggle = theme_toggle_html(lang)
 
+    # NewsArticle JSON-LD (AIO): a story-oldal a leggyakrabban osztott/idézett
+    # link → strukturált adat az AI answer-engine-eknek (Google AI Overview, stb.).
+    _origin = public_origin(request)
+    _story_path = (request.url.path if request is not None
+                   else f"/story/{cluster.get('cluster_id', '')}")
+    _story_url = f"{_origin}{_story_path}?lang={lang}"
+    _src_names = list(dict.fromkeys(
+        a.get("source_name") for a in articles if a.get("source_name")))
+    article_jsonld = schema_org_article_html(
+        _origin, _story_url, title, description=lead or title,
+        published=first_published, modified=latest_published, lang=lang,
+        source_names=_src_names)
+
     return f"""<!doctype html>
 <html lang="{lang}"{theme_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{page_title}</title>
+  {article_jsonld}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
