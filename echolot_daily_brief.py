@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 import threading
 import time
@@ -61,7 +62,7 @@ log.addHandler(_RingHandler())
 log.setLevel(logging.INFO)
 
 REQUEST_TIMEOUT = 120
-REFRESH_HOURS = 4          # a MAI brief ennyi óránként frissül
+REFRESH_HOURS = int(os.environ.get("BRIEF_REFRESH_HOURS", "12"))  # a MAI brief ennyi óránként frissül (Kommandant 2026-06-19: 4→12)
 WORKER_INTERVAL_S = 600    # worker ciklus
 # A worker mind a 10 UI-nyelvre magától generál (Kommandant 2026-06-12:
 # "a németen nincs, és a többi nyelven se látom"). HU+EN elöl, hogy a két
