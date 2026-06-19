@@ -224,6 +224,179 @@ def render_story_detail_markdown(
     return "\n".join(lines) + "\n"
 
 
+def render_analysis_markdown(
+    origin: str,
+    data: dict,
+    query: str = "",
+    days: int = 30,
+    scope: str = "global",
+    lang: str = "hu",
+) -> str:
+    """Render the /analysis framing+sentiment dashboard as Markdown — for
+    chatbots/agents (Accept: text/markdown or ?format=md). Same precomputed
+    classifier data as the HTML page, structured for direct LLM consumption."""
+    def esc(s) -> str:
+        return str(s or "").replace("|", "\\|").replace("\n", " ").strip()
+
+    cov = data.get("classification_coverage") or {}
+    frames = data.get("frame_distribution") or {}
+    emotions = data.get("emotion_distribution") or {}
+    sent = data.get("sentiment") or {}
+    sources = data.get("top_sources") or []
+
+    title = f"Echolot — Framing & Sentiment Analysis"
+    subj = f"query `{esc(query)}`" if query else f"the {scope} corpus"
+    lines: list[str] = [
+        f"# {title}",
+        "",
+        f"> Cross-source framing, emotion and sentiment breakdown for {subj} "
+        f"over the last {days} days, computed from the Echolot classifier. "
+        f"For programmatic access prefer the MCP server at `{origin}/mcp` "
+        f"(`frame_divergence`, `narrative_divergence`).",
+        "",
+        f"**Classified**: {cov.get('articles_classified', 0)} / "
+        f"{cov.get('articles_total', 0)} matched articles "
+        f"({cov.get('percent', 0)}%). {esc(cov.get('note', ''))}",
+        "",
+        "## Sentiment",
+        "",
+        f"- avg: {sent.get('avg', 0)} · min: {sent.get('min', 0)} · "
+        f"max: {sent.get('max', 0)} · n: {sent.get('n', 0)}",
+        "",
+    ]
+
+    if frames:
+        lines += ["## Frame distribution", "", "| Frame | Count |", "| --- | ---: |"]
+        for fr, cnt in sorted(frames.items(), key=lambda kv: -int(kv[1] or 0)):
+            lines.append(f"| {esc(fr)} | {int(cnt or 0)} |")
+        lines.append("")
+
+    if emotions:
+        lines += ["## Emotion distribution", "", "| Emotion | Count |", "| --- | ---: |"]
+        for em, cnt in sorted(emotions.items(), key=lambda kv: -int(kv[1] or 0)):
+            lines.append(f"| {esc(em)} | {int(cnt or 0)} |")
+        lines.append("")
+
+    if sources:
+        lines += [
+            "## Top sources", "",
+            "| Source | Lean | Articles | Dominant frame | Avg sentiment |",
+            "| --- | --- | ---: | --- | ---: |",
+        ]
+        for s in sources:
+            d = dict(s)
+            lines.append(
+                f"| {esc(d.get('source'))} | {esc(d.get('lean') or 'unknown')} "
+                f"| {int(d.get('articles') or 0)} | {esc(d.get('dominant_frame') or '—')} "
+                f"| {d.get('avg_sentiment', 0)} |"
+            )
+        lines.append("")
+
+    q = f"?query={query}&days={days}" if query else f"?days={days}"
+    lines += [
+        "---", "",
+        f"HTML: `{origin}/analysis{q}` · MCP: `{origin}/mcp`", "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_passport_markdown(
+    origin: str,
+    passport: dict,
+    claim: str = "",
+    days: int = 14,
+) -> str:
+    """Render a narrative_passport as Markdown — for chatbots/agents
+    (Accept: text/markdown or ?format=md). Same data as the /passport HTML
+    page and the MCP narrative_passport tool, structured for direct quoting."""
+    def esc(s) -> str:
+        return str(s or "").replace("|", "\\|").replace("\n", " ").strip()
+
+    verdict = passport.get("verdict") or {}
+    origin_b = passport.get("origin") or {}
+    cov = passport.get("coverage_stats") or {}
+    vel = passport.get("velocity") or {}
+    matrix = passport.get("corroboration_matrix") or {}
+    citations = passport.get("citations") or []
+    nclaim = esc(passport.get("normalized_claim") or claim or "—")
+
+    lines: list[str] = [
+        f"# Narrative Passport — {nclaim}",
+        "",
+        f"> {esc(verdict.get('one_line') or '')}",
+        "",
+        f"**Verdict**: {esc(verdict.get('corroboration_level') or 'unknown')} "
+        f"· confidence {verdict.get('confidence', 0)}",
+        "",
+        "## Coverage",
+        "",
+        f"- **Articles analyzed**: {cov.get('articles_analyzed', 0)}",
+        f"- **Spheres with coverage**: {cov.get('spheres_with_coverage', 0)} "
+        f"of {cov.get('spheres_monitored_live', 0)} monitored",
+        f"- **Languages**: {', '.join(esc(x) for x in (cov.get('languages') or [])) or '—'}",
+        f"- **Window**: {cov.get('time_window_days', days)} days "
+        f"(`{esc(cov.get('fts_query') or '')}`)",
+        "",
+    ]
+
+    if origin_b:
+        lines += [
+            "## Origin (first seen)", "",
+            f"- **When**: {esc(origin_b.get('first_seen_utc'))}",
+            f"- **Source**: {esc(origin_b.get('source'))} "
+            f"· sphere `{esc(origin_b.get('sphere'))}`",
+        ]
+        hl = origin_b.get("headline_original") or ""
+        url = origin_b.get("article_url") or ""
+        if hl:
+            lines.append(f"- **Headline**: [{esc(hl)}]({url})" if url else f"- **Headline**: {esc(hl)}")
+        lines.append("")
+
+    if vel:
+        lines += [
+            "## Velocity", "",
+            f"- **Pattern**: {esc(vel.get('pattern') or '—')} "
+            f"(×{vel.get('current_multiplier', 0)})",
+            f"- {esc(vel.get('pattern_evidence') or '')}",
+            "",
+        ]
+
+    confirms = matrix.get("confirms") or []
+    contradicts = matrix.get("contradicts") or []
+    silent = matrix.get("silent") or []
+    if confirms or contradicts or silent:
+        lines += ["## Corroboration matrix", ""]
+        if confirms:
+            lines.append(f"- **Confirms** ({len(confirms)}): {', '.join(f'`{esc(x)}`' for x in confirms)}")
+        if contradicts:
+            lines.append(f"- **Contradicts** ({len(contradicts)}): {', '.join(f'`{esc(x)}`' for x in contradicts)}")
+        if silent:
+            lines.append(f"- **Silent** ({len(silent)}): {', '.join(f'`{esc(x)}`' for x in silent)}")
+        if matrix.get("silence_note"):
+            lines.append(f"- _{esc(matrix.get('silence_note'))}_")
+        lines.append("")
+
+    if citations:
+        lines += ["## Citations", ""]
+        for c in citations:
+            d = dict(c)
+            src = esc(d.get("source"))
+            url = d.get("url") or ""
+            pub = (d.get("published_utc") or "")[:16].replace("T", " ")
+            sph = esc(d.get("sphere"))
+            lines.append(f"- [{src}]({url}) · `{sph}` · {pub}" if url
+                         else f"- {src} · `{sph}` · {pub}")
+        lines.append("")
+
+    _q = f"?claim={claim}&days={days}" if claim else ""
+    lines += [
+        "---", "",
+        f"HTML: `{origin}/passport{_q}` · "
+        f"MCP: `{origin}/mcp` (`narrative_passport`)", "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def render_spheres_listing_markdown(
     origin: str,
     spheres_with_counts: list,

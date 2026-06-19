@@ -1925,6 +1925,13 @@ async def page_passport(request):
             build_passport, claim,
             time_window_days=days, detail="full", db_path=DB_PATH,
         )
+    # Content negotiation: chatbot/agent kérhet tiszta markdown-t (csak ha
+    # van claim — üres űrlapnak nincs idézhető tartalma).
+    if claim and passport and prefers_format(request) == "markdown":
+        from echolot_content_neg import render_passport_markdown
+        body = render_passport_markdown(public_origin(request), passport,
+                                        claim=claim, days=days)
+        return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
     html = render_passport_page(passport, claim=claim, days=days, detail=detail, request=request)
     return HTMLResponse(html)
 
@@ -1950,6 +1957,12 @@ async def page_analysis(request):
         scope = "global" if lang == "en" else "local"
     lang_filter = lang if scope == "local" else None
     data = await asyncio.to_thread(overview, days, query, str(DB_PATH), lang_filter)
+    # Content negotiation: chatbot/agent kérhet tiszta markdown-t.
+    if prefers_format(request) == "markdown":
+        from echolot_content_neg import render_analysis_markdown
+        body = render_analysis_markdown(public_origin(request), data,
+                                        query=query, days=days, scope=scope, lang=lang)
+        return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
     return HTMLResponse(render_analysis_page(
         data, query=query, days=days, lang=lang, scope=scope,
         nav_html=_augment_block_html(lang, active="analysis"),
