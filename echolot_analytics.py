@@ -63,6 +63,84 @@ def _family(sphere):
     return CHILD_TO_PARENT.get(sphere, sphere)
 
 
+def regional_framing(query, days=7, db_path="echolot.db", per_region_limit=6):
+    """Per-RÉGIÓ keretezés egy témáról: hogyan tálalja az egyes régiók sajtója
+    (domináns keret + átlag-hangulat + szalagcímek). CSAK ADATOT ad vissza —
+    NEM hív LLM-et; a hívó AI-ügynök szintetizál a saját tokenjeiből ('adat,
+    nem AI'). A relevanciát a hívó query-je adja (tiszta entitás-kifejezések).
+
+    A frame/sentiment a háttér-klasszifikátor előszámolt oszlopaiból jön (mától
+    felfelé); a coverage-blokk jelzi, hány % van már osztályozva."""
+    from echolot_sphere_labels import sphere_label
+    days = max(1, min(90, int(days)))
+    fts, terms = _fts_and(query)
+    if fts is None:
+        return {"error": "Query too short", "query": query}
+    sql = """
+        SELECT a.title, a.lead, a.url, a.source_name, a.published_at, a.language,
+               a.spheres_json, a.frame, a.sentiment, a.classification_status
+        FROM articles a JOIN articles_fts f ON f.article_id = a.article_id
+        WHERE articles_fts MATCH ? AND a.published_at >= ?
+        ORDER BY a.published_at DESC LIMIT 1500
+    """
+    conn = _conn(db_path)
+    try:
+        rows = conn.execute(sql, (fts, _since(days))).fetchall()
+    except sqlite3.OperationalError as e:
+        return {"error": f"FTS error: {e}", "query": query}
+    finally:
+        conn.close()
+    agg, n_class = {}, 0
+    for r in rows:
+        try:
+            sp = json.loads(r["spheres_json"] or "[]")
+        except (ValueError, TypeError):
+            sp = []
+        regions = set()
+        for s in sp:
+            if s.startswith("regional_"):
+                regions.add(s)
+            elif s in CHILD_TO_PARENT:
+                regions.add(CHILD_TO_PARENT[s])
+        if not regions:
+            continue
+        classified = r["classification_status"] == "ok" and r["frame"]
+        if classified:
+            n_class += 1
+        for reg in regions:
+            d = agg.setdefault(reg, {"n": 0, "sents": [], "frames": {}, "items": []})
+            d["n"] += 1
+            if isinstance(r["sentiment"], (int, float)):
+                d["sents"].append(float(r["sentiment"]))
+            if classified:
+                d["frames"][r["frame"]] = d["frames"].get(r["frame"], 0) + 1
+            if len(d["items"]) < per_region_limit:
+                d["items"].append({
+                    "title": r["title"], "source": r["source_name"], "url": r["url"],
+                    "language": r["language"], "frame": r["frame"],
+                    "sentiment": r["sentiment"],
+                })
+    out = {}
+    for reg, d in sorted(agg.items(), key=lambda kv: -kv[1]["n"]):
+        dom = max(d["frames"].items(), key=lambda kv: kv[1])[0] if d["frames"] else None
+        avg = round(sum(d["sents"]) / len(d["sents"]), 3) if d["sents"] else None
+        out[reg] = {
+            "label": sphere_label(reg, "en"),
+            "articles": d["n"], "dominant_frame": dom,
+            "frame_distribution": d["frames"], "avg_sentiment": avg,
+            "headlines": d["items"],
+        }
+    return {
+        "query": query, "fts_query": fts, "days": days,
+        "regions_found": len(out), "by_region": out,
+        "frame_taxonomy": FRAMES,
+        "classification_coverage": _coverage(len(rows), n_class),
+        "note": ("Data only — frame/sentiment come from Echolot's background "
+                 "classifier (today onward). Synthesize the cross-region contrast "
+                 "yourself; this tool does not call an LLM."),
+    }
+
+
 def regional_topic_articles(article_ids, days=14, db_path="echolot.db",
                             limit=400, max_entities=5):
     """F2 kereszt-régiós forrásolás ENTITÁS-QID alapon (Kommandant 2026-06-18).

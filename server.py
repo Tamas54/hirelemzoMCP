@@ -62,6 +62,7 @@ from echolot_analytics import (
     frame_divergence as _frame_divergence,
     source_profile as _source_profile,
     entity_portrait as _entity_portrait,
+    regional_framing as _regional_framing,
 )
 # Wikicorrelate engine (in-process, ported from Tamas54/wikicorrelate Phase A)
 from wikicorrelate.services.correlate import search_and_correlate as _wiki_search
@@ -864,6 +865,35 @@ def frame_divergence(query: str, days: int = 7) -> str:
         logger.exception("frame_divergence failed")
         return json.dumps({"error": type(exc).__name__, "query": query,
                            "by_sphere": {}}, ensure_ascii=False)
+
+
+@mcp.tool()
+def regional_framing(query: str, days: int = 7) -> str:
+    """How does each world REGION's press frame the same topic? Groups coverage by
+    region (regional_us, regional_russian, regional_iranian, regional_german, …) and
+    returns, per region: dominant news frame, frame distribution, average sentiment,
+    and sample headlines (with source + language). Use to compare cross-region spin on
+    one event side by side (e.g. "Trump Iran deal", "Gaza ceasefire", "EU sanctions").
+
+    Data-only: this tool does NOT call an LLM — frame/sentiment come from Echolot's
+    background classifier. Synthesize the cross-region contrast yourself (your tokens).
+
+    Args:
+        query: Topic keywords (e.g. 'iran nuclear deal', 'taiwan'). 2+ chars/word.
+        days: Look back N days (default 7, max 90).
+
+    Returns:
+        JSON: by_region{region: {label, articles, dominant_frame, frame_distribution,
+        avg_sentiment, headlines[]}} + classification_coverage. Frames pending until
+        the classifier processes the matched articles (never an error).
+    """
+    try:
+        return json.dumps(_regional_framing(query, days=days, db_path=DB_PATH),
+                          ensure_ascii=False, default=str)
+    except Exception as exc:
+        logger.exception("regional_framing failed")
+        return json.dumps({"error": type(exc).__name__, "query": query,
+                           "by_region": {}}, ensure_ascii=False)
 
 
 @mcp.tool()
