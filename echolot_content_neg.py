@@ -125,6 +125,105 @@ def render_sphere_detail_markdown(
     return "\n".join(lines) + "\n"
 
 
+def render_story_detail_markdown(
+    origin: str,
+    cluster: dict,
+    lang: str = "hu",
+) -> str:
+    """Render a top-story cluster as Markdown — for chatbots / AI agents that
+    sent `Accept: text/markdown` (or `?format=md`). A megosztott link így
+    tisztán, idézhetően landol egy chatben: cím + régiós/keret-tálalás +
+    idézhető mondat + forráslista. Ugyanaz az adat, mint a HTML-oldalon."""
+    def esc(s: str) -> str:
+        return (s or "").replace("|", "\\|").replace("\n", " ").strip()
+
+    title = esc(cluster.get("title") or cluster.get("lead_title") or "—")
+    lead = esc(cluster.get("lead_summary") or "")
+    bias = cluster.get("bias_dist") or {}
+    L, C, R = (int(bias.get("L", 0) or 0), int(bias.get("C", 0) or 0),
+               int(bias.get("R", 0) or 0))
+    n_sources = int(cluster.get("source_count") or 0)
+    spheres = cluster.get("sphere_set") or []
+    sphere = spheres[0] if spheres else ""
+    cid = cluster.get("cluster_id") or ""
+    languages = cluster.get("languages") or []
+    dominant_frame = esc(cluster.get("dominant_frame") or "")
+    frame_dist = cluster.get("frame_dist") or {}
+    first_pub = (cluster.get("first_published") or "")[:16].replace("T", " ")
+    latest_pub = (cluster.get("latest_published") or "")[:16].replace("T", " ")
+    articles = cluster.get("articles") or []
+
+    # Idézhető mondat (citable) — egyetlen, önmagában megálló állítás, amit egy
+    # AI/ember szó szerint beidézhet. NEM LLM-ből: a precomputed adatból.
+    pol_parts = [s for s in (f"{L}% bal" if L else "",
+                             f"{C}% közép" if C else "",
+                             f"{R}% jobb" if R else "") if s]
+    pol_phrase = ", ".join(pol_parts) if pol_parts else "nincs osztályozott megoszlás"
+    citable = (
+        f"Az Echolot szerint a(z) „{title}” témát {n_sources} forrás "
+        f"dolgozta fel {len(languages) or 1} nyelven; a politikai-spektrum "
+        f"megoszlás: {pol_phrase}."
+    )
+
+    lines: list[str] = [
+        f"# {title}",
+        "",
+        f"> {citable}",
+        "",
+    ]
+    if lead:
+        lines += [lead, ""]
+
+    lines += [
+        "## Tálalás (Echolot)",
+        "",
+        f"- **Források**: {n_sources}",
+        f"- **Politikai spektrum**: L {L}% · C {C}% · R {R}%",
+    ]
+    if dominant_frame:
+        lines.append(f"- **Domináns keret**: {dominant_frame}")
+    if sphere:
+        lines.append(f"- **Hírrégió**: `{sphere}`")
+    if languages:
+        lines.append(f"- **Nyelvek**: {', '.join(esc(x) for x in languages)}")
+    if first_pub:
+        span = f"{first_pub}" + (f" → {latest_pub}" if latest_pub and latest_pub != first_pub else "")
+        lines.append(f"- **Időszak**: {span}")
+    lines.append("")
+
+    if frame_dist:
+        lines += ["## Keret-eloszlás", ""]
+        for fr, cnt in sorted(frame_dist.items(), key=lambda kv: -int(kv[1] or 0)):
+            lines.append(f"- {esc(str(fr))}: {int(cnt or 0)}")
+        lines.append("")
+
+    lines += ["## Források", ""]
+    if not articles:
+        lines.append("_Nincs forrás._")
+    else:
+        for a in articles:
+            d = dict(a)
+            at = esc(d.get("title") or "")
+            url = d.get("url") or ""
+            src = esc(d.get("source_name") or "")
+            alang = d.get("language") or ""
+            lean = d.get("source_lean") or "unknown"
+            pub = (d.get("published_at") or "")[:16].replace("T", " ")
+            lines.append(
+                f"- [{at}]({url}) · _{src}_ · `{alang}` · lean:{lean} · {pub}"
+            )
+    lines += [
+        "",
+        "---",
+        "",
+        f"HTML: `{origin}/story/{cid}?lang={lang}` · "
+        f"OG-kép: `{origin}/og/story/{cid}.png` · "
+        f"MCP: `{origin}/mcp` (`narrative_divergence`, `narrative_passport`)",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def render_spheres_listing_markdown(
     origin: str,
     spheres_with_counts: list,

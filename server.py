@@ -3839,6 +3839,15 @@ async def story_detail(request):
     except Exception as exc:
         logger.warning("fulltext translation attach failed: %s", exc)
 
+    # Content negotiation: chatbot/agent kérhet tiszta markdown-t
+    # (Accept: text/markdown vagy ?format=md) — idézhető, parse-mentes
+    # tartalom. Korán visszatérünk, a nehéz háttér-gazdagítást átugorva.
+    from echolot_content_neg import prefers_format, render_story_detail_markdown
+    if prefers_format(request) == "markdown":
+        cluster.setdefault("cluster_id", cluster_id)
+        body = render_story_detail_markdown(public_origin(request), cluster, lang)
+        return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+
     # On-demand gazdagítás HÁTTÉRBEN (create_task) — az oldal azonnal
     # renderelődik, a háttér-task a cache-elt cluster dict-be ír vissza:
     #   1. full text letöltés a még-nem-próbált cikkekhez ("Tovább olvasom")
