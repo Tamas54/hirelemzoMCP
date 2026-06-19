@@ -267,7 +267,8 @@ def _sources_table(sources: list[dict], lang: str) -> str:
 
 def render_analysis_page(data: dict, *, query: str = "", days: int = 30,
                          lang: str = "en", scope: str = "global",
-                         nav_html: str = "", nav_css: str = "", request=None) -> str:
+                         nav_html: str = "", nav_css: str = "", request=None,
+                         head_extra: str = "") -> str:
     cov = data.get("classification_coverage", {})
     note = cov.get("note")
     # Hatókör-váltó: saját nyelvterület ↔ globális korpusz (UX-teszter:
@@ -303,7 +304,7 @@ def render_analysis_page(data: dict, *, query: str = "", days: int = 30,
         f"<!doctype html><html lang={lang}{theme_html_attr(request)}><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{_esc(query)+' — ' if query else ''}Echolot Framing Analysis</title>"
-        f"<style>{_CSS}{nav_css}{THEME_TOGGLE_CSS}</style></head><body>"
+        f"<style>{_CSS}{nav_css}{THEME_TOGGLE_CSS}</style>{head_extra}</head><body>"
         + nav_html +
         '<div class=wrap>'
         f'<div class="topbar"><div class="brand"><a href="/?lang={lang}" style="color:inherit">Echolot</a> '

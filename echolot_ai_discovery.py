@@ -596,6 +596,136 @@ def schema_org_dataset_html(
     return _ld_script_dict(payload)
 
 
+def schema_org_analysis_dataset_html(
+    origin: str,
+    query: str = "",
+    days: int = 30,
+    scope: str = "global",
+    articles_classified: int = 0,
+    variable_measured: list[str] | None = None,
+) -> str:
+    """JSON-LD Dataset a /analysis lapra — a keret/emóció/hangulat-eloszlás
+    egy strukturált adathalmaz, amit az AI Overview szívesen forrásol.
+    A distribution a markdown + (query nélkül) a REST-felé mutat."""
+    from urllib.parse import quote as _quote
+    subj = f"query “{query}”" if query else f"the {scope} corpus"
+    q = (f"?query={_quote(query)}&days={days}" if query else f"?days={days}")
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "Dataset",
+        "@id": f"{origin}/analysis{q}#dataset",
+        "name": ("Echolot · Framing & Sentiment Analysis"
+                 + (f" — {query}" if query else "")),
+        "description": (
+            f"Cross-source framing, emotion and sentiment distribution for "
+            f"{subj} over the last {days} days, computed from the Echolot "
+            f"classifier ({articles_classified} articles classified). "
+            f"Part of the Echolot multi-perspective news intelligence corpus."
+        ),
+        "keywords": ["news", "framing", "sentiment", "media analysis",
+                     "narrative"] + ([query] if query else []),
+        "url": f"{origin}/analysis{q}",
+        "isAccessibleForFree": True,
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "creator": {
+            "@type": "Organization",
+            "name": "Makronóm Intézet",
+            "url": "https://makronom.hu",
+        },
+        "variableMeasured": variable_measured or [
+            "frame_distribution", "emotion_distribution", "sentiment",
+        ],
+        "isPartOf": {"@id": f"{origin}/#dataset-catalog"},
+        "distribution": [
+            {
+                "@type": "DataDownload",
+                "encodingFormat": "text/markdown",
+                "contentUrl": f"{origin}/analysis{q}",
+                "description": "Send Accept: text/markdown to receive markdown",
+            },
+            {
+                "@type": "DataDownload",
+                "encodingFormat": "text/html",
+                "contentUrl": f"{origin}/analysis{q}",
+            },
+        ],
+    }
+    return _ld_script_dict(payload)
+
+
+def schema_org_passport_claim_html(
+    origin: str,
+    passport: dict,
+    claim: str = "",
+    days: int = 14,
+) -> str:
+    """JSON-LD schema.org/Claim a /passport lapra.
+
+    SZÁNDÉKOSAN Claim, NEM ClaimReview: a passport korroborációt/lefedettséget
+    térképez (hol és mikor jelenik meg az állítás), NEM igazságot ítél. A Claim
+    `firstAppearance` (origin) + `appearance` (citations) pontosan ezt fejezi ki,
+    fals truth-rating nélkül (a ClaimReview policy-szerint tényellenőrzést vár).
+    """
+    def _cw(source: str, url: str, published: str, sphere: str = "") -> dict:
+        node = {"@type": "CreativeWork"}
+        if source:
+            node["name"] = source
+        if url:
+            node["url"] = url
+        if published:
+            node["datePublished"] = published
+        if sphere:
+            node["publisher"] = {"@type": "Organization", "name": sphere}
+        return node
+
+    from urllib.parse import quote as _quote
+    nclaim = (passport.get("normalized_claim") or claim or "").strip()
+    origin_b = passport.get("origin") or {}
+    citations = passport.get("citations") or []
+    cov = passport.get("coverage_stats") or {}
+    _q = f"?claim={_quote(claim)}&days={days}" if claim else ""
+
+    first_app = None
+    if origin_b.get("article_url") or origin_b.get("source"):
+        first_app = _cw(
+            origin_b.get("source") or "",
+            origin_b.get("article_url") or "",
+            (origin_b.get("first_seen_utc") or "")[:19] or "",
+            origin_b.get("sphere") or "",
+        )
+
+    appearances = [
+        _cw(c.get("source") or "", c.get("url") or "",
+            (c.get("published_utc") or "")[:19] or "", c.get("sphere") or "")
+        for c in citations if (c.get("url") or c.get("source"))
+    ]
+
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "Claim",
+        "@id": f"{origin}/passport{_q}#claim",
+        "text": nclaim,
+        "url": f"{origin}/passport{_q}",
+        "isAccessibleForFree": True,
+        "author": {
+            "@type": "Organization", "name": "Echolot", "url": origin,
+        },
+        "description": (
+            f"Cross-sphere coverage map for the claim “{nclaim}”: "
+            f"{cov.get('spheres_with_coverage', 0)} of "
+            f"{cov.get('spheres_monitored_live', 0)} monitored source spheres "
+            f"covered it across {cov.get('articles_analyzed', 0)} articles "
+            f"in the last {cov.get('time_window_days', days)} days. "
+            f"Echolot maps corroboration and coverage, not truth."
+        ),
+    }
+    if first_app:
+        payload["firstAppearance"] = first_app
+    if appearances:
+        payload["appearance"] = appearances
+    return _ld_script_dict(payload)
+
+
 def schema_org_data_catalog_html(origin: str, spheres: list[str]) -> str:
     """JSON-LD DataCatalog on the landing page — collects all spheres
     as Dataset references. Each sphere gets a stub Dataset entry; full

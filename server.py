@@ -1932,7 +1932,15 @@ async def page_passport(request):
         body = render_passport_markdown(public_origin(request), passport,
                                         claim=claim, days=days)
         return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
-    html = render_passport_page(passport, claim=claim, days=days, detail=detail, request=request)
+    # schema.org/Claim JSON-LD (AIO) — SZÁNDÉKOSAN Claim, nem ClaimReview:
+    # a passport korroborációt/lefedettséget térképez, nem igazságot ítél.
+    _claim_ld = ""
+    if claim and passport:
+        from echolot_ai_discovery import schema_org_passport_claim_html
+        _claim_ld = schema_org_passport_claim_html(
+            public_origin(request), passport, claim=claim, days=days)
+    html = render_passport_page(passport, claim=claim, days=days, detail=detail,
+                                request=request, head_extra=_claim_ld)
     return HTMLResponse(html)
 
 
@@ -1963,10 +1971,16 @@ async def page_analysis(request):
         body = render_analysis_markdown(public_origin(request), data,
                                         query=query, days=days, scope=scope, lang=lang)
         return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+    # Dataset JSON-LD (AIO): a framing/sentiment-eloszlás strukturált adathalmaz.
+    from echolot_ai_discovery import schema_org_analysis_dataset_html
+    _cov = (data.get("classification_coverage") or {})
+    _dataset_ld = schema_org_analysis_dataset_html(
+        public_origin(request), query=query, days=days, scope=scope,
+        articles_classified=int(_cov.get("articles_classified") or 0))
     return HTMLResponse(render_analysis_page(
         data, query=query, days=days, lang=lang, scope=scope,
         nav_html=_augment_block_html(lang, active="analysis"),
-        nav_css=_augment_strip_css(), request=request))
+        nav_css=_augment_strip_css(), request=request, head_extra=_dataset_ld))
 
 
 @mcp.custom_route("/robots.txt", methods=["GET"])

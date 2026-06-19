@@ -407,7 +407,8 @@ def _form(claim: str, days: int, detail: str) -> str:
 
 
 def render_passport_page(passport: dict | None, *, claim: str = "",
-                         days: int = 14, detail: str = "summary", request=None) -> str:
+                         days: int = 14, detail: str = "summary", request=None,
+                         head_extra: str = "") -> str:
     """Full HTML page. passport=None => just the form (empty state)."""
     if passport is None:
         body = ('<div class="empty">Enter a specific news claim (any language) or an '
@@ -427,7 +428,7 @@ def render_passport_page(passport: dict | None, *, claim: str = "",
         f"<!doctype html><html lang=en{theme_html_attr(request)}><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{_esc(claim) + ' — ' if claim else ''}Echolot Narrative Passport</title>"
-        f"<style>{_PAGE_CSS}{THEME_TOGGLE_CSS}</style></head><body><div class=wrap>"
+        f"<style>{_PAGE_CSS}{THEME_TOGGLE_CSS}</style>{head_extra}</head><body><div class=wrap>"
         '<div class="topbar"><div class="brand"><a href="/" style="color:inherit;text-decoration:none">Echolot</a> '
         '<small>narrative passport</small></div>'
         + theme_toggle_html("hu") + '</div>'
