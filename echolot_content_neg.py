@@ -224,6 +224,72 @@ def render_story_detail_markdown(
     return "\n".join(lines) + "\n"
 
 
+def render_compare_markdown(
+    origin: str,
+    data: dict,
+    query: str = "",
+    days: int = 14,
+) -> str:
+    """Render the /compare regional-framing view as Markdown — for chatbots/
+    agents (Accept: text/markdown or ?format=md). Per-region dominant frame,
+    sentiment and headlines, side by side. Same data as the HTML page."""
+    def esc(s) -> str:
+        return str(s or "").replace("|", "\\|").replace("\n", " ").strip()
+
+    by_region = data.get("by_region") or {}
+    cov = data.get("classification_coverage") or {}
+    regions = sorted(by_region.items(),
+                     key=lambda kv: -int((kv[1] or {}).get("articles") or 0))
+
+    lines: list[str] = [
+        f"# Regional framing — {esc(query)}",
+        "",
+        f"> How {data.get('regions_found', 0)} world regions frame “{esc(query)}” "
+        f"over the last {days} days, from the Echolot classifier. Each region's "
+        f"dominant frame, average sentiment and headlines side by side. "
+        f"For programmatic access prefer `{origin}/mcp` "
+        f"(`regional_framing`, `narrative_divergence`).",
+        "",
+        f"**Classified**: {cov.get('articles_classified', 0)}/"
+        f"{cov.get('articles_total', 0)} ({cov.get('percent', 0)}%). "
+        f"{esc(cov.get('note', ''))}",
+        "",
+    ]
+    if not regions:
+        lines.append("_No coverage for this topic in the selected window._")
+    for key, reg in regions:
+        reg = reg or {}
+        label = esc(reg.get("label") or key)
+        n = int(reg.get("articles") or 0)
+        dom = esc(reg.get("dominant_frame") or "—")
+        sent = reg.get("avg_sentiment")
+        sent_s = f"{float(sent):+.2f}" if isinstance(sent, (int, float)) else "n/a"
+        lines += [
+            f"## {label} ({n} articles)",
+            "",
+            f"- **Dominant frame**: {dom} · **avg sentiment**: {sent_s}",
+        ]
+        fd = reg.get("frame_distribution") or {}
+        if fd:
+            fr_s = ", ".join(f"{esc(k)} {int(v or 0)}"
+                             for k, v in sorted(fd.items(), key=lambda kv: -int(kv[1] or 0)))
+            lines.append(f"- **Frames**: {fr_s}")
+        for h in (reg.get("headlines") or [])[:4]:
+            d = dict(h)
+            t = esc(d.get("title"))
+            url = d.get("url") or ""
+            src = esc(d.get("source"))
+            lg = esc(d.get("language"))
+            lines.append(f"  - [{t}]({url}) · _{src}_ · `{lg}`" if url
+                         else f"  - {t} · _{src}_ · `{lg}`")
+        lines.append("")
+
+    _q = f"?q={query}&days={days}" if query else ""
+    lines += ["---", "",
+              f"HTML: `{origin}/compare{_q}` · MCP: `{origin}/mcp`", ""]
+    return "\n".join(lines) + "\n"
+
+
 def render_analysis_markdown(
     origin: str,
     data: dict,

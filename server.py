@@ -1983,6 +1983,48 @@ async def page_analysis(request):
         nav_css=_augment_strip_css(), request=request, head_extra=_dataset_ld))
 
 
+@mcp.custom_route("/compare", methods=["GET"])
+async def page_compare(request):
+    """Megosztható régiós-keretezés lap a regional_framing MCP-eszközhöz.
+
+    GET /compare                  -> üres űrlap
+    GET /compare?q=…&days=        -> per-régiós keretezés (domináns keret,
+                                     hangulat, szalagcímek egymás mellett).
+    Content negotiation: Accept: text/markdown / ?format=md -> tiszta markdown.
+    Adat-only: regional_framing() előszámolt oszlopokból, nincs szerver-LLM."""
+    from echolot_analytics import regional_framing
+    from echolot_compare_page import render_compare_page
+    from echolot_dashboard import _request_lang
+
+    query = (request.query_params.get("q") or request.query_params.get("query") or "").strip()
+    try:
+        days = int(request.query_params.get("days", "14"))
+    except ValueError:
+        days = 14
+    lang = _request_lang(request)
+
+    data = None
+    if query:
+        data = await asyncio.to_thread(regional_framing, query, days, str(DB_PATH))
+
+    # Content negotiation: markdown chatbotnak/agentnek (csak ha van query).
+    if query and data and prefers_format(request) == "markdown":
+        from echolot_content_neg import render_compare_markdown
+        body = render_compare_markdown(public_origin(request), data,
+                                       query=query, days=days)
+        return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
+
+    # Dataset JSON-LD (AIO): a kereszt-régiós keretezés strukturált adathalmaz.
+    _ds_ld = ""
+    if query and data:
+        from echolot_ai_discovery import schema_org_compare_dataset_html
+        _ds_ld = schema_org_compare_dataset_html(
+            public_origin(request), query=query, days=days,
+            regions_found=int(data.get("regions_found") or 0))
+    return HTMLResponse(render_compare_page(
+        data, query=query, days=days, lang=lang, request=request, head_extra=_ds_ld))
+
+
 @mcp.custom_route("/robots.txt", methods=["GET"])
 async def robots(request):
     """robots.txt — allow all crawlers + explicit AI-bot welcome blocks

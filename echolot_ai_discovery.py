@@ -165,9 +165,9 @@ question, and it returns what every sphere says about the same topic
 ## Languages
 
 The dashboard UI ships in 10 languages (hu, en, de, es, zh, fr, pl, ru,
-uk, it). News content stays in its original language across 17 source
-languages (incl. be, cs, de, en, es, fr, hu, it, ja, nl, pl, pt, ro, ru,
-sk, uk, zh) — agents are expected to handle cross-language synthesis
+uk, it). News content stays in its original language across 18 source
+languages (incl. ar, be, cs, de, en, es, fr, hu, it, ja, nl, pl, pt, ro,
+ru, sk, uk, zh) — agents are expected to handle cross-language synthesis
 themselves.
 
 ## REST endpoints (no auth required)
@@ -594,6 +594,49 @@ def schema_org_dataset_html(
     }
     if latest_at:
         payload["dateModified"] = latest_at
+    return _ld_script_dict(payload)
+
+
+def schema_org_compare_dataset_html(
+    origin: str,
+    query: str,
+    days: int = 14,
+    regions_found: int = 0,
+) -> str:
+    """JSON-LD Dataset a /compare lapra — egy téma per-régiós keretezése
+    (domináns keret, hangulat, szalagcímek) strukturált adathalmazként, amit
+    az AI Overview szívesen forrásol kereszt-régiós összevetésekhez."""
+    from urllib.parse import quote as _quote
+    q = f"?q={_quote(query)}&days={days}"
+    payload = {
+        "@context": "https://schema.org",
+        "@type": "Dataset",
+        "@id": f"{origin}/compare{q}#dataset",
+        "name": f"Echolot · Regional framing — {query}",
+        "description": (
+            f"How {regions_found} world regions frame “{query}” over the last "
+            f"{days} days: per-region dominant frame, average sentiment and "
+            f"headlines, computed from the Echolot classifier. Part of the "
+            f"Echolot multi-perspective news intelligence corpus."
+        ),
+        "keywords": ["news", "media framing", "regional perspective",
+                     "narrative", query],
+        "url": f"{origin}/compare{q}",
+        "isAccessibleForFree": True,
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "creator": {"@type": "Organization", "name": "Makronóm Intézet",
+                    "url": "https://makronom.hu"},
+        "variableMeasured": ["dominant_frame", "frame_distribution",
+                             "avg_sentiment", "headlines"],
+        "isPartOf": {"@id": f"{origin}/#dataset-catalog"},
+        "distribution": [
+            {"@type": "DataDownload", "encodingFormat": "text/markdown",
+             "contentUrl": f"{origin}/compare{q}",
+             "description": "Send Accept: text/markdown to receive markdown"},
+            {"@type": "DataDownload", "encodingFormat": "text/html",
+             "contentUrl": f"{origin}/compare{q}"},
+        ],
+    }
     return _ld_script_dict(payload)
 
 
