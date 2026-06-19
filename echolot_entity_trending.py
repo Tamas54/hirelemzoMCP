@@ -9,7 +9,7 @@ Approach (B → A-ready):
   2. Regex-extract capitalized 1–3-token candidates from each text.
   3. Score by frequency (multi-token entities get a bonus over single-token).
   4. Filter against STOP_TAGS (news outlets, weekdays, months, generic nouns,
-     common stop-words across the 8 languages we cover).
+     common stop-words across the 10 languages we cover).
   5. Optionally (off by default — too slow for a chip-row endpoint) enrich
      each top candidate with Wikidata QID + multi-language aliases via
      `echolot_entities.resolve(name)`. Set `enrich_wikidata=True` to opt in.

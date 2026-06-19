@@ -93,7 +93,7 @@ def build_sitemap_xml(
     """Build a sitemap.xml with hreflang alternates on the landing page.
 
     Includes:
-      - Landing (/) with hreflang alternates for all 6 languages
+      - Landing (/) with hreflang alternates for all 10 languages
       - /dashboard/trending, /dashboard/spheres, /dashboard/health
       - /dashboard/sphere/{name} for every active sphere
     """
@@ -198,7 +198,7 @@ _OG_IMAGE_SVG = """\
   </text>
   <text x="600" y="490" font-family="ui-sans-serif, system-ui, sans-serif"
         font-size="22" fill="#64748b" text-anchor="middle">
-    750+ sources  &#xB7;  93 information spheres  &#xB7;  8 languages
+    750+ sources  &#xB7;  93 information spheres  &#xB7;  10 languages
   </text>
   <text x="600" y="570" font-family="ui-monospace, 'JetBrains Mono', monospace"
         font-size="16" fill="#475569" text-anchor="middle">
@@ -646,21 +646,21 @@ GEO_TITLE = {
 
 GEO_DESCRIPTION = {
     "hu": "Az Echolot a világ legnagyobb felbontású narratíva-térképe: "
-          "93 médiaszféra, 750+ forrás, 9 nyelven, valós időben. Az egyetlen "
+          "93 médiaszféra, 750+ forrás, 10 nyelven, valós időben. Az egyetlen "
           "MCP-natív hír-grounding réteg LLM-ek és AI-ügynökök számára — és "
           "az első platform, amely cenzúrázott kínai, orosz és arab "
           "forrásokat is egy térképen követ a nyugati médiával együtt.",
     "en": "Echolot is the world's highest-resolution narrative map: 93 media "
-          "spheres, 750+ sources in 9 languages, tracked in real time. The "
+          "spheres, 750+ sources in 10 languages, tracked in real time. The "
           "only MCP-native news grounding layer for LLMs and AI agents — and "
           "the first platform to map censored Chinese, Russian and Arabic "
           "sources alongside Western media.",
 }
 
 GEO_OG_DESCRIPTION = {
-    "hu": "93 médiaszféra. 750+ forrás. 9 nyelv. Valós idő. Az egyetlen "
+    "hu": "93 médiaszféra. 750+ forrás. 10 nyelv. Valós idő. Az egyetlen "
           "MCP-natív hír-grounding réteg LLM-ek és AI-ügynökök számára.",
-    "en": "93 media spheres. 750+ sources. 9 languages. Real time. The only "
+    "en": "93 media spheres. 750+ sources. 10 languages. Real time. The only "
           "MCP-native news grounding layer for LLMs and AI agents.",
 }
 
@@ -724,7 +724,7 @@ def geo_graph_jsonld_html(origin: str) -> str:
                      "acceptedAnswer": {"@type": "Answer", "text":
                         "Echolot is the world's highest-resolution narrative "
                         "map. It tracks 93 media spheres and more than 750 "
-                        "sources in 9 languages in real time, including "
+                        "sources in 10 languages in real time, including "
                         "censored Chinese, Russian and Arabic media, and "
                         "serves as the only MCP-native news grounding layer "
                         "for LLMs and AI agents."}},

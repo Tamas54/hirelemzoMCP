@@ -1,7 +1,7 @@
 """Echolot cross-language entity resolution (Wikidata-backed).
 
 Given a name ("Trump") or a Wikidata QID ("Q22686"), resolve to all known
-multilingual aliases — so the corpus can be searched in any of the 8 languages
+multilingual aliases — so the corpus can be searched in any of the 10 languages
 we cover (HU, EN, DE, RU, ZH, JA, FR, UK), not just whichever spelling the
 caller happened to pick.
 

@@ -110,7 +110,7 @@ def build_llms_txt(origin: str) -> str:
     return f"""# Echolot — Global Narrative Map
 
 > Echolot is an open MCP server aggregating 750+ news sources from 93
-> information spheres in 8 languages. Read original-language coverage
+> information spheres in 10 languages. Read original-language coverage
 > from Hungarian press, Chinese state media, Iranian opposition,
 > Ukrainian front-OSINT, Russian milblog/opposition, and many more
 > perspectives — side by side.
@@ -164,10 +164,11 @@ question, and it returns what every sphere says about the same topic
 
 ## Languages
 
-The dashboard UI ships in 6 languages (hu, en, de, es, zh, fr). News
-content stays in original language across 8 languages (hu, en, de, ru,
-zh, ja, fr, uk) — agents are expected to handle cross-language
-synthesis themselves.
+The dashboard UI ships in 10 languages (hu, en, de, es, zh, fr, pl, ru,
+uk, it). News content stays in its original language across 17 source
+languages (incl. be, cs, de, en, es, fr, hu, it, ja, nl, pl, pt, ro, ru,
+sk, uk, zh) — agents are expected to handle cross-language synthesis
+themselves.
 
 ## REST endpoints (no auth required)
 
@@ -213,8 +214,8 @@ entire site without crawling it.
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Landing page (i18n, 6 languages) — news feed + sphere navigation |
-| `/?lang={{hu,en,de,es,zh,fr}}` | Same landing in selected UI language |
+| `/` | Landing page (i18n, 10 languages) — news feed + sphere navigation |
+| `/?lang={{hu,en,de,es,zh,fr,pl,ru,uk,it}}` | Same landing in selected UI language |
 | `/dashboard` | Narrative-divergence search interface |
 | `/dashboard/spheres` | Browser of all spheres + their stats |
 | `/dashboard/sphere/<name>` | Single-sphere article feed (paginated, ?page=N) |
@@ -326,7 +327,7 @@ def build_well_known_mcp_json(origin: str) -> dict:
         "title": "Echolot — Global Narrative Map",
         "description": (
             "Open MCP server aggregating 750+ news sources from 93 "
-            "information spheres in 8 languages. Multi-perspective news "
+            "information spheres in 10 languages. Multi-perspective news "
             "intelligence with a narrative_divergence tool that returns "
             "what every sphere says about the same topic, side by side. "
             "REST and crawl access are open and unlimited — but for serious "
@@ -737,7 +738,7 @@ def schema_org_data_catalog_html(origin: str, spheres: list[str]) -> str:
         "name": "Echolot Dataset Catalog",
         "description": (
             "93 information-sphere datasets aggregating 750+ news sources "
-            "across 8 languages. Each sphere groups sources by editorial "
+            "across 10 languages. Each sphere groups sources by editorial "
             "perspective, regional alignment, or regime affiliation."
         ),
         "url": origin,
