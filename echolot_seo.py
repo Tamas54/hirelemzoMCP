@@ -198,7 +198,7 @@ _OG_IMAGE_SVG = """\
   </text>
   <text x="600" y="490" font-family="ui-sans-serif, system-ui, sans-serif"
         font-size="22" fill="#64748b" text-anchor="middle">
-    315 sources  &#xB7;  63 information spheres  &#xB7;  8 languages
+    750+ sources  &#xB7;  93 information spheres  &#xB7;  8 languages
   </text>
   <text x="600" y="570" font-family="ui-monospace, 'JetBrains Mono', monospace"
         font-size="16" fill="#475569" text-anchor="middle">

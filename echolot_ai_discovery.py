@@ -109,7 +109,7 @@ def build_llms_txt(origin: str) -> str:
     """
     return f"""# Echolot — Global Narrative Map
 
-> Echolot is an open MCP server aggregating 315 news sources from 63
+> Echolot is an open MCP server aggregating 750+ news sources from 93
 > information spheres in 8 languages. Read original-language coverage
 > from Hungarian press, Chinese state media, Iranian opposition,
 > Ukrainian front-OSINT, Russian milblog/opposition, and many more
@@ -325,7 +325,7 @@ def build_well_known_mcp_json(origin: str) -> dict:
         "name": "echolot",
         "title": "Echolot — Global Narrative Map",
         "description": (
-            "Open MCP server aggregating 315 news sources from 63 "
+            "Open MCP server aggregating 750+ news sources from 93 "
             "information spheres in 8 languages. Multi-perspective news "
             "intelligence with a narrative_divergence tool that returns "
             "what every sphere says about the same topic, side by side. "
@@ -736,7 +736,7 @@ def schema_org_data_catalog_html(origin: str, spheres: list[str]) -> str:
         "@id": f"{origin}/#dataset-catalog",
         "name": "Echolot Dataset Catalog",
         "description": (
-            "63 information-sphere datasets aggregating 315 news sources "
+            "93 information-sphere datasets aggregating 750+ news sources "
             "across 8 languages. Each sphere groups sources by editorial "
             "perspective, regional alignment, or regime affiliation."
         ),
