@@ -773,7 +773,8 @@ def render_spheres_page(request, conn_factory) -> tuple[str, str]:
         latest = (r["latest_at"] or "")[:16].replace("T", " ")
         cards.append(f"""
           <a href="/dashboard/sphere/{quote(sphere)}?lang={lang}" class="card">
-            <div class="card-mono">{_escape(sphere)}</div>
+            <div class="font-semibold text-sm">{_escape(_sphere_label(sphere, lang))}</div>
+            <div class="card-mono text-xs opacity-40 mt-1">{_escape(sphere)}</div>
             <div class="text-xs text-[color:var(--text-dim)] mt-2 flex items-center gap-2 flex-wrap">
               <span>{r['article_count']} {_escape(t('article.count_noun', lang))}</span>
               <span class="opacity-50">·</span>
