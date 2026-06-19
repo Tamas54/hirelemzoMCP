@@ -396,3 +396,74 @@
   language: en
   trust_tier: 2
   lean: analytical
+
+# ============================================================
+# REGIONAL: Arab world — NATIVE Arabic (ar) sources (2026-06-19)
+# Eddig a regional_arabic szféra CSAK angol nyelvű közel-keleti lapokból
+# állt (Al Arabiya English, Arab News, …) → 0 natív arab tartalom.
+# Hiteles arab spektrum (Katar↔Szaúd↔független↔Maghreb) + nyugati arab-
+# nyelvűek kontrasztnak + orosz Sputnik. Mind ellenőrzött, élő RSS.
+# ============================================================
+- id: extra_aljazeera_ar
+  name: Al Jazeera Arabic
+  url: https://www.aljazeera.net/aljazeerarss
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: opposition
+- id: extra_asharq_alawsat
+  name: Asharq Al-Awsat
+  url: https://aawsat.com/feed
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: right
+- id: extra_alquds_alarabi
+  name: Al Quds Al Arabi
+  url: https://www.alquds.co.uk/feed/
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 3
+  lean: opposition
+- id: extra_hespress
+  name: Hespress (MA)
+  url: https://www.hespress.com/feed
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 3
+  lean: center
+- id: extra_sputnik_ar
+  name: Sputnik Arabic
+  url: https://sarabic.ae/export/rss2/archive/index.xml
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 3
+  lean: right
+- id: extra_bbc_arabic
+  name: BBC Arabic
+  url: https://feeds.bbci.co.uk/arabic/rss.xml
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+- id: extra_france24_arabic
+  name: France24 Arabic
+  url: https://www.france24.com/ar/rss
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+- id: extra_dw_arabic
+  name: DW Arabic
+  url: https://rss.dw.com/xml/rss-ar-all
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+- id: extra_cnn_arabic
+  name: CNN Arabic
+  url: https://arabic.cnn.com/api/v1/rss/rss.xml
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center

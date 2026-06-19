@@ -8148,3 +8148,84 @@
   category: tech
   source_type: rss
   notes: Cold Spring Harbor Laboratory, több ezer preprint/hét
+- id: extra_aljazeera_ar
+  name: Al Jazeera Arabic
+  url: https://www.aljazeera.net/aljazeerarss
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+- id: extra_asharq_alawsat
+  name: Asharq Al-Awsat
+  url: https://aawsat.com/feed
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: right
+  category: global
+  source_type: rss
+- id: extra_alquds_alarabi
+  name: Al Quds Al Arabi
+  url: https://www.alquds.co.uk/feed/
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 3
+  lean: opposition
+  category: global
+  source_type: rss
+- id: extra_hespress
+  name: Hespress (MA)
+  url: https://www.hespress.com/feed
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 3
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_sputnik_ar
+  name: Sputnik Arabic
+  url: https://sarabic.ae/export/rss2/archive/index.xml
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 3
+  lean: right
+  category: global
+  source_type: rss
+- id: extra_bbc_arabic
+  name: BBC Arabic
+  url: https://feeds.bbci.co.uk/arabic/rss.xml
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_france24_arabic
+  name: France24 Arabic
+  url: https://www.france24.com/ar/rss
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_dw_arabic
+  name: DW Arabic
+  url: https://rss.dw.com/xml/rss-ar-all
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+- id: extra_cnn_arabic
+  name: CNN Arabic
+  url: https://arabic.cnn.com/api/v1/rss/rss.xml
+  spheres: [regional_arabic]
+  language: ar
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
