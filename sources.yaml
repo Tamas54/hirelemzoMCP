@@ -42,6 +42,19 @@
   lean: left
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-02 +0900, 40 items (RSS 1.0 / RDF format, dc:date — feedparser handles it)
+- id: asahi_jp
+  name: Asahi Shimbun (native JP)
+  url: https://www.asahi.com/rss/asahi/newsheadlines.rdf
+  spheres:
+  - jp_press_native
+  - regional_japanese
+  language: ja
+  trust_tier: 1
+  lean: left
+  category: global
+  source_type: rss
+  notes: RSS 1.0 (RDF) format, dc:date instead of pubDate
 - id: atlantic
   name: The Atlantic
   url: https://www.theatlantic.com/feed/all/
@@ -64,9 +77,10 @@
   lean: right
   category: global
   source_type: rss
+# verified 2026-07-01, 200 via saját RSSHub, newest item 2026-07-01 (caixin.com first-party RSS dead since site revamp; rsshub.app itself is CF-blocked)
 - id: caixin_cn
   name: Caixin (财新, native CN)
-  url: https://www.caixin.com/rss/news.xml
+  url: https://rsshub-production-82fc.up.railway.app/caixin/latest
   spheres:
   - cn_state_aligned
   - regional_chinese
@@ -75,21 +89,10 @@
   lean: analytical
   category: global
   source_type: rss
-  notes: Most independent mainland financial press, Kimi translates this beautifully
+  notes: "saját RSSHub instance (rsshub-production-82fc); public mirror fallback: rsshub.rssforever.com. Caixin.com first-party RSS dead since site revamp; most independent mainland financial press, Kimi translates this beautifully"
 - id: cgtn
   name: CGTN
   url: https://www.cgtn.com/subscribe/rss/section/world.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: global
-  source_type: rss
-- id: china_daily_world
-  name: China Daily (World)
-  url: https://www.chinadaily.com.cn/rss/world_rss.xml
   spheres:
   - cn_state
   - regional_chinese
@@ -144,6 +147,19 @@
   lean: right
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 100 items
+- id: ecns
+  name: ECNS — China News Service (English)
+  url: http://www.ecns.cn/rss/rss.xml
+  spheres:
+  - cn_state
+  - regional_chinese
+  language: en
+  trust_tier: 4
+  lean: gov
+  category: global
+  source_type: rss
+  notes: official English site of China News Service (state agency #2 after Xinhua); date format "YYYY-MM-DD hh:mm:ss" in pubDate
 - id: economist_intl
   name: The Economist (International)
   url: https://www.economist.com/international/rss.xml
@@ -752,9 +768,10 @@
   category: global
   source_type: rss
   notes: Heterodox; aligned with anti-establishment right
+# verified 2026-07-01, 200 via saját RSSHub, newest item 2026-07-01 (guancha.cn first-party /rss, /feed, /rss.xml all dead)
 - id: guancha_cn
   name: Guancha (观察者网, native CN)
-  url: https://www.guancha.cn/rss
+  url: https://rsshub-production-82fc.up.railway.app/guancha/headline
   spheres:
   - cn_state_aligned
   - regional_chinese
@@ -763,10 +780,11 @@
   lean: gov
   category: global
   source_type: rss
-  notes: Influential nationalist commentariat platform
+  notes: "saját RSSHub instance (rsshub-production-82fc); public mirror fallback: rsshub.rssforever.com. Influential nationalist commentariat platform; /guancha (all) route also works (verified 2026-07-01)"
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 100 items (old cmlink URL redirects to homepage)
 - id: haaretz_en
   name: Haaretz (English)
-  url: https://www.haaretz.com/cmlink/1.628752
+  url: https://www.haaretz.com/srv/haaretz-latest-headlines
   spheres:
   - israel_press_left
   - regional_israeli
@@ -775,6 +793,19 @@
   lean: left
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-06-30, 10 items (magazine cadence, few/week)
+- id: 972mag
+  name: +972 Magazine
+  url: https://www.972mag.com/feed/
+  spheres:
+  - israel_press_left
+  - regional_israeli
+  language: en
+  trust_tier: 2
+  lean: left
+  category: global
+  source_type: rss
+  notes: Israeli-Palestinian left magazine; slower cadence than a daily
 - id: hankyoreh_en
   name: Hankyoreh (English)
   url: https://english.hani.co.kr/rss/
@@ -905,9 +936,6 @@
   name: Ars Technica
   url: http://feeds.arstechnica.com/arstechnica/index/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_tech
   language: en
   trust_tier: 2
@@ -1059,12 +1087,13 @@
   - hu_tech
   language: hu
   trust_tier: 3
-  lean: unknown
+  lean: center
   category: tech
   source_type: rss
   hirmagnet_source_type: domestic_standard
   hirmagnet_content_profile: standard_news
   hirmagnet_priority: 2
+  notes: Magyar üzleti-IT-portál, vállalati IT/B2B
 - id: hu_blikk
   name: Blikk
   url: https://www.blikk.hu/rss
@@ -1095,9 +1124,6 @@
   name: Bloomberg Markets
   url: https://feeds.bloomberg.com/markets/news.rss
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   - regional_us
   language: en
@@ -1112,9 +1138,6 @@
   name: Bloomberg Politics
   url: https://feeds.bloomberg.com/politics/news.rss
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   - regional_us
   language: en
@@ -1129,9 +1152,7 @@
   name: Bloomberg Technology
   url: https://feeds.bloomberg.com/technology/news.rss
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
+  - global_tech
   - global_economy
   - regional_us
   language: en
@@ -1159,9 +1180,6 @@
   name: Business Insider
   url: https://markets.businessinsider.com/rss/news
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   language: en
   trust_tier: 3
@@ -1175,9 +1193,7 @@
   name: Calculated Risk
   url: http://feeds.feedburner.com/calculatedrisk
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 2
   lean: unknown
@@ -1286,9 +1302,7 @@
   name: Congressional Budget Office
   url: https://www.cbo.gov/publications/all/rss.xml
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 3
   lean: unknown
@@ -1342,9 +1356,7 @@
   name: Economic Policy Institute
   url: http://feeds.feedburner.com/epi
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 3
   lean: unknown
@@ -1410,9 +1422,6 @@
   name: Engladget
   url: https://www.engadget.com/rss.xml
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_tech
   language: en
   trust_tier: 2
@@ -1493,9 +1502,7 @@
   name: Federal Reserve FRED Blog
   url: https://fredblog.stlouisfed.org/feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 3
   lean: unknown
@@ -1560,9 +1567,7 @@
   name: Financial Samurai
   url: https://financialsamurai.com/feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 3
   lean: unknown
@@ -1890,9 +1895,6 @@
   name: Investopedia - Piaci hírek
   url: https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline&categoryName=markets-news
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   language: en
   trust_tier: 3
@@ -1906,9 +1908,6 @@
   name: Investopedia - Vállalati hírek
   url: https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline&categoryName=company-news
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   language: en
   trust_tier: 3
@@ -2044,7 +2043,6 @@
   url: https://hang.hu/rss/
   spheres:
   - hu_press
-  - global_science
   language: hu
   trust_tier: 2
   lean: opposition
@@ -2096,9 +2094,7 @@
   name: Marginal Revolution
   url: http://feeds.feedburner.com/marginalrevolution
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 2
   lean: unknown
@@ -2111,9 +2107,7 @@
   name: Marginal Revolution Podcast
   url: https://feeds.libsyn.com/548312/rss
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
+  - global_economy
   language: en
   trust_tier: 3
   lean: unknown
@@ -2126,9 +2120,6 @@
   name: MarketWatch
   url: https://feeds.content.dowjones.io/public/rss/mw_topstories
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   language: en
   trust_tier: 2
@@ -2263,9 +2254,6 @@
   name: Nature Current Issue
   url: http://www.nature.com/nature/current_issue/rss
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_science
   language: en
   trust_tier: 2
@@ -2305,9 +2293,6 @@
   name: New Scientist
   url: https://www.newscientist.com/feed/home/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_science
   language: en
   trust_tier: 2
@@ -2416,9 +2401,6 @@
   name: Phys.org
   url: https://phys.org/rss-feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_science
   language: en
   trust_tier: 2
@@ -2605,12 +2587,13 @@
   - global_science
   language: hu
   trust_tier: 2
-  lean: analytical
+  lean: left
   category: tech
   source_type: rss
   hirmagnet_source_type: domestic_premium
   hirmagnet_content_profile: timeless_analysis
   hirmagnet_priority: 1
+  notes: Magyar tudomány-népszerűsítő (Magyar Jeti / 444 testvérportál)
 - id: hu_racingline
   name: Racingline
   url: https://racingline.hu/feed/
@@ -2643,14 +2626,16 @@
   spheres:
   - hu_press
   - hu_tech
+  - global_science
   language: hu
   trust_tier: 3
-  lean: analytical
+  lean: center
   category: tech
   source_type: rss
   hirmagnet_source_type: domestic_standard
   hirmagnet_content_profile: standard_news
   hirmagnet_priority: 2
+  notes: Player/Roadster csoport, "jövőmagazin"
 - id: hu_rallycafe
   name: RallyCafe
   url: https://rallycafe.hu/feed/
@@ -2708,9 +2693,7 @@
   name: Science Current Issue
   url: http://www.sciencemag.org/rss/current.xml
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
+  - global_science
   language: en
   trust_tier: 2
   lean: unknown
@@ -2723,9 +2706,7 @@
   name: Science News
   url: https://www.sciencenews.org/feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
+  - global_science
   language: en
   trust_tier: 2
   lean: unknown
@@ -2860,9 +2841,6 @@
   name: TechCrunch
   url: https://techcrunch.com/feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_tech
   language: en
   trust_tier: 2
@@ -2876,9 +2854,6 @@
   name: TechCrunch Startups
   url: https://techcrunch.com/category/startups/feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_tech
   language: en
   trust_tier: 2
@@ -2934,9 +2909,6 @@
   name: The Economist - Business
   url: https://www.economist.com/business/rss.xml
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   - regional_uk
   language: en
@@ -2951,9 +2923,6 @@
   name: The Economist - Finance
   url: https://www.economist.com/finance-and-economics/rss.xml
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_economy
   - global_economy
   - regional_uk
   language: en
@@ -3024,9 +2993,6 @@
   name: The Verge
   url: https://www.theverge.com/rss/index.xml
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_tech
   language: en
   trust_tier: 2
@@ -3204,9 +3170,6 @@
   name: WIRED Business
   url: https://www.wired.com/category/business/feed/
   spheres:
-  - hu_press
-  - hu_premium
-  - hu_tech
   - global_tech
   language: en
   trust_tier: 2
@@ -3240,18 +3203,7 @@
   lean: center
   category: global
   source_type: rss
-- id: iran_intl
-  name: Iran International (English)
-  url: https://www.iranintl.com/en/rss.xml
-  spheres:
-  - iran_opposition
-  - regional_iranian
-  language: en
-  trust_tier: 2
-  lean: opposition
-  category: global
-  source_type: rss
-  notes: London-based diaspora opposition outlet
+# iran_intl RSS removed 2026-07-01: iranintl.com/en/rss.xml now returns HTML (site relaunch, no public RSS); Iran Intl coverage continues via tg_iran_intl_en (Telegram)
 - id: iranwire
   name: IranWire
   url: https://iranwire.com/en/rss
@@ -3286,9 +3238,10 @@
   lean: center
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 26 items
 - id: jpost
   name: Jerusalem Post
-  url: https://www.jpost.com/rss/rssfeedsheadlines.aspx
+  url: https://www.jpost.com/rss/rssfeedsfrontpage.aspx
   spheres:
   - israel_press_right
   - regional_israeli
@@ -3297,6 +3250,20 @@
   lean: right
   category: global
   source_type: rss
+  notes: frontpage feed; the old rssfeedsheadlines.aspx endpoint is frozen since 2025-06
+# verified 2026-07-01, 200 direct, newest item 2026-07-01 +0300
+- id: israel_national_news
+  name: Israel National News (Arutz Sheva)
+  url: https://www.israelnationalnews.com/Rss.aspx
+  spheres:
+  - israel_press_right
+  - regional_israeli
+  language: en
+  trust_tier: 3
+  lean: right
+  category: global
+  source_type: rss
+  notes: religious-nationalist outlet; capital R in Rss.aspx matters (lowercase /rss.aspx returns HTML)
 - id: kbs_world
   name: KBS World
   url: http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=Po
@@ -3362,6 +3329,19 @@
   lean: center
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-02 +0900, 20 items (RSS 1.0 / RDF format, dc:date — feedparser handles it)
+- id: mainichi_jp
+  name: Mainichi Shimbun (native JP)
+  url: https://mainichi.jp/rss/etc/mainichi-flash.rss
+  spheres:
+  - jp_press_native
+  - regional_japanese
+  language: ja
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+  notes: RSS 1.0 (RDF) format, dc:date instead of pubDate
 - id: meduza_en
   name: Meduza (English)
   url: https://meduza.io/rss/en/all
@@ -3408,6 +3388,19 @@
   lean: opposition
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 10 items
+- id: ncri_en
+  name: NCRI (English)
+  url: https://www.ncr-iran.org/en/feed/
+  spheres:
+  - iran_opposition
+  - regional_iranian
+  language: en
+  trust_tier: 3
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: National Council of Resistance of Iran (MEK-affiliated) — highly partisan exile outlet, treat as advocacy
 - id: new_yorker
   name: The New Yorker
   url: https://www.newyorker.com/feed/everything
@@ -3430,11 +3423,25 @@
   lean: center
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-02 +0900, 107 items (cat6 = international news; cat0 = top stories also works)
+- id: nhk_world_jp
+  name: NHK News (国際, native JP)
+  url: https://www3.nhk.or.jp/rss/news/cat6.xml
+  spheres:
+  - jp_press_native
+  - regional_japanese
+  language: ja
+  trust_tier: 1
+  lean: center
+  category: global
+  source_type: rss
+  notes: cat6 = international; cat0 = top stories (also verified working)
 - id: nikkei_asia
   name: Nikkei Asia
   url: https://asia.nikkei.com/rss/feed/nar
   spheres:
   - jp_press_english
+  - global_anchor
   - regional_japanese
   language: en
   trust_tier: 1
@@ -3464,17 +3471,6 @@
   category: global
   source_type: rss
   notes: Translates Chinese official speeches and policy docs
-- id: peoples_daily_en
-  name: People's Daily (English)
-  url: http://en.people.cn/rss/90883.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: global
-  source_type: rss
 - id: press_tv
   name: Press TV
   url: https://www.presstv.ir/rss.xml
@@ -3486,17 +3482,44 @@
   lean: gov
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 20 items — fa "Iran" category feed (English Farda service is dormant, its feed returns an empty channel)
 - id: radio_farda
-  name: Radio Farda (English)
-  url: https://en.radiofarda.com/api/zr-quppieuyq
+  name: Radio Farda (Persian)
+  url: https://www.radiofarda.com/api/zpoqil-vomx-tpe_kip
   spheres:
   - iran_opposition
+  - regional_iranian
+  language: fa
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+  notes: RFE/RL Persian service; English feed dead, this is the fa "Iran" category feed
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 20 items — alternative/additional Farda feed ("news reports")
+- id: radio_farda_reports
+  name: Radio Farda — News Reports (Persian)
+  url: https://www.radiofarda.com/api/zrttpol-vomx-tpeoogpi
+  spheres:
+  - iran_opposition
+  - regional_iranian
+  language: fa
+  trust_tier: 2
+  lean: opposition
+  category: global
+  source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-06-25 (updates a few times/week, not daily)
+- id: radio_zamaneh_en
+  name: Radio Zamaneh (English)
+  url: https://en.radiozamaneh.com/feed/
+  spheres:
+  - iran_opposition
+  - regional_iranian
   language: en
   trust_tier: 2
   lean: opposition
   category: global
   source_type: rss
-  notes: RFE/RL Persian service
+  notes: Amsterdam-based diaspora outlet; lower cadence than dailies
 - id: reuters_world
   name: Reuters (World)
   url: https://www.reutersagency.com/feed/?best-topics=world&post_type=best
@@ -3528,9 +3551,10 @@
   lean: gov
   category: global
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01 (same path but ?outputType=xml is now REQUIRED — without it 404)
 - id: sankei_jp
   name: Sankei Shimbun (native JP)
-  url: https://www.sankei.com/arc/outboundfeeds/rss/category/world/
+  url: https://www.sankei.com/arc/outboundfeeds/rss/category/world/?outputType=xml
   spheres:
   - jp_press_native
   - regional_japanese
@@ -3539,7 +3563,7 @@
   lean: right
   category: global
   source_type: rss
-  notes: Closest to government defence narrative; needs translation
+  notes: Arc-hosted feed; ?outputType=xml required. Closest to government defence narrative; needs translation
 - id: scmp
   name: South China Morning Post
   url: https://www.scmp.com/rss/91/feed
@@ -3653,9 +3677,10 @@
   lean: opposition
   category: global
   source_type: rss
+# verified 2026-07-01, 200 via saját RSSHub, newest item 2026-07-01 (old feedx.net mirror stale since 2025-12)
 - id: thepaper_cn
   name: The Paper (澎湃, native CN)
-  url: https://feedx.net/rss/thepaper.xml
+  url: https://rsshub-production-82fc.up.railway.app/thepaper/featured
   spheres:
   - cn_state_aligned
   language: zh
@@ -3663,7 +3688,7 @@
   lean: gov
   category: global
   source_type: rss
-  notes: Shanghai-based, state-owned but quality reporting
+  notes: "saját RSSHub instance (rsshub-production-82fc); public mirror fallback: rsshub.rssforever.com. Shanghai-based, state-owned but quality reporting"
 - id: times_of_israel
   name: Times of Israel
   url: https://www.timesofisrael.com/feed/
@@ -3740,9 +3765,10 @@
   category: global
   source_type: rss
   notes: Manya Koetse — Weibo trend ethnography
-- id: xinhua_world
-  name: Xinhua (English, World)
-  url: http://www.xinhuanet.com/english/rss/worldrss.xml
+# verified 2026-07-01, 200 direct, newest items 2026-07-01, ~100 items — Xinhua stopped publishing RSS ~2018, this is a Google News proxy over english.news.cn
+- id: xinhua_via_googlenews
+  name: Xinhua English (via Google News)
+  url: https://news.google.com/rss/search?q=site:english.news.cn&hl=en-US&gl=US&ceid=US:en
   spheres:
   - cn_state
   - regional_chinese
@@ -3751,6 +3777,7 @@
   lean: gov
   category: global
   source_type: rss
+  notes: item links are news.google.com/rss/articles/ redirects — scraper must follow redirect to reach english.news.cn; Google may throttle datacenter IPs (Railway), fall back to fetch_via brave/SearXNG if 429s appear
 - id: ynet_en
   name: Ynet News
   url: https://www.ynetnews.com/Integration/StoryRss3082.xml
@@ -5163,118 +5190,10 @@
 # Caixin Global EN — paywall mögött, RSS 403 (P2.5 brave-fallback körre).
 # ──────────────────────────────────────────────────────────────────────
 
-# --- Xinhua tematikus (a meglévő xinhua_world mellé) ---
-- id: xinhua_china
-  name: Xinhua — China
-  url: http://www.xinhuanet.com/english/rss/chinarss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: foreign
-  source_type: rss
-  notes: Belföldi politika, jogszabályi változások, pártkongresszusok — KKP hivatalos csatornája
-- id: xinhua_business
-  name: Xinhua — Business
-  url: http://www.xinhuanet.com/english/rss/businessrss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  - global_economy
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: economy
-  source_type: rss
-  notes: Makrogazdaság, kereskedelmi politika, piaci szabályozás
-- id: xinhua_indepth
-  name: Xinhua — In-Depth
-  url: http://www.xinhuanet.com/english/rss/indepthrss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: foreign
-  source_type: rss
-  notes: Mélyelemzések kormányzati stratégiákról és társadalmi ügyekről
-- id: xinhua_culture
-  name: Xinhua — Culture & Edu
-  url: http://www.xinhuanet.com/english/rss/culturerss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: general
-  source_type: rss
-  notes: Oktatáspolitika, kulturális diplomácia (soft power)
-
-# --- China Daily tematikus (a meglévő china_daily_world mellé) ---
-- id: china_daily_china
-  name: China Daily — China News
-  url: https://www.chinadaily.com.cn/rss/china_rss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: foreign
-  source_type: rss
-- id: china_daily_opinion
-  name: China Daily — Opinion
-  url: https://www.chinadaily.com.cn/rss/opinion_rss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: general
-  source_type: rss
-  notes: Szerkesztőségi cikkek — hivatalos kínai álláspont
-- id: china_daily_bizchina
-  name: China Daily — Bizchina
-  url: https://www.chinadaily.com.cn/rss/bizchina_rss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  - global_economy
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: economy
-  source_type: rss
-  notes: Gazdasági reformok, befektetések, kereskedelmi háborúk
-- id: china_daily_hk
-  name: China Daily — HK Edition
-  url: https://www.chinadaily.com.cn/rss/hk_rss.xml
-  spheres:
-  - cn_state
-  - cn_hk
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: foreign
-  source_type: rss
-  notes: Hongkongi Különleges Közigazgatási Terület — Peking-perspektíva
-- id: china_daily_lifestyle
-  name: China Daily — Lifestyle
-  url: https://www.chinadaily.com.cn/rss/lifestyle_rss.xml
-  spheres:
-  - cn_state
-  - regional_chinese
-  language: en
-  trust_tier: 4
-  lean: gov
-  category: general
-  source_type: rss
+# --- Xinhua + China Daily tematikus feedek ELTÁVOLÍTVA 2026-07-01 ---
+# xinhuanet.com/english/rss/*rss.xml — mind 2017-2018 óta befagyva (Xinhua ~2018 óta nem publikál RSS-t)
+# chinadaily.com.cn/rss/*_rss.xml — 200-at ad, de mind 2017-12-nél befagyva (minden link /a/201712/)
+# Pótlás: ecns + xinhua_via_googlenews a fő blokkban (cn_state sphere)
 
 # --- CGTN tematikus (a meglévő cgtn world mellé) ---
 - id: cgtn_china
@@ -7673,16 +7592,60 @@
   lean: center
   category: general
   source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 10 items — global_entertainment sphere hozzáadva (feed URL változatlan)
 - id: hollywood_reporter
   name: The Hollywood Reporter
   url: https://www.hollywoodreporter.com/feed/
-  spheres: [global_celebrity, regional_us]
+  spheres: [global_celebrity, global_entertainment, regional_us]
   language: en
   trust_tier: 2
   lean: center
   category: general
   source_type: rss
   notes: Iparági szakmai (filmstúdiók, díjszezon)
+
+# --- Global entertainment trades (added 2026-07-01) ---
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 10 items
+- id: variety
+  name: Variety
+  url: https://variety.com/feed/
+  spheres: [global_entertainment]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 12 items
+- id: deadline
+  name: Deadline Hollywood
+  url: https://deadline.com/feed/
+  spheres: [global_entertainment]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+# verified 2026-07-01, 200 direct, newest item 2026-07-01, 12 items
+- id: indiewire
+  name: IndieWire
+  url: https://www.indiewire.com/feed/
+  spheres: [global_entertainment]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+# verified 2026-07-01, 200 direct (final URL after Condé Nast redirect — stored directly to skip the hop), newest item 2026-07-01
+- id: pitchfork
+  name: Pitchfork (Music News)
+  url: https://pitchfork.com/feed/feed-news/rss
+  spheres: [global_entertainment]
+  language: en
+  trust_tier: 2
+  lean: center
+  category: global
+  source_type: rss
+  notes: music-focused; complements the film/TV trades above
 
 # --- Európai celebrity ---
 - id: promiflash_de
@@ -8035,16 +7998,6 @@
   source_type: rss
 
 # --- Csoport 3: ÁZSIAI ---
-- id: nikkei_asia
-  name: Nikkei Asia
-  url: https://asia.nikkei.com/rss/feed/nar
-  spheres: [global_tech, global_anchor, regional_japanese]
-  language: en
-  trust_tier: 1
-  lean: center
-  category: foreign
-  source_type: rss
-  notes: Hivatalosan ellenőrzött Telegram-csatorna, paywall body
 - id: technode_cn
   name: TechNode
   url: https://technode.com/feed/
@@ -8074,38 +8027,6 @@
   lean: center
   category: tech
   source_type: rss
-
-# --- Csoport 5: MAGYAR ---
-- id: hu_qubit
-  name: Qubit
-  url: https://qubit.hu/feed
-  spheres: [hu_tech, global_science]
-  language: hu
-  trust_tier: 2
-  lean: left
-  category: tech
-  source_type: rss
-  notes: Magyar tudomány-népszerűsítő (Magyar Jeti / 444 testvérportál)
-- id: hu_bitport
-  name: Bitport
-  url: https://bitport.hu/rss
-  spheres: [hu_tech]
-  language: hu
-  trust_tier: 3
-  lean: center
-  category: tech
-  source_type: rss
-  notes: Magyar üzleti-IT-portál, vállalati IT/B2B
-- id: hu_raketa
-  name: Rakéta
-  url: https://raketa.hu/feed
-  spheres: [hu_tech, global_science]
-  language: hu
-  trust_tier: 3
-  lean: center
-  category: tech
-  source_type: rss
-  notes: Player/Roadster csoport, "jövőmagazin"
 
 # --- Csoport 6: AKADÉMIAI / PREPRINT ---
 - id: arxiv_cs_ai
