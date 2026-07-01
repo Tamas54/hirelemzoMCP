@@ -103,6 +103,21 @@ SHINGLE_SIZE = 3
 MIN_TOKENS_FOR_SHINGLE = 4   # rövid címeknél token-Jaccard, nem shingle
 MAX_TOKENS_PER_TITLE = 20    # cap a normalizált tokeneknél (zaj-csökkentés)
 
+# Copy-detekció (timeline): mennyire hasonlítson egy cikk a cluster
+# LEGKORÁBBI cikkjéhez (title+lead shingle-Jaccard), hogy "átvett/másolt"
+# tartalomnak jelöljük. 0.8 = gyakorlatilag azonos szöveg kis eltéréssel
+# (hírügynökségi copy-paste); a valódi saját feldolgozások jellemzően
+# 0.3-0.6 között vannak (lásd devlog / verifikáció).
+COPY_SIM_THRESHOLD = 0.8
+# Azonos (normalizált) lead = legerősebb copy-jel — de csak ha elég hosszú,
+# hogy ne triviális egyezés legyen (pl. üres vagy egy-mondatos boilerplate).
+COPY_LEAD_MIN_CHARS = 40
+# Cirill/CJK címeknél a latin tokenizáló csak 1-2 latin szót lát ("patriot",
+# "visa") → token-Jaccard hamisan 1.0 lehet. Copy-jelhez shingle-match VAGY
+# legalább ennyi token kell mindkét oldalon (verifikáció: UNIAN↔Lenta false
+# positive e nélkül).
+COPY_MIN_TOKENS = 6
+
 _cache: dict[tuple, tuple[float, list[dict]]] = {}
 # Cluster-by-ID cache a /story/<id> detail-route gyors lookup-jához.
 # Kulcs: cluster_id ("a<min_article_id>" vagy "h<hash>"), érték: (timestamp, cluster_dict).
@@ -148,6 +163,146 @@ def _shingles(tokens: list[str]) -> list[tuple[str, ...]]:
     if n < SHINGLE_SIZE:
         return []
     return [tuple(tokens[i:i + SHINGLE_SIZE]) for i in range(n - SHINGLE_SIZE + 1)]
+
+
+# ---------------------------------------------------------------------------
+# Timeline + copy-detekció (killer feature backend, 2026-07-01)
+
+_WS_RE = re.compile(r"\s+")
+
+
+def _norm_lead_for_copy(s: str | None) -> str:
+    """Whitespace/ékezet/kisbetű-normalizált lead a verbatim-copy jelhez."""
+    s = (s or "").strip()
+    if not s:
+        return ""
+    return _WS_RE.sub(" ", _strip_accents(s.lower()))
+
+
+def _parse_ts(ts: str | None) -> datetime | None:
+    """ISO-8601 timestamp → aware datetime (UTC-re konvertálva), None ha nem megy.
+
+    Ugyanaz a formátum-normalizáció, mint _age_hours-ban ('YYYY-MM-DD HH:…',
+    'Z' suffix, offset-es) — a DB-ben vegyes offsetek vannak (+03:00, +09:00),
+    ezért string-összehasonlítás helyett valódi datetime kell a sorrendhez."""
+    if not ts:
+        return None
+    s = ts.strip()
+    if " " in s and "T" not in s:
+        s = s.replace(" ", "T", 1)
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _copy_signature(title: str | None, lead: str | None) -> tuple[set, set]:
+    """(shingle-halmaz, token-halmaz) a title+lead szövegből — a copy-
+    hasonlósághoz. Csak memóriában lévő adatból dolgozik (nincs DB-fetch)."""
+    toks = _tokenize(title or "")
+    lead_txt = _clean_lead_txt(lead)
+    if lead_txt:
+        toks = toks + _tokenize(lead_txt)
+    return set(_shingles(toks)), set(toks)
+
+
+def _signature_similarity(sig_a: tuple[set, set], sig_b: tuple[set, set]) -> float:
+    """Jaccard a shingle-halmazokon; rövid szövegnél token-Jaccard fallback."""
+    sh_a, tok_a = sig_a
+    sh_b, tok_b = sig_b
+    if sh_a and sh_b:
+        union = len(sh_a | sh_b)
+        return len(sh_a & sh_b) / union if union else 0.0
+    if tok_a and tok_b:
+        union = len(tok_a | tok_b)
+        return len(tok_a & tok_b) / union if union else 0.0
+    return 0.0
+
+
+def _build_timeline(articles: list[dict], idxs: list[int]) -> tuple[list[dict], dict | None]:
+    """Kronologikus timeline + copy-flag a cluster MINDEN cikkjére.
+
+    Visszaad: (timeline, first_source). A timeline entry-k published_at
+    szerint növekvő sorrendben (hiányzó published_at a végére, minutes_after_first=None).
+    Copy-detekció: minden cikk a LEGKORÁBBI cikkhez képest — shingle-Jaccard
+    a title+lead tokeneken, ÉS azonos normalizált lead mint legerősebb jel.
+    Csak a már memóriában lévő adatot használja (nincs extra DB-fetch)."""
+    entries: list[dict] = []
+    for i in idxs:
+        a = articles[i]
+        ts = a.get("published_at")
+        entries.append({
+            "article_id": a.get("article_id"),
+            "source_name": a.get("source_name") or a.get("source_id") or "",
+            "source_id": a.get("source_id") or "",
+            "url": a.get("url") or "",
+            "title": a.get("title") or "",
+            "published_at": ts,
+            "trust_tier": a.get("trust_tier"),
+            "lean": a.get("source_lean") or "",
+            "_dt": _parse_ts(ts),
+            "_sig": _copy_signature(a.get("title"), a.get("lead")),
+            "_lead_norm": _norm_lead_for_copy(_clean_lead_txt(a.get("lead"))),
+        })
+
+    # Rendezés: datált cikkek időrendben elöl, published_at nélküliek a végén.
+    _epoch_max = datetime.max.replace(tzinfo=timezone.utc)
+    entries.sort(key=lambda e: (e["_dt"] is None, e["_dt"] or _epoch_max))
+
+    first = entries[0] if entries and entries[0]["_dt"] is not None else None
+    first_dt = first["_dt"] if first else None
+    first_sig = first["_sig"] if first else None
+    first_lead = first["_lead_norm"] if first else ""
+
+    n_copies = 0
+    for pos, e in enumerate(entries):
+        # minutes_after_first
+        if first_dt is not None and e["_dt"] is not None:
+            e["minutes_after_first"] = max(0, int((e["_dt"] - first_dt).total_seconds() // 60))
+        else:
+            e["minutes_after_first"] = None
+        # similarity vs a legkorábbi cikk
+        is_first = first is not None and pos == 0
+        if is_first:
+            e["similarity"] = 1.0
+            e["is_copy"] = False
+        elif first_sig is not None:
+            sig = e["_sig"]
+            # "Robusztus"-e az összevetés? Shingle-alapú match mindig az;
+            # a token-fallback (rövid / nem-latin szöveg) csak akkor, ha
+            # mindkét oldalon van elég token — különben a latin tokenizáló
+            # 1-2 közös szóból (pl. "patriot", "visa") hamis 1.0-t adna.
+            robust = bool(first_sig[0] and sig[0]) or (
+                min(len(first_sig[1]), len(sig[1])) >= COPY_MIN_TOKENS
+            )
+            sim = _signature_similarity(first_sig, sig) if robust else None
+            e["similarity"] = round(sim, 3) if sim is not None else None
+            lead_verbatim = (
+                bool(first_lead) and len(first_lead) >= COPY_LEAD_MIN_CHARS
+                and e["_lead_norm"] == first_lead
+            )
+            e["is_copy"] = (
+                (sim is not None and sim >= COPY_SIM_THRESHOLD) or lead_verbatim
+            )
+        else:
+            # nincs datált "első" cikk → nincs kihez mérni
+            e["similarity"] = None
+            e["is_copy"] = False
+        if e["is_copy"]:
+            n_copies += 1
+        # belső mezők eldobása
+        del e["_dt"], e["_sig"], e["_lead_norm"]
+
+    first_source = (
+        {"name": first["source_name"], "published_at": first["published_at"]}
+        if first else None
+    )
+    return entries, first_source
 
 
 # ---------------------------------------------------------------------------
@@ -605,6 +760,11 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         seed = ":".join(sorted(seen_sources)[:4])
         cluster_id = "h" + hashlib.md5(seed.encode("utf-8")).hexdigest()[:10]
 
+    # Kronologikus timeline (ki közölte először, ki követte mennyivel később)
+    # + copy-detekció (a wire-sztorit verbatim átemelő portálok jelölése).
+    timeline, first_source = _build_timeline(articles, idxs)
+    n_copies = sum(1 for e in timeline if e.get("is_copy"))
+
     return {
         "cluster_id": cluster_id,
         "title": latest_title or earliest_title or (sample_titles[0] if sample_titles else ""),
@@ -626,6 +786,11 @@ def _aggregate_cluster(articles: list[dict], idxs: list[int]) -> dict[str, Any] 
         "latest_published": latest_ts or "",
         "sample_titles": sample_titles,
         "articles": cluster_articles,
+        # Killer feature (backend): kronologikus timeline + copy-flag.
+        "timeline": timeline,
+        "n_copies": n_copies,
+        "n_original": len(timeline) - n_copies,
+        "first_source": first_source,
     }
 
 

@@ -1177,6 +1177,31 @@ document.addEventListener('click', function(e){
 """
 
 
+# ─── Timeline / copy-flag adat-átvezetés (adat-réteg, NEM renderel) ──────
+
+def _attach_timeline_data(cluster: dict) -> None:
+    """A cluster `timeline`-jából (echolot_top_stories._build_timeline)
+    rástampeli a per-cikk copy-jelzőket a cluster['articles'] dict-jeire:
+    is_copy, similarity, minutes_after_first. Így a source-card render- és
+    template-réteg később (külön UI-lépésben) rendelkezésre álló adatból
+    tud dolgozni — itt szándékosan SEMMI HTML nem változik.
+
+    In-place mutál (a by-id cache-elt cluster dict gazdagodik, mint az
+    attach_full_texts / attach_revisions esetében)."""
+    tl = cluster.get("timeline") or []
+    if not tl:
+        return
+    by_aid = {e.get("article_id"): e for e in tl if e.get("article_id")}
+    by_url = {e.get("url"): e for e in tl if e.get("url")}
+    for a in cluster.get("articles") or []:
+        e = by_aid.get(a.get("article_id")) or by_url.get(a.get("url"))
+        if e is None:
+            continue
+        a["is_copy"] = bool(e.get("is_copy"))
+        a["similarity"] = e.get("similarity")
+        a["minutes_after_first"] = e.get("minutes_after_first")
+
+
 # ─── Fő render fv ───────────────────────────────────────────────────────
 
 _SD_FRAME = {
@@ -1297,6 +1322,10 @@ def render_story_detail_page(cluster: dict, lang: str, request=None,
     n_sources = int(cluster.get("source_count") or 0)
     first_published = cluster.get("first_published") or ""
     latest_published = cluster.get("latest_published") or ""
+    # Timeline/copy adatok átvezetése a per-cikk dict-ekre (is_copy,
+    # similarity, minutes_after_first) — a lap adat-dict-je hordozza,
+    # de a mostani HTML-render NEM használja (UI külön lépésben jön).
+    _attach_timeline_data(cluster)
     articles = cluster.get("articles") or []
 
     src_label = _escape(t("article.source", lang)).lower()
