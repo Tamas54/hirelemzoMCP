@@ -25,3 +25,6 @@ tv-viewer/
 
 # Internal GEO strategy doc — never publish
 Echolot_GEO_audit_checklist.docx
+
+# Tesztelői anyagok + szintetikus panel (lokál .env-vel) — never publish
+teszterek/
