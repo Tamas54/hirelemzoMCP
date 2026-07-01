@@ -22,3 +22,6 @@ youtube-transcript-api>=1.2.0
 
 # Dinamikus OG-kép render a story-megosztáshoz (2026-06-19)
 Pillow>=10.0
+
+# YouTube transcript fallback (timedtext DC-IP-blokk ellen)
+yt-dlp>=2026.6.9

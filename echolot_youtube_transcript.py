@@ -130,15 +130,104 @@ def fetch_transcript(
 
     except ImportError:
         log.warning("youtube-transcript-api nincs telepítve")
-        _cache[cache_key] = (now, None)
-        return None
     except Exception as exc:
         # Tipikus okok: transcripts disabled, video private/removed,
-        # consent-wall, network error. Mind None-t adunk vissza, a hibát
-        # logoljuk.
+        # consent-wall, network error, DC-IP-blokk (Railway).
         log.info("transcript fetch failed for %s: %s — %s",
                  video_id, type(exc).__name__, str(exc)[:140])
-        _cache[cache_key] = (now, None)
+
+    # ── yt-dlp fallback ──────────────────────────────────────────────
+    # A timedtext-endpoint DC-IP-ről (Railway) gyakran blokkolt; a yt-dlp
+    # a player-API-n át szedi a felirat-URL-eket, ami jóval ellenállóbb.
+    # Agent-Reach minta (2026-07-01): platformonként rendezett backend-
+    # lista, törésnél a következőre váltunk.
+    payload = _fetch_via_ytdlp(video_id, lang_preference)
+    _cache[cache_key] = (now, payload)
+    return payload
+
+
+def _fetch_via_ytdlp(video_id: str,
+                     lang_preference: Optional[str]) -> Optional[dict]:
+    """Felirat letöltés yt-dlp-vel (player-API), json3 formátumban.
+
+    Ugyanazt a payload-shape-et adja, mint a primary út, plusz
+    `"via": "yt-dlp"`. None ha yt-dlp hiányzik / nincs felirat / hiba.
+    """
+    try:
+        import json
+        import urllib.request
+
+        import yt_dlp
+    except ImportError:
+        log.warning("yt-dlp nincs telepítve — nincs transcript-fallback")
+        return None
+
+    try:
+        opts = {"skip_download": True, "quiet": True, "no_warnings": True}
+        if YOUTUBE_PROXY_URL:
+            opts["proxy"] = YOUTUBE_PROXY_URL
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(
+                f"https://www.youtube.com/watch?v={video_id}", download=False)
+
+        manual = info.get("subtitles") or {}
+        auto = info.get("automatic_captions") or {}
+
+        def pick(tracks: dict) -> Optional[tuple[str, list]]:
+            if not tracks:
+                return None
+            if lang_preference:
+                for code in (lang_preference, lang_preference[:2]):
+                    for k, v in tracks.items():
+                        if k == code or k.startswith(code):
+                            return k, v
+            # fallback: en, aztán bármi
+            for k, v in tracks.items():
+                if k.startswith("en"):
+                    return k, v
+            return next(iter(tracks.items()))
+
+        chosen = pick(manual)
+        is_generated = False
+        if chosen is None:
+            chosen = pick(auto)
+            is_generated = True
+        if chosen is None:
+            return None
+        lang_code, formats = chosen
+
+        fmt = next((f for f in formats if f.get("ext") == "json3"), None)
+        if fmt is None or not fmt.get("url"):
+            return None
+        req = urllib.request.Request(fmt["url"])
+        raw = urllib.request.urlopen(req, timeout=30).read().decode("utf-8")
+        data = json.loads(raw)
+
+        segments = []
+        for ev in data.get("events") or []:
+            text = "".join(seg.get("utf8", "") for seg in ev.get("segs") or [])
+            text = text.strip()
+            if not text:
+                continue
+            segments.append({
+                "start": (ev.get("tStartMs") or 0) / 1000.0,
+                "duration": (ev.get("dDurationMs") or 0) / 1000.0,
+                "text": text,
+            })
+        if not segments:
+            return None
+        return {
+            "video_id": video_id,
+            "language_code": lang_code,
+            "language": lang_code,
+            "is_generated": is_generated,
+            "segments": segments,
+            "plain_text": "\n".join(s["text"] for s in segments),
+            "via": "yt-dlp",
+        }
+    except Exception as exc:
+        log.info("yt-dlp transcript fallback failed for %s: %s — %s",
+                 video_id, type(exc).__name__, str(exc)[:140])
         return None
 
 
