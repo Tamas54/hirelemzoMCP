@@ -335,6 +335,7 @@ def search_news(
     include_web: bool = False,
     web_count: int = 5,
     match_mode: str = "and",
+    max_trust_tier: int = 0,
 ) -> str:
     """Full-text search news (FTS5 across title, lead, and full article text).
 
@@ -356,9 +357,18 @@ def search_news(
                 `web_results` in the response. Default: False (the corpus is
                 primary; web is opt-in augmentation).
         web_count: when include_web=True, how many web results to return (default 5).
+        max_trust_tier: filter by source trust tier (1=best … 4=worst).
+                0 = off (default, all sources). 1–4 = only sources with
+                trust_tier <= value, e.g. 2 keeps tier-1/2 outlets only.
+                Independent of the filter, results are always ranked
+                day-by-day: newest calendar day first, and within the same
+                day more trusted sources (lower trust_tier) rank first —
+                recency stays dominant, so an older tier-1 article never
+                outranks a fresher tier-2 one from a later day.
     """
     days = max(1, min(21, days))
     limit = max(1, min(50, limit))
+    max_trust_tier = max(0, min(4, max_trust_tier))
     since = (datetime.now() - timedelta(days=days)).isoformat()
 
     if not query.strip():
@@ -389,11 +399,17 @@ def search_news(
     if language:
         sql += " AND a.language = ?"
         params.append(language)
+    if max_trust_tier:
+        sql += " AND s.trust_tier <= ?"
+        params.append(max_trust_tier)
 
     fetch_limit = limit * 5 if diversify_results else limit
     fetch_limit = min(fetch_limit, 300)
 
-    sql += " ORDER BY a.published_at DESC LIMIT ?"
+    # Day-bucketed tier-aware ranking: recency dominates (calendar day first),
+    # then trusted sources (lower trust_tier) rank first within the same day,
+    # then exact timestamp. A 5-day-old tier-1 piece never beats today's tier-2.
+    sql += " ORDER BY date(a.published_at) DESC, s.trust_tier ASC, a.published_at DESC LIMIT ?"
     params.append(fetch_limit)
 
     with get_db() as conn:
@@ -424,6 +440,8 @@ def search_news(
         "diversity": diversity_stats,
         "articles": selected,
     }
+    if max_trust_tier:
+        response["max_trust_tier"] = max_trust_tier
     if include_web:
         response["web_results"] = web_results
         response["web_count"] = len(web_results) if web_results else 0
