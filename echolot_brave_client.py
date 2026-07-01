@@ -1,8 +1,9 @@
 """Echolot ↔ Brave-MCP client.
 
 Thin async HTTP client for our own brave-mcp-server (Railway-deployed).
-Calls `brave_scrape` (or `brave_scrape_robust`) via MCP JSON-RPC over HTTPS
-and returns a normalized dict.
+Calls `brave_scrape` (robust módban `auto_fallback: true` kapcsolóval — a
+brave-mcp v2-ben nincs külön brave_scrape_robust tool) via MCP JSON-RPC over
+HTTPS and returns a normalized dict.
 
 Endpoint default: https://brave-mcp-server-production.up.railway.app/mcp
 (override via BRAVE_MCP_URL env var).
@@ -37,6 +38,8 @@ BRAVE_MCP_URL = os.getenv(
     "https://brave-mcp-server-production.up.railway.app/mcp",
 )
 BRAVE_TIMEOUT_S = int(os.getenv("BRAVE_TIMEOUT_S", "60"))
+# robust (auto_fallback) hívásnál a 7-szintű chain worst-case ~150s
+ROBUST_TIMEOUT_S = int(os.getenv("BRAVE_ROBUST_TIMEOUT_S", "150"))
 CLIENT_ID = "echolot-fetcher"
 
 
@@ -175,8 +178,15 @@ def fetch_sync(url: str, robust: bool = False,
     Returns the full Brave payload (content_usable, block_reason, text,
     markdown, title, ...) or None on transport error.
     """
-    tool_name = "brave_scrape_robust" if robust else "brave_scrape"
-    return _call_tool_sync(tool_name, {"url": url}, timeout=timeout)
+    args: dict[str, Any] = {"url": url}
+    if robust:
+        # brave-mcp v2: nincs külön brave_scrape_robust tool — a 7-szintű
+        # chain a brave_scrape `auto_fallback` kapcsolója. Worst-case ~150s,
+        # ezért robust hívásnál megemeljük a default timeoutot.
+        args["auto_fallback"] = True
+        if timeout is None:
+            timeout = ROBUST_TIMEOUT_S
+    return _call_tool_sync("brave_scrape", args, timeout=timeout)
 
 
 async def fetch(
@@ -190,14 +200,20 @@ async def fetch(
     Args:
         session: shared aiohttp.ClientSession (caller owns the lifecycle).
         url: article URL to scrape.
-        robust: if True, calls brave_scrape_robust (7-level anti-bot chain).
+        robust: if True, calls brave_scrape with auto_fallback=True (7-level
+            anti-bot escalation chain, `escalation_path` feedback in payload).
             Default False (fast Puppeteer-Stealth scrape, ~5s).
-        timeout: per-request seconds; defaults to BRAVE_TIMEOUT_S.
+        timeout: per-request seconds; defaults to BRAVE_TIMEOUT_S
+            (ROBUST_TIMEOUT_S when robust=True — the chain worst-case is ~150s).
 
     Returns:
         Dict with at least these keys: content_usable (bool), block_reason
         (str|None), text (str), markdown (str), title (str). Returns None on
         transport errors (network, non-200, malformed response).
     """
-    tool_name = "brave_scrape_robust" if robust else "brave_scrape"
-    return await _call_tool(session, tool_name, {"url": url}, timeout=timeout)
+    args: dict[str, Any] = {"url": url}
+    if robust:
+        args["auto_fallback"] = True
+        if timeout is None:
+            timeout = ROBUST_TIMEOUT_S
+    return await _call_tool(session, "brave_scrape", args, timeout=timeout)
